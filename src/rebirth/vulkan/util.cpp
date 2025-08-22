@@ -1,0 +1,79 @@
+#include <rebirth/util/filesystem.h>
+#include <rebirth/vulkan/util.h>
+
+namespace rebirth::vulkan
+{
+
+VkShaderModule loadShaderModule(VkDevice device, std::filesystem::path path)
+{
+    std::vector<char> spirv = rebirth::util::readFile(path);
+
+    VkShaderModuleCreateInfo shaderModuleInfo = {VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
+    shaderModuleInfo.pCode = (uint32_t *)spirv.data();
+    shaderModuleInfo.codeSize = spirv.size();
+
+    VkShaderModule module;
+    VK_CHECK(vkCreateShaderModule(device, &shaderModuleInfo, nullptr, &module));
+    return module;
+}
+
+void setDebugName(VkDevice device, uint64_t objectHandle, VkObjectType objectType, std::string name)
+{
+    VkDebugUtilsObjectNameInfoEXT objectNameInfo = {VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
+    objectNameInfo.objectHandle = objectHandle;
+    objectNameInfo.objectType = objectType;
+    objectNameInfo.pObjectName = name.c_str();
+
+    vkSetDebugUtilsObjectNameEXT(device, &objectNameInfo);
+}
+
+void beginDebugLabel(VkCommandBuffer cmd, const char *name, float color[4])
+{
+    VkDebugUtilsLabelEXT label = {VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT};
+    label.pLabelName = name;
+    label.color[0] = color[0];
+    label.color[1] = color[1];
+    label.color[2] = color[2];
+    label.color[3] = color[3];
+
+    vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
+}
+
+void endDebugLabel(VkCommandBuffer cmd) { vkCmdEndDebugUtilsLabelEXT(cmd); }
+
+void setViewport(VkCommandBuffer cmd, float x, float y, float width, float height)
+{
+    VkViewport viewport = {};
+    viewport.x = x;
+    viewport.y = y;
+    viewport.width = width;
+    viewport.height = height;
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    vkCmdSetViewport(cmd, 0, 1, &viewport);
+}
+
+void setScissor(VkCommandBuffer cmd, VkExtent2D extent)
+{
+    VkRect2D scissor = {};
+    scissor.offset = {0, 0};
+    scissor.extent = extent;
+    vkCmdSetScissor(cmd, 0, 1, &scissor);
+}
+
+void beginRendering(VkCommandBuffer cmd, const VkRenderingAttachmentInfo *colorAttachments, uint32_t colorAttachmentCount, const VkRenderingAttachmentInfo *depthAttachment, VkExtent2D extent)
+{
+    VkRenderingInfo renderingInfo = {VK_STRUCTURE_TYPE_RENDERING_INFO};
+    renderingInfo.colorAttachmentCount = colorAttachmentCount;
+    renderingInfo.pColorAttachments = colorAttachments;
+    renderingInfo.pDepthAttachment = depthAttachment;
+    renderingInfo.renderArea.extent = extent;
+    renderingInfo.renderArea.offset = {0};
+    renderingInfo.layerCount = 1;
+
+    vkCmdBeginRendering(cmd, &renderingInfo);
+}
+
+void endRendering(VkCommandBuffer cmd) { vkCmdEndRendering(cmd); }
+
+} // namespace rebirth::vulkan
