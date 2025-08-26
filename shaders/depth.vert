@@ -10,18 +10,14 @@ layout (buffer_reference, std430) readonly buffer VertexBuffer { Vertex vertices
 
 layout (push_constant) uniform PushConstant
 {
+    mat4 transform;
     VertexBuffer vertexBuffer;
-    int skyboxIndex;
+    int materialIdx;
 } pc;
-
-layout (location = 0) out vec3 outUVW;
 
 void main()
 {
     Vertex vertex = pc.vertexBuffer.vertices[gl_VertexIndex];
 
-    outUVW = vertex.position;
-
-    mat4 view = mat4(mat3(sceneData.view)); // remove translation from view
-    gl_Position = sceneData.projection * view * vec4(vertex.position, 1.0);
+    gl_Position = pc.transform * vec4(vertex.position, 1.0);
 }
