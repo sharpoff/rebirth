@@ -212,7 +212,8 @@ void Graphics::createDebugMessenger()
 
 void Graphics::createSurface()
 {
-    assert(SDL_Vulkan_CreateSurface(window, instance, nullptr, &surface));
+    bool res = SDL_Vulkan_CreateSurface(window, instance, nullptr, &surface);
+    assert(res);
 }
 
 void Graphics::createDevice()
@@ -302,9 +303,7 @@ void Graphics::findQueueIndices()
             graphicsQueueIndex = i;
 
         if (presentQueueIndex == UINT32_MAX) {
-            VK_CHECK(
-                vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, i, surface, &presentSupport)
-            );
+            VK_CHECK(vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, i, surface, &presentSupport));
             if (presentSupport)
                 presentQueueIndex = i;
         }

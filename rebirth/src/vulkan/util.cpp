@@ -19,16 +19,19 @@ VkShaderModule loadShaderModule(VkDevice device, std::filesystem::path path)
 
 void setDebugName(VkDevice device, uint64_t objectHandle, VkObjectType objectType, std::string name)
 {
+    #ifndef NDEBUG
     VkDebugUtilsObjectNameInfoEXT objectNameInfo = {VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
     objectNameInfo.objectHandle = objectHandle;
     objectNameInfo.objectType = objectType;
     objectNameInfo.pObjectName = name.c_str();
 
     vkSetDebugUtilsObjectNameEXT(device, &objectNameInfo);
+    #endif
 }
 
 void beginDebugLabel(VkCommandBuffer cmd, const char *name, float color[4])
 {
+    #ifndef NDEBUG
     VkDebugUtilsLabelEXT label = {VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT};
     label.pLabelName = name;
     label.color[0] = color[0];
@@ -37,9 +40,15 @@ void beginDebugLabel(VkCommandBuffer cmd, const char *name, float color[4])
     label.color[3] = color[3];
 
     vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
+    #endif
 }
 
-void endDebugLabel(VkCommandBuffer cmd) { vkCmdEndDebugUtilsLabelEXT(cmd); }
+void endDebugLabel(VkCommandBuffer cmd)
+{
+    #ifndef NDEBUG
+    vkCmdEndDebugUtilsLabelEXT(cmd);
+    #endif
+}
 
 void setViewport(VkCommandBuffer cmd, float x, float y, float width, float height)
 {
