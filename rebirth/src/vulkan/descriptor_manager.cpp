@@ -9,25 +9,37 @@ namespace rebirth::vulkan
 void DescriptorManager::initialize(Graphics &graphics)
 {
     std::vector<VkDescriptorPoolSize> poolSizes = {
-        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, maxResources},
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, maxResources},
-        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, maxResources},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1}, // scene data
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_TEXTURES},
+        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, MAX_MATERIALS + MAX_LIGHTS}, // materials, lights
     };
 
-    pool = graphics.createDescriptorPool(poolSizes, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT);
+    pool =
+        graphics.createDescriptorPool(poolSizes, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT);
 
-    // XXX: should i hardcode it like that?
     std::vector<VkDescriptorSetLayoutBinding> bindings = {
         {
-            .binding = sceneDataBinding,
+            .binding = SCENE_DATA_BINDING,
             .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
             .descriptorCount = 1,
             .stageFlags = VK_SHADER_STAGE_ALL,
         },
         {
-            .binding = texturesBinding,
+            .binding = TEXTURES_BINDING,
             .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            .descriptorCount = maxResources,
+            .descriptorCount = MAX_TEXTURES,
+            .stageFlags = VK_SHADER_STAGE_ALL,
+        },
+        {
+            .binding = MATERIALS_BINDING,
+            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            .descriptorCount = MAX_MATERIALS,
+            .stageFlags = VK_SHADER_STAGE_ALL,
+        },
+        {
+            .binding = LIGHTS_BINDING,
+            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            .descriptorCount = MAX_LIGHTS,
             .stageFlags = VK_SHADER_STAGE_ALL,
         },
     };

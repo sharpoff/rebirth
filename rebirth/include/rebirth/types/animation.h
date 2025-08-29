@@ -1,13 +1,14 @@
 #pragma once
 
-#include <rebirth/math.h>
-#include <rebirth/scene.h>
+#include <rebirth/math/math.h>
 
 #include <string>
 #include <vector>
 
 namespace rebirth
 {
+
+struct SceneNode;
 
 enum class AnimationTargetType
 {
@@ -20,7 +21,7 @@ enum class AnimationTargetType
 
 struct AnimationChannel
 {
-    size_t sampler = -1; // idx to a sampler
+    int sampler = -1; // idx to a sampler
     SceneNode *target = nullptr;
     AnimationTargetType targetType;
 };

@@ -27,5 +27,7 @@ target_link_libraries(rebirth-engine
 )
 
 # main executable
-add_executable(main src/main.cpp)
+add_executable(main
+    src/main.cpp
+)
 target_link_libraries(main PUBLIC rebirth-engine)

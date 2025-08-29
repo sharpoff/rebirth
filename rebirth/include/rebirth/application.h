@@ -5,6 +5,7 @@
 
 #include <rebirth/renderer.h>
 #include <rebirth/util/timer.h>
+#include <rebirth/types/scene.h>
 
 namespace rebirth
 {
@@ -32,8 +33,6 @@ private:
 
     void handleInput(float deltaTime);
     void update(float deltaTime);
-
-    void generateDrawCommands();
 };
 
 } // namespace rebirth

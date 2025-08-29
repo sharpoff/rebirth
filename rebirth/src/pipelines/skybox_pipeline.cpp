@@ -1,7 +1,10 @@
 #include <rebirth/pipelines/skybox_pipeline.h>
+#include <rebirth/primitives.h>
 #include <rebirth/vulkan/graphics.h>
 #include <rebirth/vulkan/pipeline_builder.h>
 #include <rebirth/vulkan/util.h>
+
+using namespace rebirth::vulkan;
 
 namespace rebirth
 {
@@ -11,7 +14,9 @@ void SkyboxPipeline::initialize(Graphics &graphics)
     DescriptorManager &descriptorManager = graphics.getDescriptorManager();
 
     // create pipeline layout
-    VkPushConstantRange pushConstant = {VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstant)};
+    VkPushConstantRange pushConstant = {
+        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstant)
+    };
     layout = graphics.createPipelineLayout(&descriptorManager.getSetLayout(), &pushConstant);
 
     const auto vertex = vulkan::loadShaderModule(device, "build/shaders/skybox.vert.spv");
@@ -30,7 +35,11 @@ void SkyboxPipeline::initialize(Graphics &graphics)
     vkDestroyShaderModule(device, vertex, nullptr);
     vkDestroyShaderModule(device, fragment, nullptr);
 
-    // create buffers
+    // generate cube vertices and indices
+    auto data = generateCube();
+    vertices = data.first;
+    indices = data.second;
+
     graphics.createBuffer(&vertexBuffer, vertices.size() * sizeof(Vertex), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
     graphics.createBuffer(&indexBuffer, indices.size() * sizeof(uint32_t), VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
     graphics.uploadBuffer(vertexBuffer, vertices.data(), vertices.size() * sizeof(Vertex));
@@ -67,10 +76,19 @@ void SkyboxPipeline::beginFrame(Graphics &graphics, VkCommandBuffer cmd)
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .image = colorImage.image,
-        .subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1}
+        .subresourceRange = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        }
     };
 
-    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, nullptr, 0, nullptr, 1, &colorBarrier0);
+    vkCmdPipelineBarrier(
+        cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0,
+        nullptr, 0, nullptr, 1, &colorBarrier0
+    );
 
     // transfer swapchain image to color attachment
     VkImageMemoryBarrier colorBarrier1 = {
@@ -82,10 +100,19 @@ void SkyboxPipeline::beginFrame(Graphics &graphics, VkCommandBuffer cmd)
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .image = swapchainImage,
-        .subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1}
+        .subresourceRange = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        }
     };
 
-    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, nullptr, 0, nullptr, 1, &colorBarrier1);
+    vkCmdPipelineBarrier(
+        cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0,
+        nullptr, 0, nullptr, 1, &colorBarrier1
+    );
 
     // attachments
     VkRenderingAttachmentInfo colorAttachment = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
@@ -107,7 +134,10 @@ void SkyboxPipeline::beginFrame(Graphics &graphics, VkCommandBuffer cmd)
     vulkan::setScissor(cmd, extent);
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, &graphics.getDescriptorManager().getSet(), 0, nullptr);
+    vkCmdBindDescriptorSets(
+        cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1,
+        &graphics.getDescriptorManager().getSet(), 0, nullptr
+    );
 }
 
 void SkyboxPipeline::endFrame(Graphics &graphics, VkCommandBuffer cmd)
@@ -126,10 +156,19 @@ void SkyboxPipeline::endFrame(Graphics &graphics, VkCommandBuffer cmd)
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .image = swapchainImage,
-        .subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1}
+        .subresourceRange = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        }
     };
 
-    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1, &presentBarrier);
+    vkCmdPipelineBarrier(
+        cmd, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0,
+        0, nullptr, 0, nullptr, 1, &presentBarrier
+    );
     vulkan::endDebugLabel(cmd);
 }
 
@@ -142,7 +181,9 @@ void SkyboxPipeline::drawSkybox(Graphics &graphics, VkCommandBuffer cmd, int sky
         .skyboxIndex = skyboxIndex,
     };
 
-    vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pc), &pc);
+    vkCmdPushConstants(
+        cmd, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pc), &pc
+    );
     vkCmdDrawIndexed(cmd, indices.size(), 1, 0, 0, 0);
 }
 

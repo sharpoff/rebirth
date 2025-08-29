@@ -4,6 +4,8 @@
 #include <rebirth/vulkan/pipeline_builder.h>
 #include <rebirth/vulkan/util.h>
 
+using namespace rebirth::vulkan;
+
 namespace rebirth
 {
 
@@ -13,7 +15,9 @@ void ShadowPipeline::initialize(Graphics &graphics)
     DescriptorManager &descriptorManager = graphics.getDescriptorManager();
 
     // create pipeline layout
-    VkPushConstantRange pushConstant = {VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstant)};
+    VkPushConstantRange pushConstant = {
+        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstant)
+    };
     layout = graphics.createPipelineLayout(&descriptorManager.getSetLayout(), &pushConstant);
 
     const auto vertex = vulkan::loadShaderModule(device, "build/shaders/depth.vert.spv");
@@ -72,10 +76,19 @@ void ShadowPipeline::beginFrame(Graphics &graphics, VkCommandBuffer cmd)
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .image = shadowMap->image,
-        .subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1}
+        .subresourceRange = {
+            .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        }
     };
 
-    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, 0, 0, nullptr, 0, nullptr, 1, &depthBarrier);
+    vkCmdPipelineBarrier(
+        cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, 0, 0,
+        nullptr, 0, nullptr, 1, &depthBarrier
+    );
 
     // attachments
     VkRenderingAttachmentInfo depthAttachment = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
@@ -95,7 +108,10 @@ void ShadowPipeline::beginFrame(Graphics &graphics, VkCommandBuffer cmd)
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, &graphics.getDescriptorManager().getSet(), 0, nullptr);
+    vkCmdBindDescriptorSets(
+        cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1,
+        &graphics.getDescriptorManager().getSet(), 0, nullptr
+    );
 }
 
 void ShadowPipeline::endFrame(Graphics &graphics, VkCommandBuffer cmd, bool debug)
@@ -117,10 +133,19 @@ void ShadowPipeline::endFrame(Graphics &graphics, VkCommandBuffer cmd, bool debu
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .image = shadowMap->image,
-        .subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1}
+        .subresourceRange = {
+            .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        }
     };
 
-    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &finalBarrier);
+    vkCmdPipelineBarrier(
+        cmd, VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0,
+        nullptr, 0, nullptr, 1, &finalBarrier
+    );
 
     vulkan::endDebugLabel(cmd);
 
@@ -129,7 +154,13 @@ void ShadowPipeline::endFrame(Graphics &graphics, VkCommandBuffer cmd, bool debu
         debugDraw(graphics, cmd);
 }
 
-void ShadowPipeline::draw(Graphics &graphics, ResourceManager &resourceManager, VkCommandBuffer cmd, std::vector<MeshDrawCommand> &drawCommands, mat4 lightMVP)
+void ShadowPipeline::draw(
+    Graphics &graphics,
+    ResourceManager &resourceManager,
+    VkCommandBuffer cmd,
+    std::vector<DrawCommand> &drawCommands,
+    mat4 lightMVP
+)
 {
     if (!shadowMap) {
         util::logWarn("Shadow map image is not set!");
@@ -137,10 +168,7 @@ void ShadowPipeline::draw(Graphics &graphics, ResourceManager &resourceManager, 
     }
 
     for (auto &command : drawCommands) {
-        if (!command.castShadows)
-            continue;
-
-        GPUMesh &mesh = resourceManager.getMesh(command.meshIdx);
+        Mesh &mesh = *resourceManager.getMesh(command.meshId);
 
         vkCmdBindIndexBuffer(cmd, mesh.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 
@@ -149,8 +177,11 @@ void ShadowPipeline::draw(Graphics &graphics, ResourceManager &resourceManager, 
             .vertexBuffer = mesh.vertexBuffer.address,
         };
 
-        vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pc), &pc);
-        vkCmdDrawIndexed(cmd, mesh.indexCount, 1, 0, 0, 0);
+        vkCmdPushConstants(
+            cmd, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pc),
+            &pc
+        );
+        vkCmdDrawIndexed(cmd, mesh.indices.size(), 1, 0, 0, 0);
     }
 }
 
@@ -172,10 +203,19 @@ void ShadowPipeline::debugDraw(Graphics &graphics, VkCommandBuffer cmd)
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .image = colorImage.image,
-        .subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1}
+        .subresourceRange = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        }
     };
 
-    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, nullptr, 0, nullptr, 1, &colorBarrier0);
+    vkCmdPipelineBarrier(
+        cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0,
+        nullptr, 0, nullptr, 1, &colorBarrier0
+    );
 
     // transfer swapchain image to color attachment
     VkImageMemoryBarrier colorBarrier1 = {
@@ -187,10 +227,19 @@ void ShadowPipeline::debugDraw(Graphics &graphics, VkCommandBuffer cmd)
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .image = swapchainImage,
-        .subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1}
+        .subresourceRange = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        }
     };
 
-    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, nullptr, 0, nullptr, 1, &colorBarrier1);
+    vkCmdPipelineBarrier(
+        cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0,
+        nullptr, 0, nullptr, 1, &colorBarrier1
+    );
 
     // attachments
     VkRenderingAttachmentInfo colorAttachment = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
@@ -212,7 +261,10 @@ void ShadowPipeline::debugDraw(Graphics &graphics, VkCommandBuffer cmd)
     vulkan::setScissor(cmd, extent);
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, debugPipeline);
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, &graphics.getDescriptorManager().getSet(), 0, nullptr);
+    vkCmdBindDescriptorSets(
+        cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1,
+        &graphics.getDescriptorManager().getSet(), 0, nullptr
+    );
 
     // draw quad
     vkCmdDraw(cmd, 3, 1, 0, 0);
@@ -229,10 +281,19 @@ void ShadowPipeline::debugDraw(Graphics &graphics, VkCommandBuffer cmd)
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .image = swapchainImage,
-        .subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1}
+        .subresourceRange = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        }
     };
 
-    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1, &presentBarrier);
+    vkCmdPipelineBarrier(
+        cmd, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0,
+        0, nullptr, 0, nullptr, 1, &presentBarrier
+    );
 
     vulkan::endDebugLabel(cmd);
 }

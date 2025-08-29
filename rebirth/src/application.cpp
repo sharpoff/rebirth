@@ -8,7 +8,8 @@
 namespace rebirth
 {
 
-Application::Application(std::string name, unsigned int width, unsigned int height) : width(width), height(height)
+Application::Application(std::string name, unsigned int width, unsigned int height)
+    : width(width), height(height)
 {
     // set consistent path
     util::setCurrentPath(util::getExecutablePath().parent_path().parent_path());
@@ -18,7 +19,8 @@ Application::Application(std::string name, unsigned int width, unsigned int heig
         exit(EXIT_FAILURE);
     }
 
-    SDL_Window *window = SDL_CreateWindow(name.c_str(), width, height, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
+    SDL_Window *window =
+        SDL_CreateWindow(name.c_str(), width, height, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
     if (!window) {
         util::logError("Failed to create SDL window", SDL_GetError());
         exit(EXIT_FAILURE);
@@ -27,28 +29,31 @@ Application::Application(std::string name, unsigned int width, unsigned int heig
     timer.start();
     renderer = new Renderer(window);
 
-    // load scene
+    // load scenes
     std::vector<std::filesystem::path> texturePaths;
-    if (!gltf::loadScene(&scene, renderer->getGraphics(), renderer->getResourceManager(), "assets/models/sponza/Sponza.gltf")) {
+    if (!gltf::loadScene(&scene, *renderer, "assets/models/sponza/Sponza.gltf")) {
         util::logError("Failed to load scene.");
         exit(-1);
     }
 
-    if (scene.name == "Fox") { // hardcoded
-        scene.transform.scale(vec3(0.1));
-    }
-
     // setup camera
-    camera.setProjection(math::perspective(glm::radians(60.0f), float(width) / height, 0.1f, 300.0f));
+    camera.setPerspective(glm::radians(60.0f), float(width) / height, 0.1f, 300.0f);
     camera.setPosition(vec3(0, 0, 2));
 
-    renderer->setCamera(&camera);
+    renderer->addLight(
+        Light{
+            .color = {0.0, 0.0, 0.0},
+            .position = {-1.0, 30.0, 0.0},
+            .type = LightType::Directional,
+        }
+    );
 
-    renderer->prepare();
+    renderer->setCamera(&camera);
 }
 
 Application::~Application()
 {
+    scene.destroy();
     delete renderer;
 
     SDL_DestroyWindow(window);
@@ -69,8 +74,8 @@ void Application::run()
         handleInput(deltaTime);
         update(deltaTime);
 
-        generateDrawCommands();
-        renderer->render();
+        renderer->drawScene(scene);
+        renderer->present();
     }
 }
 
@@ -84,7 +89,8 @@ void Application::handleInput(float deltaTime)
             renderer->requestResize();
         }
 
-        if (event.type == SDL_EVENT_QUIT || (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_ESCAPE)) {
+        if (event.type == SDL_EVENT_QUIT ||
+            (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_ESCAPE)) {
             running = false;
         }
 
@@ -94,33 +100,11 @@ void Application::handleInput(float deltaTime)
 
 void Application::update(float deltaTime)
 {
+    // update first animation
+    // scene.updateAnimation(deltaTime);
+
     // update camera
     camera.update(deltaTime);
-}
-
-void Application::generateDrawCommands()
-{
-    renderer->addLight(
-        Light{
-            .color = {0.0, 0.0, 0.0},
-            .position = {-1.0, 30.0, 0.0},
-            .type = LightType::Directional,
-        }
-    );
-
-    auto nodeFunc = [&](SceneNode &node) {
-        for (auto &primitive : node.mesh.primitives) {
-            renderer->addMesh(primitive, scene.transform * node.transform, true);
-        }
-    };
-
-    for (auto &node : scene.nodes) {
-        nodeFunc(node);
-
-        for (auto &child : node.children) {
-            nodeFunc(child);
-        }
-    }
 }
 
 } // namespace rebirth

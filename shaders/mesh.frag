@@ -7,6 +7,8 @@
 #include "types.glsl"
 #include "pbr.glsl"
 #include "scene_data.glsl"
+#include "mesh_pc.glsl"
+#include "textures.glsl"
 
 layout (location = 0) in vec3 inWorldPos;
 layout (location = 1) in vec3 inNormal;
@@ -15,19 +17,6 @@ layout (location = 3) in vec4 inTangent;
 layout (location = 4) in mat3 inTBN;
 
 layout (location = 0) out vec4 fragColor;
-
-layout (buffer_reference, std430) readonly buffer VertexBuffer { Vertex vertices[]; };
-
-layout (push_constant) uniform PushConstant
-{
-    mat4 transform;
-    VertexBuffer vertexBuffer;
-    int materialIdx;
-} pc;
-
-layout (binding = 1) uniform sampler2D textures[];
-
-#define TEX(id, uv) texture(textures[nonuniformEXT(id)], uv)
 
 void main()
 {
@@ -40,7 +29,7 @@ void main()
     vec3 emissive = vec3(0);
 
     if (pc.materialIdx > -1) {
-        Material material = scene_data.materialsBuffer.materials[pc.materialIdx];
+        Material material = materials[pc.materialIdx];
 
         if (material.baseColorIdx > -1) {
             baseColor = (TEX(material.baseColorIdx, inUV) * material.baseColorFactor).rgb;
@@ -78,7 +67,7 @@ void main()
     float shadow = 1.0;
 
     for (int i = 0; i < lightCount; i++) {
-        Light light = scene_data.lightsBuffer.lights[i];
+        Light light = lights[i];
 
         vec3 lightDir = normalize(light.position - inWorldPos);
         float NoL = clamp(dot(normal, lightDir), 0.0, 1.0);

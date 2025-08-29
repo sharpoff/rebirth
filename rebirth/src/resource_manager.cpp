@@ -16,25 +16,36 @@ void ResourceManager::destroy(Graphics &graphics)
     }
 }
 
-size_t ResourceManager::addImage(vulkan::Image &image)
+ImageID ResourceManager::addImage(vulkan::Image &image)
 {
-    size_t idx = images.size();
     images.push_back(image);
-    return idx;
+    return images.size() - 1;
 }
 
-size_t ResourceManager::addMaterial(Material &material)
+MaterialID ResourceManager::addMaterial(Material &material)
 {
-    size_t idx = materials.size();
     materials.push_back(material);
-    return idx;
+    return materials.size() - 1;
 }
 
-size_t ResourceManager::addMesh(GPUMesh &mesh)
+MeshID ResourceManager::addMesh(Mesh &mesh)
 {
-    size_t idx = meshes.size();
     meshes.push_back(mesh);
-    return idx;
+    return meshes.size() - 1;
 }
+
+LightID ResourceManager::addLight(Light &light)
+{
+    lights.push_back(light);
+    return lights.size() - 1;
+}
+
+Image *ResourceManager::getImage(ImageID idx) { return &images[idx]; }
+
+Material *ResourceManager::getMaterial(MaterialID idx) { return &materials[idx]; }
+
+Mesh *ResourceManager::getMesh(MeshID idx) { return &meshes[idx]; }
+
+Light *ResourceManager::getLight(LightID id) { return &lights[id]; }
 
 } // namespace rebirth

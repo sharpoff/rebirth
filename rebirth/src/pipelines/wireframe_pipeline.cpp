@@ -1,5 +1,6 @@
 #include <rebirth/math/frustum.h>
-#include <rebirth/pipelines/mesh_pipeline.h>
+#include <rebirth/pipelines/wireframe_pipeline.h>
+#include <rebirth/primitives.h>
 #include <rebirth/vulkan/graphics.h>
 #include <rebirth/vulkan/pipeline_builder.h>
 #include <rebirth/vulkan/util.h>
@@ -9,7 +10,7 @@ using namespace rebirth::vulkan;
 namespace rebirth
 {
 
-void MeshPipeline::initialize(Graphics &graphics)
+void WireframePipeline::initialize(vulkan::Graphics &graphics)
 {
     const VkDevice device = graphics.getDevice();
     DescriptorManager &descriptorManager = graphics.getDescriptorManager();
@@ -20,8 +21,8 @@ void MeshPipeline::initialize(Graphics &graphics)
     };
     layout = graphics.createPipelineLayout(&descriptorManager.getSetLayout(), &pushConstant);
 
-    const auto vertex = vulkan::loadShaderModule(device, "build/shaders/mesh.vert.spv");
-    const auto fragment = vulkan::loadShaderModule(device, "build/shaders/mesh.frag.spv");
+    const auto vertex = vulkan::loadShaderModule(device, "build/shaders/color.vert.spv");
+    const auto fragment = vulkan::loadShaderModule(device, "build/shaders/color.frag.spv");
 
     // mesh pipeline
     PipelineBuilder builder;
@@ -29,8 +30,8 @@ void MeshPipeline::initialize(Graphics &graphics)
     builder.setShader(vertex, VK_SHADER_STAGE_VERTEX_BIT);
     builder.setShader(fragment, VK_SHADER_STAGE_FRAGMENT_BIT);
     builder.setDepthTest(true);
-    builder.setCulling(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE);
-    builder.setPolygonMode(VK_POLYGON_MODE_FILL);
+    builder.setCulling(VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE);
+    builder.setPolygonMode(VK_POLYGON_MODE_LINE);
     builder.setMultisampleCount(graphics.getSampleCount());
     pipeline = builder.build(device, 1);
 
@@ -38,13 +39,13 @@ void MeshPipeline::initialize(Graphics &graphics)
     vkDestroyShaderModule(device, fragment, nullptr);
 }
 
-void MeshPipeline::destroy(VkDevice device)
+void WireframePipeline::destroy(VkDevice device)
 {
     vkDestroyPipelineLayout(device, layout, nullptr);
     vkDestroyPipeline(device, pipeline, nullptr);
 }
 
-void MeshPipeline::beginFrame(Graphics &graphics, VkCommandBuffer cmd)
+void WireframePipeline::beginFrame(vulkan::Graphics &graphics, VkCommandBuffer cmd)
 {
     Swapchain &swapchain = graphics.getSwapchain();
 
@@ -145,7 +146,7 @@ void MeshPipeline::beginFrame(Graphics &graphics, VkCommandBuffer cmd)
     depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 
     float color[4] = {0.3, 0.3, 0.0, 0.3};
-    vulkan::beginDebugLabel(cmd, "Mesh pass", color);
+    vulkan::beginDebugLabel(cmd, "Debug wireframe pass", color);
 
     vulkan::beginRendering(cmd, &colorAttachment, 1, &depthAttachment, extent);
 
@@ -159,7 +160,7 @@ void MeshPipeline::beginFrame(Graphics &graphics, VkCommandBuffer cmd)
     );
 }
 
-void MeshPipeline::endFrame(Graphics &graphics, VkCommandBuffer cmd)
+void WireframePipeline::endFrame(vulkan::Graphics &graphics, VkCommandBuffer cmd)
 {
     Swapchain &swapchain = graphics.getSwapchain();
     const VkImage &swapchainImage = swapchain.getImage();
@@ -192,12 +193,13 @@ void MeshPipeline::endFrame(Graphics &graphics, VkCommandBuffer cmd)
     vulkan::endDebugLabel(cmd);
 }
 
-void MeshPipeline::draw(
-    Graphics &graphics,
+void WireframePipeline::draw(
+    vulkan::Graphics &graphics,
     ResourceManager &resourceManager,
     VkCommandBuffer cmd,
     Frustum &frustum,
-    std::vector<DrawCommand> &drawCommands
+    std::vector<DrawCommand> &drawCommands,
+    vec4 color
 )
 {
     for (auto &command : drawCommands) {
@@ -211,9 +213,8 @@ void MeshPipeline::draw(
 
         PushConstant pc = {
             .transform = command.transform,
+            .color = color,
             .vertexBuffer = mesh.vertexBuffer.address,
-            .jointMatricesBuffer = command.jointMatricesBuffer,
-            .materialIdx = mesh.materialIdx,
         };
 
         vkCmdPushConstants(

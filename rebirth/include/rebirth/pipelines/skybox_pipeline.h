@@ -3,9 +3,7 @@
 #include <vector>
 #include <volk.h>
 
-#include <rebirth/types.h>
-
-using namespace rebirth::vulkan;
+#include <rebirth/types/mesh.h>
 
 namespace rebirth::vulkan
 {
@@ -18,12 +16,12 @@ namespace rebirth
 class SkyboxPipeline
 {
 public:
-    void initialize(Graphics &graphics);
-    void destroy(Graphics &graphics);
+    void initialize(vulkan::Graphics &graphics);
+    void destroy(vulkan::Graphics &graphics);
 
-    void beginFrame(Graphics &graphics, VkCommandBuffer cmd);
-    void endFrame(Graphics &graphics, VkCommandBuffer cmd);
-    void drawSkybox(Graphics &graphics, VkCommandBuffer cmd, int skyboxIndex);
+    void beginFrame(vulkan::Graphics &graphics, VkCommandBuffer cmd);
+    void endFrame(vulkan::Graphics &graphics, VkCommandBuffer cmd);
+    void drawSkybox(vulkan::Graphics &graphics, VkCommandBuffer cmd, int skyboxIndex);
 
 private:
     VkPipeline pipeline;
@@ -39,17 +37,8 @@ private:
     };
 
     // hardcoded cube vertices and indices
-    std::vector<Vertex> vertices = {
-        {{-0.5f, -0.5f, 0.5f}, 0.0f, {0.0f, 0.0f, 1.0f}, 0.0f},  {{0.5f, -0.5f, 0.5f}, 1.0f, {0.0f, 0.0f, 1.0f}, 0.0f},    {{0.5f, 0.5f, 0.5f}, 1.0f, {0.0f, 0.0f, 1.0f}, 1.0f},
-        {{-0.5f, 0.5f, 0.5f}, 0.0f, {0.0f, 0.0f, 1.0f}, 1.0f},   {{-0.5f, -0.5f, -0.5f}, 1.0f, {0.0f, 0.0f, -1.0f}, 0.0f}, {{0.5f, -0.5f, -0.5f}, 0.0f, {0.0f, 0.0f, -1.0f}, 0.0f},
-        {{0.5f, 0.5f, -0.5f}, 0.0f, {0.0f, 0.0f, -1.0f}, 1.0f},  {{-0.5f, 0.5f, -0.5f}, 1.0f, {0.0f, 0.0f, -1.0f}, 1.0f},  {{0.5f, -0.5f, 0.5f}, 0.0f, {1.0f, 0.0f, 0.0f}, 0.0f},
-        {{0.5f, -0.5f, -0.5f}, 1.0f, {1.0f, 0.0f, 0.0f}, 0.0f},  {{0.5f, 0.5f, -0.5f}, 1.0f, {1.0f, 0.0f, 0.0f}, 1.0f},    {{0.5f, 0.5f, 0.5f}, 0.0f, {1.0f, 0.0f, 0.0f}, 1.0f},
-        {{-0.5f, -0.5f, 0.5f}, 1.0f, {-1.0f, 0.0f, 0.0f}, 0.0f}, {{-0.5f, -0.5f, -0.5f}, 0.0f, {-1.0f, 0.0f, 0.0f}, 0.0f}, {{-0.5f, 0.5f, -0.5f}, 0.0f, {-1.0f, 0.0f, 0.0f}, 1.0f},
-        {{-0.5f, 0.5f, 0.5f}, 1.0f, {-1.0f, 0.0f, 0.0f}, 1.0f},  {{-0.5f, 0.5f, 0.5f}, 0.0f, {0.0f, 1.0f, 0.0f}, 0.0f},    {{0.5f, 0.5f, 0.5f}, 1.0f, {0.0f, 1.0f, 0.0f}, 0.0f},
-        {{0.5f, 0.5f, -0.5f}, 1.0f, {0.0f, 1.0f, 0.0f}, 1.0f},   {{-0.5f, 0.5f, -0.5f}, 0.0f, {0.0f, 1.0f, 0.0f}, 1.0f},   {{-0.5f, -0.5f, 0.5f}, 1.0f, {0.0f, -1.0f, 0.0f}, 0.0f},
-        {{0.5f, -0.5f, 0.5f}, 0.0f, {0.0f, -1.0f, 0.0f}, 0.0f},  {{0.5f, -0.5f, -0.5f}, 0.0f, {0.0f, -1.0f, 0.0f}, 1.0f},  {{-0.5f, -0.5f, -0.5f}, 1.0f, {0.0f, -1.0f, 0.0f}, 1.0f}
-    };
-    std::vector<uint32_t> indices = {0, 1, 2, 2, 3, 0, 4, 6, 5, 6, 4, 7, 8, 9, 10, 10, 11, 8, 12, 14, 13, 14, 12, 15, 16, 17, 18, 18, 19, 16, 20, 22, 21, 22, 20, 23};
+    std::vector<Vertex> vertices;
+    std::vector<uint32_t> indices;
 };
 
 } // namespace rebirth

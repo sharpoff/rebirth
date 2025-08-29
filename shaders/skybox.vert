@@ -22,6 +22,6 @@ void main()
 
     outUVW = vertex.position;
 
-    mat4 view = mat4(mat3(sceneData.view)); // remove translation from view
-    gl_Position = sceneData.projection * view * vec4(vertex.position, 1.0);
+    mat4 view = mat4(mat3(scene_data.view)); // remove translation from view
+    gl_Position = scene_data.projection * view * vec4(vertex.position, 1.0);
 }

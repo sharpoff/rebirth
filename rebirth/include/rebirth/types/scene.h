@@ -1,29 +1,37 @@
 #pragma once
 
-#include <rebirth/transform.h>
+#include <rebirth/math/transform.h>
+#include <rebirth/types/material.h>
+#include <rebirth/types/animation.h>
+#include <rebirth/types/mesh.h>
 #include <rebirth/vulkan/resources.h>
 
 #include <string>
 
-using MeshIdx = size_t;
-using MaterialIdx = size_t;
+namespace rebirth::vulkan
+{
+class Graphics;
+}
 
 namespace rebirth
 {
 
-struct Animation;
+struct SceneNode;
 
 struct SceneMesh
 {
-    std::vector<MeshIdx> primitives;
+    std::vector<MeshID> primitives;
 };
 
 struct Skin
 {
     std::string name;
-    size_t skeleton = -1;       // idx to a node
-    std::vector<size_t> joints; // idx to a node
+    SceneNode *skeleton = nullptr;
+    std::vector<SceneNode *> joints;
     std::vector<mat4> inverseBindMatrices;
+
+    // only for skinned mesh
+    vulkan::Buffer jointMatricesBuffer;
 };
 
 struct SceneNode
@@ -37,14 +45,25 @@ struct SceneNode
     SceneMesh mesh;
 };
 
-struct Scene
+class Scene
 {
+public:
     std::string name;
     Transform transform = Transform();
     std::vector<SceneNode> nodes;
 
     std::vector<Skin> skins;
     std::vector<Animation> animations;
+
+    void destroy();
+
+    void merge(Scene &scene);
+
+    void updateAnimation(float deltaTime);
+
+    vulkan::Graphics *graphics;
+private:
+    void updateJoints(SceneNode &node);
 };
 
 } // namespace rebirth

@@ -7,6 +7,7 @@
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/integer.hpp>
+#include <glm/gtx/matrix_decompose.hpp>
 #include <glm/gtx/quaternion.hpp>
 #include <glm/gtx/string_cast.hpp>
 #include <glm/gtx/transform.hpp>
@@ -34,14 +35,20 @@ inline mat4 perspective(float fov, float aspectRatio, float near, float far)
 {
     float f = 1.0f / tan(fov * 0.5f);
 
-    return mat4(f / aspectRatio, 0, 0, 0, 0, -f, 0, 0, 0, 0, near / (far - near), -1, 0, 0, far * near / (far - near), 0);
+    return mat4(
+        f / aspectRatio, 0, 0, 0, 0, -f, 0, 0, 0, 0, near / (far - near), -1, 0, 0,
+        far * near / (far - near), 0
+    );
 }
 
 inline mat4 perspectiveInf(float fov, float aspectRatio, float near)
 {
     float f = 1.0f / tan(fov * 0.5f);
 
-    return mat4(f / aspectRatio, 0.0f, 0.0f, 0.0f, 0.0f, -f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f, glm::factorial(near), 0.0f);
+    return mat4(
+        f / aspectRatio, 0.0f, 0.0f, 0.0f, 0.0f, -f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, -1.0f, 0.0f,
+        0.0f, glm::factorial(near), 0.0f
+    );
 }
 
 } // namespace rebirth::math

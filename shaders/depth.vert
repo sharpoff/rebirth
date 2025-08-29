@@ -12,7 +12,6 @@ layout (push_constant) uniform PushConstant
 {
     mat4 transform;
     VertexBuffer vertexBuffer;
-    int materialIdx;
 } pc;
 
 void main()

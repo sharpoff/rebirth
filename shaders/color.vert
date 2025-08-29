@@ -1,24 +1,26 @@
 #version 450
 
-#extension GL_EXT_nonuniform_qualifier : enable
 #extension GL_EXT_buffer_reference : require
 #extension GL_GOOGLE_include_directive : require
 
 #include "types.glsl"
-#include "textures.glsl"
-
-layout (location = 0) in vec3 inUVW;
-layout (location = 0) out vec4 fragColor;
+#include "scene_data.glsl"
 
 layout (buffer_reference, std430) readonly buffer VertexBuffer { Vertex vertices[]; };
 
 layout (push_constant) uniform PushConstant
 {
+    mat4 transform;
+    vec4 color;
     VertexBuffer vertexBuffer;
-    int skyboxIndex;
 } pc;
+
+layout (location = 0) out vec4 outColor;
 
 void main()
 {
-    fragColor = texture(textureCubes[nonuniformEXT(pc.skyboxIndex)], inUVW);
+    Vertex vertex = pc.vertexBuffer.vertices[gl_VertexIndex];
+
+    gl_Position = scene_data.projection * scene_data.view * pc.transform * vec4(vertex.position, 1.0);
+    outColor = pc.color;
 }

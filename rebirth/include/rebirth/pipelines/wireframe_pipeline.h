@@ -1,9 +1,13 @@
+
 #pragma once
 
 #include <vector>
 #include <volk.h>
 
+#include <rebirth/math/frustum.h>
 #include <rebirth/resource_manager.h>
+#include <rebirth/types/camera.h>
+#include <rebirth/types/mesh.h>
 
 using namespace rebirth::vulkan;
 
@@ -15,41 +19,34 @@ class Graphics;
 namespace rebirth
 {
 
-class ShadowPipeline
+class WireframePipeline
 {
 public:
     void initialize(vulkan::Graphics &graphics);
     void destroy(VkDevice device);
 
-    void setShadowMapImage(Image &shadowMap) { this->shadowMap = &shadowMap; }
-    uint32_t getShadowMapSize() { return shadowMapSize; }
-
     void beginFrame(vulkan::Graphics &graphics, VkCommandBuffer cmd);
-    void endFrame(vulkan::Graphics &graphics, VkCommandBuffer cmd, bool debug = false);
+    void endFrame(vulkan::Graphics &graphics, VkCommandBuffer cmd);
+
     void draw(
         vulkan::Graphics &graphics,
         ResourceManager &resourceManager,
         VkCommandBuffer cmd,
+        Frustum &frustum,
         std::vector<DrawCommand> &drawCommands,
-        mat4 lightMVP
+        vec4 color
     );
 
 private:
-    void debugDraw(vulkan::Graphics &graphics, VkCommandBuffer cmd);
-
     VkPipeline pipeline;
-    VkPipeline debugPipeline;
     VkPipelineLayout layout;
 
-    struct PushConstant
+    struct alignas(16) PushConstant
     {
         mat4 transform;
+        vec4 color;
         VkDeviceAddress vertexBuffer;
-        int shadowMapIndex = -1;
     };
-
-    Image *shadowMap;
-    const uint32_t shadowMapSize = 2048;
 };
 
 } // namespace rebirth

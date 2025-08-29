@@ -1,14 +1,19 @@
 #pragma once
 
-#include <rebirth/animation.h>
-#include <rebirth/camera.h>
 #include <rebirth/pipelines/imgui_pipeline.h>
 #include <rebirth/pipelines/mesh_pipeline.h>
 #include <rebirth/pipelines/shadow_pipeline.h>
 #include <rebirth/pipelines/skybox_pipeline.h>
+#include <rebirth/pipelines/wireframe_pipeline.h>
+#include <rebirth/types/scene.h>
+
 #include <rebirth/resource_manager.h>
-#include <rebirth/types.h>
+#include <rebirth/types/animation.h>
+#include <rebirth/types/camera.h>
+#include <rebirth/types/light.h>
 #include <rebirth/vulkan/graphics.h>
+
+using namespace rebirth::vulkan;
 
 namespace rebirth
 {
@@ -22,36 +27,30 @@ public:
     Renderer(SDL_Window *window);
     ~Renderer();
 
-    // NOTE: call this after loading scenes and other resources
-    void prepare();
-
-    void render();
-
     void addLight(Light light);
-    void addMesh(MeshIdx idx, mat4 transform, bool castShadows);
+
+    void drawScene(Scene &scene);
+    void present();
 
     void requestResize() const { graphics->requestResize(); }
     void setCamera(Camera *camera) { this->camera = camera; }
 
-    Graphics &getGraphics() { return *graphics; }
+    vulkan::Graphics &getGraphics() { return *graphics; }
     ResourceManager &getResourceManager() { return resourceManager; }
 
 private:
     void updateDynamicData();
     void updateImGui();
-    void updateAnimation();
-    void updateJoints(SceneNode &node, Scene &scene);
 
     void createResources();
     void createBuffers();
-    void createShadowMap();
-    void createSkybox();
     void updateDescriptors();
 
     MeshPipeline meshPipeline;
     ShadowPipeline shadowPipeline;
     SkyboxPipeline skyboxPipeline;
     ImGuiPipeline imguiPipeline;
+    WireframePipeline wireframePipeline;
 
     size_t shadowMapIdx;
     size_t skyboxIdx;
@@ -62,15 +61,16 @@ private:
 
     ResourceManager resourceManager;
 
-    std::vector<MeshDrawCommand> meshDrawCommands;
-    std::vector<Light> lights; // per draw light
+    std::vector<DrawCommand> drawCommands;
 
     SDL_Window *window;
     vulkan::Graphics *graphics;
     Camera *camera;
 
     bool prepared = false;
+
     bool debugShadows = false;
+    bool wireframe = false;
 };
 
 } // namespace rebirth

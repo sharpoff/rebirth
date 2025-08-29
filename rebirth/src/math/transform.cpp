@@ -1,9 +1,20 @@
-#include <rebirth/transform.h>
+#include <rebirth/math/transform.h>
 
 namespace rebirth
 {
 
-void Transform::rotate(float angle, vec3 axis) { rotation_ = glm::angleAxis(angle, axis) * rotation_; }
+Transform::Transform(mat4 matrix)
+{
+    vec3 skew;
+    vec4 perspective;
+
+    glm::decompose(matrix, scale_, rotation_, position_, skew, perspective);
+}
+
+void Transform::rotate(float angle, vec3 axis)
+{
+    rotation_ = glm::angleAxis(angle, axis) * rotation_;
+}
 
 void Transform::rotate(quat q) { rotation_ = q * rotation_; }
 
