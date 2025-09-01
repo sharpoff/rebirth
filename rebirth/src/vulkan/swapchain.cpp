@@ -7,7 +7,7 @@
 namespace rebirth::vulkan
 {
 
-void Swapchain::init(SDL_Window *window, Graphics &graphics)
+void Swapchain::initialize(SDL_Window *window, Graphics &graphics)
 {
     // Logger::printInfo("Creating swapchain");
     const VkDevice device = graphics.getDevice();

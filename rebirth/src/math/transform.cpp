@@ -24,9 +24,9 @@ void Transform::scale(vec3 scale) { scale_ *= scale; }
 
 mat4 Transform::getModelMatrix() const
 {
-    glm::mat4 position = glm::translate(position_);
+    glm::mat4 position = glm::translate(mat4(1.0f), position_);
     glm::mat4 rotation = glm::toMat4(rotation_);
-    glm::mat4 scale = glm::scale(scale_);
+    glm::mat4 scale = glm::scale(mat4(1.0f), scale_);
 
     return position * rotation * scale;
 }

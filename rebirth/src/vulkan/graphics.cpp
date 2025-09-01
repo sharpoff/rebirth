@@ -47,7 +47,7 @@ VkBool32 VKAPI_PTR debugCallback(
     return VK_FALSE;
 }
 
-Graphics::Graphics(SDL_Window *window)
+void Graphics::initialize(SDL_Window *window)
 {
     assert(window);
     this->window = window;
@@ -69,7 +69,7 @@ Graphics::Graphics(SDL_Window *window)
 
     createAllocator(VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT);
 
-    swapchain.init(window, *this);
+    swapchain.initialize(window, *this);
 
     createCommandPool();
     createCommandBuffers();
@@ -106,7 +106,7 @@ Graphics::Graphics(SDL_Window *window)
     setupImGui();
 }
 
-Graphics::~Graphics()
+void Graphics::destroy()
 {
     vkDeviceWaitIdle(device);
 
@@ -483,7 +483,7 @@ void Graphics::recreateSwapchain()
         vkDestroySemaphore(device, semaphore, nullptr);
     }
 
-    swapchain.init(window, *this);
+    swapchain.initialize(window, *this);
 
     const VkExtent2D extent = swapchain.getExtent();
 
@@ -718,6 +718,34 @@ void Graphics::createImageFromFile(Image *image, std::filesystem::path path)
         return;
     }
 
+    uint32_t size = image->width * image->height * STBI_rgb_alpha;
+    createLoadImage(image, pixels, size);
+}
+
+void Graphics::createImageFromMemory(Image *image, unsigned char *data, int dataSize)
+{
+    if (!image) {
+        util::logWarn("Cannot create image - pointer is null.\n");
+        return;
+    }
+
+    unsigned char *pixels = stbi_load_from_memory(data, dataSize, &image->width, &image->height, &image->channels, STBI_rgb_alpha);
+    if (!pixels) {
+        util::logError("Failed to load texture from memory");
+        return;
+    }
+
+    uint32_t size = image->width * image->height * STBI_rgb_alpha;
+    createLoadImage(image, pixels, size);
+}
+
+void Graphics::createLoadImage(Image *image, unsigned char *pixels, uint32_t size, bool freePixels)
+{
+    if (!image) {
+        util::logWarn("Cannot create image - pointer is null.\n");
+        return;
+    }
+
     createImage(
         image, image->width, image->height,
         VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
@@ -726,12 +754,12 @@ void Graphics::createImageFromFile(Image *image, std::filesystem::path path)
         VK_SAMPLE_COUNT_1_BIT, true
     );
 
-    uint32_t size = image->width * image->height * STBI_rgb_alpha;
-
     Buffer staging;
     createBuffer(&staging, size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
     memcpy(staging.info.pMappedData, pixels, size);
-    stbi_image_free(pixels);
+
+    if (freePixels)
+        stbi_image_free(pixels);
 
     // command buffer start
     VkCommandBuffer copyCmd = createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);

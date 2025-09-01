@@ -57,13 +57,8 @@ void ShadowPipeline::destroy(VkDevice device)
     vkDestroyPipeline(device, debugPipeline, nullptr);
 }
 
-void ShadowPipeline::beginFrame(Graphics &graphics, VkCommandBuffer cmd)
+void ShadowPipeline::beginFrame(Graphics &graphics, VkCommandBuffer cmd, Image &shadowMap)
 {
-    if (!shadowMap) {
-        util::logWarn("Shadow map image is not set!");
-        return;
-    }
-
     const VkExtent2D extent = {shadowMapSize, shadowMapSize};
 
     // transfer to depth attachment
@@ -75,7 +70,7 @@ void ShadowPipeline::beginFrame(Graphics &graphics, VkCommandBuffer cmd)
         .newLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .image = shadowMap->image,
+        .image = shadowMap.image,
         .subresourceRange = {
             .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
             .baseMipLevel = 0,
@@ -93,7 +88,7 @@ void ShadowPipeline::beginFrame(Graphics &graphics, VkCommandBuffer cmd)
     // attachments
     VkRenderingAttachmentInfo depthAttachment = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
     depthAttachment.clearValue.depthStencil = {0.0, 0};
-    depthAttachment.imageView = shadowMap->view;
+    depthAttachment.imageView = shadowMap.view;
     depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
     depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -114,13 +109,8 @@ void ShadowPipeline::beginFrame(Graphics &graphics, VkCommandBuffer cmd)
     );
 }
 
-void ShadowPipeline::endFrame(Graphics &graphics, VkCommandBuffer cmd, bool debug)
+void ShadowPipeline::endFrame(Graphics &graphics, VkCommandBuffer cmd, Image &shadowMap, bool debug)
 {
-    if (!shadowMap) {
-        util::logWarn("Shadow map image is not set!");
-        return;
-    }
-
     vulkan::endRendering(cmd);
 
     // transfer to fragment shader read
@@ -132,7 +122,7 @@ void ShadowPipeline::endFrame(Graphics &graphics, VkCommandBuffer cmd, bool debu
         .newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .image = shadowMap->image,
+        .image = shadowMap.image,
         .subresourceRange = {
             .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
             .baseMipLevel = 0,
@@ -162,19 +152,15 @@ void ShadowPipeline::draw(
     mat4 lightMVP
 )
 {
-    if (!shadowMap) {
-        util::logWarn("Shadow map image is not set!");
-        return;
-    }
-
     for (auto &command : drawCommands) {
-        Mesh &mesh = *resourceManager.getMesh(command.meshId);
+        Mesh &mesh = resourceManager.getMesh(command.meshId);
 
         vkCmdBindIndexBuffer(cmd, mesh.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 
         PushConstant pc = {
             .transform = lightMVP * command.transform,
             .vertexBuffer = mesh.vertexBuffer.address,
+            .jointMatricesBuffer = command.jointMatricesBuffer,
         };
 
         vkCmdPushConstants(

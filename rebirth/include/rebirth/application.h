@@ -4,8 +4,8 @@
 #include <string>
 
 #include <rebirth/renderer.h>
-#include <rebirth/util/timer.h>
 #include <rebirth/types/scene.h>
+#include <rebirth/util/timer.h>
 
 namespace rebirth
 {
@@ -22,14 +22,13 @@ private:
     bool running = false;
     uint32_t width;
     uint32_t height;
-
+    ApplicationState state;
     util::Timer timer;
+
     SDL_Window *window;
 
-    Renderer *renderer;
+    Renderer renderer;
     Camera camera;
-
-    Scene scene;
 
     void handleInput(float deltaTime);
     void update(float deltaTime);

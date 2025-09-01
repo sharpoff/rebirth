@@ -26,21 +26,21 @@ struct SceneMesh
 struct Skin
 {
     std::string name;
-    SceneNode *skeleton = nullptr;
-    std::vector<SceneNode *> joints;
+    int skeleton = -1; // idx to a node
+    std::vector<int> joints; // indices to a node
     std::vector<mat4> inverseBindMatrices;
 
-    // only for skinned mesh
     vulkan::Buffer jointMatricesBuffer;
 };
 
 struct SceneNode
 {
-    Transform transform = Transform();
-    size_t index = 0;
+    std::string name = "Node";
+    Transform localTransform = Transform();
+    int index = -1; // idx to a node
     int skin = -1; // idx to a skin
 
-    SceneNode *parent = nullptr;
+    int parent = -1; // idx to a node
     std::vector<SceneNode> children;
     SceneMesh mesh;
 };
@@ -54,16 +54,21 @@ public:
 
     std::vector<Skin> skins;
     std::vector<Animation> animations;
+    std::string currentAnimation = "";
 
-    void destroy();
+    void destroy(vulkan::Graphics &graphics);
 
     void merge(Scene &scene);
 
-    void updateAnimation(float deltaTime);
+    void updateAnimation(vulkan::Graphics &graphics, float deltaTime, std::string name);
 
-    vulkan::Graphics *graphics;
+    SceneNode *getNodeByIndex(int index);
+    mat4 getNodeWorldMatrix(SceneNode *node);
+    Animation *getAnimationByName(std::string name);
+
 private:
-    void updateJoints(SceneNode &node);
+    SceneNode *searchNode(SceneNode *node, int index);
+    void updateJoints(vulkan::Graphics &graphics, SceneNode &node);
 };
 
 } // namespace rebirth

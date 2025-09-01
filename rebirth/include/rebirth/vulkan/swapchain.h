@@ -11,7 +11,7 @@ class Graphics;
 class Swapchain
 {
 public:
-    void init(SDL_Window *window, Graphics &graphics);
+    void initialize(SDL_Window *window, Graphics &graphics);
     void destroy(VkDevice device) const;
 
     VkResult acquireNextImage(VkDevice device, VkSemaphore &acquireSemaphore);

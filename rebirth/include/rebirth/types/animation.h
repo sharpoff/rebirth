@@ -10,7 +10,7 @@ namespace rebirth
 
 struct SceneNode;
 
-enum class AnimationTargetType
+enum class AnimationPath
 {
     invalid,
     translation,
@@ -22,8 +22,8 @@ enum class AnimationTargetType
 struct AnimationChannel
 {
     int sampler = -1; // idx to a sampler
-    SceneNode *target = nullptr;
-    AnimationTargetType targetType;
+    int node = -1; // idx to a node
+    AnimationPath path;
 };
 
 struct AnimationSampler

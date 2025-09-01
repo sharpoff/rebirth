@@ -29,10 +29,10 @@ public:
     MeshID addMesh(Mesh &mesh);
     LightID addLight(Light &light);
 
-    Image *getImage(ImageID id);
-    Material *getMaterial(MaterialID id);
-    Mesh *getMesh(MeshID id);
-    Light *getLight(LightID id);
+    Image &getImage(ImageID id) { return images[id]; }
+    Material &getMaterial(MaterialID id) { return materials[id]; }
+    Mesh &getMesh(MeshID id) { return meshes[id]; }
+    Light &getLight(LightID id) { return lights[id]; }
 
     std::vector<Image> images;
     std::vector<Material> materials;

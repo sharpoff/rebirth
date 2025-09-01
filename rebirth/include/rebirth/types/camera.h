@@ -35,7 +35,7 @@ private:
     Transform transform;
     glm::vec3 velocity = vec3(0.0f);
 
-    float yaw, pitch;
+    float yaw = 0.0f, pitch = 0.0f;
 
     float fov;
     float aspectRatio;

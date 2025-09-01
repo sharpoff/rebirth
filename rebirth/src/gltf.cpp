@@ -1,5 +1,6 @@
 #include <rebirth/gltf.h>
 #include <rebirth/resource_manager.h>
+#include <rebirth/util/logger.h>
 #include <rebirth/vulkan/graphics.h>
 
 #include <glm/gtx/matrix_decompose.hpp>
@@ -15,22 +16,25 @@ bool loadScene(Scene *scene, Renderer &renderer, std::filesystem::path file)
     cgltf_options options = {};
     cgltf_data *data = NULL;
     cgltf_result result = cgltf_parse_file(&options, file.c_str(), &data);
+
     if (result != cgltf_result_success) {
         printf("Failed to load gltf scene.\n");
         return false;
     }
 
-    result = cgltf_load_buffers(&options, data, file.c_str());
+    if ((result = cgltf_load_buffers(&options, data, file.c_str())) != cgltf_result_success) {
+        printf("Failed to load buffers of gltf scene.\n");
+        return false;
+    }
 
-    if (result != cgltf_result_success) {
-        printf("Failed to load gltf scene.\n");
+    if ((result = cgltf_validate(data)) != cgltf_result_success) {
+        printf("Failed to load validate gltf scene.\n");
         return false;
     }
 
     vulkan::Graphics &graphics = renderer.getGraphics();
     ResourceManager &resourceManager = renderer.getResourceManager();
 
-    scene->graphics = &graphics;
     scene->name = file.stem();
     size_t materialOffset = resourceManager.materials.size();
 
@@ -48,8 +52,10 @@ bool loadScene(Scene *scene, Renderer &renderer, std::filesystem::path file)
 
     loadMaterials(resourceManager, data);
     loadTextures(graphics, resourceManager, file.parent_path(), data);
-    loadSkins(graphics, scene, data);
-    loadAnimations(scene, data);
+    loadSkins(graphics, *scene, data);
+    loadAnimations(*scene, data);
+    if (scene->animations.size() > 0)
+        scene->currentAnimation = scene->animations[0].name;
 
     cgltf_free(data);
     return true;
@@ -68,8 +74,9 @@ void loadNode(
     if (!data || !gltfNode)
         return;
 
+    node.name = gltfNode->name ? gltfNode->name : "Node";
     node.index = cgltf_node_index(data, gltfNode);
-    node.transform = loadTransform(gltfNode);
+    node.localTransform = loadTransform(gltfNode, false);
 
     if (gltfNode->skin) {
         node.skin = cgltf_skin_index(data, gltfNode->skin);
@@ -85,7 +92,7 @@ void loadNode(
             graphics, resourceManager, scene, node.children[i], data, gltfNode->children[i],
             materialOffset
         );
-        node.children[i].parent = &node;
+        node.children[i].parent = node.index;
     }
 }
 
@@ -190,8 +197,15 @@ void loadMesh(
         }
 
         // load indices
-        std::vector<uint32_t> indices(prim.indices->count);
-        cgltf_accessor_unpack_indices(prim.indices, indices.data(), 4, indices.size());
+        std::vector<uint32_t> indices;
+        if (prim.indices) {
+            indices.resize(prim.indices->count);
+            cgltf_accessor_unpack_indices(prim.indices, indices.data(), 4, indices.size());
+        } else {
+            for (size_t i = 0; i < vertices.size(); i++) {
+                indices.push_back(i);
+            }
+        }
 
         Mesh mesh;
         mesh.materialIdx = materialOffset + cgltf_material_index(data, prim.material);
@@ -273,50 +287,62 @@ void loadTextures(
     cgltf_data *data
 )
 {
-    // XXX: this only works with separate image file, and not something like glb embedded
     for (size_t i = 0; i < data->textures_count; i++) {
         cgltf_texture gltfTexture = data->textures[i];
 
-        std::filesystem::path file = dir / gltfTexture.image->uri;
+        if (gltfTexture.image->uri) { // load from file
+            std::filesystem::path file = dir / gltfTexture.image->uri;
 
-        vulkan::Image texture;
-        graphics.createImageFromFile(&texture, file);
-        resourceManager.addImage(texture);
+            vulkan::Image image;
+            graphics.createImageFromFile(&image, file);
+            resourceManager.addImage(image);
+        } else { // load from memory
+            const uint8_t *data = cgltf_buffer_view_data(gltfTexture.image->buffer_view);
+            uint32_t size = gltfTexture.image->buffer_view->size;
+
+            vulkan::Image image;
+            graphics.createImageFromMemory(&image, (unsigned char *)data, size);
+            resourceManager.addImage(image);
+        }
     }
 }
 
-void loadAnimations(Scene *scene, cgltf_data *data)
+void loadAnimations(Scene &scene, cgltf_data *data)
 {
-    scene->animations.resize(data->animations_count);
+    scene.animations.resize(data->animations_count);
     for (size_t i = 0; i < data->animations_count; i++) {
-        Animation &animation = scene->animations[i];
+        Animation &animation = scene.animations[i];
         cgltf_animation gltfAnimation = data->animations[i];
 
-        animation.name = gltfAnimation.name;
+        animation.name = gltfAnimation.name ? gltfAnimation.name : std::string("Animation ") + std::to_string(i);
 
         // channels
         animation.channels.resize(gltfAnimation.channels_count);
         for (size_t j = 0; j < gltfAnimation.channels_count; j++) {
-            AnimationChannel channel;
+            AnimationChannel &channel = animation.channels[j];
             cgltf_animation_channel gltfChannel = gltfAnimation.channels[j];
 
             switch (gltfChannel.target_path) {
                 case cgltf_animation_path_type_translation:
-                    channel.targetType = AnimationTargetType::translation;
+                    channel.path = AnimationPath::translation;
+                    break;
                 case cgltf_animation_path_type_rotation:
-                    channel.targetType = AnimationTargetType::rotation;
+                    channel.path = AnimationPath::rotation;
+                    break;
                 case cgltf_animation_path_type_scale:
-                    channel.targetType = AnimationTargetType::scale;
+                    channel.path = AnimationPath::scale;
+                    break;
                 case cgltf_animation_path_type_weights:
-                    channel.targetType = AnimationTargetType::weights;
+                    channel.path = AnimationPath::weights;
+                    break;
                 default:
-                    channel.targetType = AnimationTargetType::invalid;
+                    channel.path = AnimationPath::invalid;
+                    break;
             }
 
-            channel.target =
-                getNodeByIndex(*scene, cgltf_node_index(data, gltfChannel.target_node));
+            channel.node = cgltf_node_index(data, gltfChannel.target_node);
 
-            animation.channels[j] = channel;
+            channel.sampler = cgltf_animation_sampler_index(&gltfAnimation, gltfChannel.sampler);
         }
 
         // samplers
@@ -373,23 +399,23 @@ void loadAnimations(Scene *scene, cgltf_data *data)
     }
 }
 
-void loadSkins(Graphics &graphics, Scene *scene, cgltf_data *data)
+void loadSkins(Graphics &graphics, Scene &scene, cgltf_data *data)
 {
-    scene->skins.resize(data->skins_count);
+    scene.skins.resize(data->skins_count);
     for (size_t i = 0; i < data->skins_count; i++) {
-        Skin &skin = scene->skins[i];
+        Skin &skin = scene.skins[i];
         cgltf_skin gltfSkin = data->skins[i];
 
-        skin.name = gltfSkin.name;
+        skin.name = gltfSkin.name ? gltfSkin.name : "skin";
 
         // joints
         skin.joints.resize(gltfSkin.joints_count);
         for (size_t j = 0; j < gltfSkin.joints_count; j++) {
-            skin.joints[j] = getNodeByIndex(*scene, cgltf_node_index(data, gltfSkin.joints[j]));
+            skin.joints[j] = cgltf_node_index(data, gltfSkin.joints[j]);
         }
 
         if (gltfSkin.skeleton)
-            skin.skeleton = getNodeByIndex(*scene, cgltf_node_index(data, gltfSkin.skeleton));
+            skin.skeleton = cgltf_node_index(data, gltfSkin.skeleton);
 
         // inverse bind matrices
         if (gltfSkin.inverse_bind_matrices) {
@@ -416,49 +442,35 @@ void loadSkins(Graphics &graphics, Scene *scene, cgltf_data *data)
     }
 }
 
-SceneNode *getNodeByIndex(Scene &scene, size_t index)
-{
-    for (auto &node : scene.nodes) {
-        if (node.index == index)
-            return &node;
-
-        for (auto &child : node.children) {
-            if (child.index == index)
-                return &child;
-        }
-    }
-
-    return nullptr;
-}
-
-Transform loadTransform(cgltf_node *node)
+Transform loadTransform(cgltf_node *node, bool world)
 {
     if (!node)
         return Transform();
 
     glm::vec3 position = vec3(0.0);
-    glm::quat rotation = quat(1.0, 0.0, 0.0, 0.0);
+    glm::quat rotation = glm::identity<quat>();
     glm::vec3 scale = vec3(1.0);
 
+    mat4 matrix = mat4(1.0);
     if (node->has_matrix) {
-        mat4 matrix;
-        cgltf_node_transform_world(node, &matrix[0][0]);
-
-        glm::vec3 skew;
-        glm::vec4 perspective;
-        glm::decompose(matrix, scale, rotation, position, skew, perspective);
-    } else {
-        if (node->has_translation)
-            position = glm::make_vec3(node->translation);
-
-        if (node->has_scale)
-            scale = glm::make_vec3(node->scale);
-
-        if (node->has_rotation)
-            rotation = glm::make_quat(node->rotation);
+        if (world)
+            cgltf_node_transform_world(node, &matrix[0][0]);
+        else
+            cgltf_node_transform_local(node, &matrix[0][0]);
     }
+        
+    if (node->has_translation)
+        position = glm::make_vec3(node->translation);
 
-    return Transform(position, rotation, scale);
+    if (node->has_scale)
+        scale = glm::make_vec3(node->scale);
+
+    if (node->has_rotation)
+        rotation = glm::make_quat(node->rotation);
+
+    matrix = glm::translate(mat4(1.0f), position) * mat4(rotation) * glm::scale(mat4(1.0f), scale) * matrix;
+
+    return Transform(matrix);
 }
 
 } // namespace rebirth::gltf

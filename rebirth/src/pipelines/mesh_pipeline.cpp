@@ -205,7 +205,7 @@ void MeshPipeline::draw(
         //     continue;
         // }
 
-        Mesh &mesh = *resourceManager.getMesh(command.meshId);
+        Mesh &mesh = resourceManager.getMesh(command.meshId);
 
         vkCmdBindIndexBuffer(cmd, mesh.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 

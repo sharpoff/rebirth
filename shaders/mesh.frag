@@ -23,7 +23,7 @@ void main()
     vec3 cameraPos = scene_data.cameraPosAndLightNum.xyz;
     uint lightCount = uint(scene_data.cameraPosAndLightNum.w);
 
-    vec3 baseColor = vec3(0);
+    vec4 baseColor = vec4(0.0, 0.0, 0.0, 1.0);
     vec4 metallicRoughtness = vec4(0);
     vec3 normal = inNormal;
     vec3 emissive = vec3(0);
@@ -32,7 +32,7 @@ void main()
         Material material = materials[pc.materialIdx];
 
         if (material.baseColorIdx > -1) {
-            baseColor = (TEX(material.baseColorIdx, inUV) * material.baseColorFactor).rgb;
+            baseColor = TEX(material.baseColorIdx, inUV) * material.baseColorFactor;
         }
 
         if (material.metallicRoughnessIdx > -1) {
@@ -42,7 +42,7 @@ void main()
         }
 
         if (material.normalIdx > -1) {
-            normal = normalize(TEX(material.normalIdx, inUV).rgb);
+            normal = TEX(material.normalIdx, inUV).rgb;
         }
 
         if (material.emissiveIdx > -1) {
@@ -50,50 +50,59 @@ void main()
         }
     }
 
+    if (baseColor.a < 0.5)
+        discard;
+
     if (inTangent != vec4(0.0)) {
         normal = inTBN * normalize(normal * 2.0 - 1.0);
-        normal = normalize(normal);
     }
 
+    normal = normalize(normal);
     vec3 viewDir = normalize(cameraPos - inWorldPos);
 
     float roughness = max(0.05, metallicRoughtness.g);
     float metallic = metallicRoughtness.b;
-    float reflectance = 0.5; // constant
+    float reflectance = 0.4; // constant
+    vec3 diffuseColor = (1.0 - metallic) * vec3(baseColor);
 
-    vec3 f0 = 0.16 * reflectance * reflectance * (1.0 - metallic) + baseColor * metallic;
+    vec3 f0 = 0.16 * reflectance * reflectance * (1.0 - metallic) + diffuseColor * metallic;
 
-    vec3 lightColor = vec3(0);
-    float shadow = 1.0;
-
+    vec3 finalColor = vec3(0.0);
     for (int i = 0; i < lightCount; i++) {
         Light light = lights[i];
 
+        // Lighting
         vec3 lightDir = normalize(light.position - inWorldPos);
         float NoL = clamp(dot(normal, lightDir), 0.0, 1.0);
-        vec3 diffuseColor = (1.0 - metallic) * baseColor;
+
+        vec3 lightColor = pbrBRDF(lightDir, viewDir, normal, roughness, f0, diffuseColor) * NoL * light.color;
 
         // Shadow mapping
-        vec4 lightSpace = light.mvp * vec4(inWorldPos, 1.0);
-        vec3 projCoords = lightSpace.xyz / lightSpace.w;
+        float visibility = 1.0;
+        if (scene_data.shadowMapIndex > -1) {
+            vec4 lightSpace = light.mvp * vec4(inWorldPos, 1.0);
+            vec3 projCoords = lightSpace.xyz / lightSpace.w;
 
-        vec2 coords = (projCoords.xy * 0.5 + 0.5);
-        float closestDepth = TEX(scene_data.shadowMapIndex, projCoords.xy).r;
-        float currentDepth = projCoords.z;
+            vec2 coords = (projCoords.xy * 0.5 + 0.5);
+            float closestDepth = TEX(scene_data.shadowMapIndex, coords).r;
+            float currentDepth = projCoords.z;
 
-        // poisson sampling
-        float bias = max(0.0005 * (1.0 - NoL), 0.0001);
-        for (int i = 0; i < 4; i++) {
-            if (TEX(scene_data.shadowMapIndex, coords + poissonDisk[i] / 700.0).r > currentDepth - bias) {
-                shadow -= 0.2;
+            float bias = max(0.0005 * (1.0 - NoL), 0.0001);
+
+            // poisson sampling
+            for (int i = 0; i < 4; i++) {
+                if (TEX(scene_data.shadowMapIndex, coords + poissonDisk[i] / 5000.0).r > currentDepth - bias) {
+                    visibility -= 0.2;
+                }
             }
         }
 
-        // Lighting
-        lightColor += BRDF(lightDir, viewDir, normal, roughness, f0, diffuseColor) * light.color;
+        finalColor += lightColor * (NoL * visibility);
     }
 
-    vec3 color = (baseColor * shadow) + lightColor + emissive;
+    float ambient = 0.05;
+    finalColor += vec3(baseColor) * ambient;
+    finalColor += emissive;
 
-    fragColor = vec4(color, 1.0);
+    fragColor = vec4(finalColor, 1.0);
 }

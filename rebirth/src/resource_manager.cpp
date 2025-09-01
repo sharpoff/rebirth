@@ -40,12 +40,4 @@ LightID ResourceManager::addLight(Light &light)
     return lights.size() - 1;
 }
 
-Image *ResourceManager::getImage(ImageID idx) { return &images[idx]; }
-
-Material *ResourceManager::getMaterial(MaterialID idx) { return &materials[idx]; }
-
-Mesh *ResourceManager::getMesh(MeshID idx) { return &meshes[idx]; }
-
-Light *ResourceManager::getLight(LightID id) { return &lights[id]; }
-
 } // namespace rebirth

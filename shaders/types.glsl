@@ -8,7 +8,7 @@ struct Vertex
     vec3 normal;
     float uv_y;
     vec4 tangent;
-    vec4 jointIndices;
+    ivec4 jointIndices;
     vec4 jointWeights;
 };
 
@@ -22,6 +22,7 @@ struct Material
     vec4 baseColorFactor;
     float metallicFactor;
     float roughnessFactor;
+
     float _pad0;
     float _pad1;
 };
@@ -29,11 +30,13 @@ struct Material
 struct Light
 {
     mat4 mvp;
-    vec3 color;
     vec3 position;
-    vec3 direction; // only for directional light
     int type;       // enum LightType
+    vec3 color;
     float cutOff;   // only for spot light
+    vec3 direction; // only for directional light
+
+    float _pad0;
 };
 
 const uint LIGHT_TYPE_DIRECTIONAL = 1;

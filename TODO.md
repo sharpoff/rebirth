@@ -14,6 +14,7 @@
 * CSM shadows
 * Add different types of lighting. Right now only directional is supported
 * GI (DDGI?)
+* Simple framegraph? (or barrier manager)
 * Transparency
 * Particles
 * Decals

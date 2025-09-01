@@ -14,9 +14,9 @@ struct Vertex
     float uv_x;
     vec3 normal;
     float uv_y;
-    vec4 tangent;
-    vec4 jointIndices;
-    vec4 jointWeights;
+    vec4 tangent = vec4(0.0f);
+    ivec4 jointIndices = ivec4(-1);
+    vec4 jointWeights = vec4(0.0f);
 };
 
 struct Mesh

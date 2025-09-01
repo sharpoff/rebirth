@@ -13,6 +13,8 @@
 #include <rebirth/types/light.h>
 #include <rebirth/vulkan/graphics.h>
 
+#include <rebirth/application_state.h>
+
 using namespace rebirth::vulkan;
 
 namespace rebirth
@@ -24,23 +26,25 @@ static const int maxLightsNum = 100;
 class Renderer
 {
 public:
-    Renderer(SDL_Window *window);
-    ~Renderer();
+    Renderer() = default;
+    ~Renderer() = default;
+
+    void initialize(SDL_Window *window);
+    void shutdown();
 
     void addLight(Light light);
 
     void drawScene(Scene &scene);
-    void present();
+    void present(ApplicationState &state, Camera &camera);
 
-    void requestResize() const { graphics->requestResize(); }
-    void setCamera(Camera *camera) { this->camera = camera; }
+    void requestResize() { graphics.requestResize(); }
 
-    vulkan::Graphics &getGraphics() { return *graphics; }
+    vulkan::Graphics &getGraphics() { return graphics; }
     ResourceManager &getResourceManager() { return resourceManager; }
 
 private:
-    void updateDynamicData();
-    void updateImGui();
+    void updateDynamicData(Camera &camera);
+    void updateImGui(ApplicationState &state, Camera &camera);
 
     void createResources();
     void createBuffers();
@@ -64,13 +68,9 @@ private:
     std::vector<DrawCommand> drawCommands;
 
     SDL_Window *window;
-    vulkan::Graphics *graphics;
-    Camera *camera;
+    vulkan::Graphics graphics;
 
     bool prepared = false;
-
-    bool debugShadows = false;
-    bool wireframe = false;
 };
 
 } // namespace rebirth

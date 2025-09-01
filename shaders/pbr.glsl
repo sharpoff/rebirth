@@ -37,7 +37,7 @@ float Fd_Lambert()
     return 1.0 / PI;
 }
 
-vec3 BRDF(vec3 l, vec3 v, vec3 n, float perceptualRoughness, vec3 f0, vec3 diffuseColor)
+vec3 pbrBRDF(vec3 l, vec3 v, vec3 n, float roughness, vec3 f0, vec3 diffuse)
 {
     vec3 h = normalize(v + l);
 
@@ -46,7 +46,7 @@ vec3 BRDF(vec3 l, vec3 v, vec3 n, float perceptualRoughness, vec3 f0, vec3 diffu
     float NoH = clamp(dot(n, h), 0.0, 1.0);
     float LoH = clamp(dot(l, h), 0.0, 1.0);
 
-    float roughness = perceptualRoughness * perceptualRoughness;
+    roughness = roughness * roughness;
 
     float D = D_GGX(NoH, roughness);
     vec3  F = F_Schlick(LoH, f0);
@@ -56,9 +56,9 @@ vec3 BRDF(vec3 l, vec3 v, vec3 n, float perceptualRoughness, vec3 f0, vec3 diffu
     vec3 Fr = (D * V) * F;
 
     // diffuse BRDF
-    vec3 Fd = diffuseColor * Fd_Lambert();
+    vec3 Fd = diffuse * Fd_Lambert();
 
-    return (Fr + Fd);
+    return Fr + Fd;
 }
 
 #endif

@@ -25,8 +25,11 @@ namespace rebirth::vulkan
 class Graphics
 {
 public:
-    Graphics(SDL_Window *window);
-    ~Graphics();
+    Graphics() = default;
+    ~Graphics() = default;
+
+    void initialize(SDL_Window *window);
+    void destroy();
 
 private:
     SDL_Window *window{nullptr};
@@ -129,6 +132,8 @@ public:
         bool generateMipMaps = false
     );
     void createImageFromFile(Image *image, std::filesystem::path path);
+    void createImageFromMemory(Image *image, unsigned char *data, int size);
+    void createLoadImage(Image *image, unsigned char *pixels, uint32_t size, bool freePixels = true);
     void createCubemapImage(Image *image, std::filesystem::path dir, VkFormat format);
     void generateMipmaps(Image *image);
 

@@ -11,37 +11,39 @@
 namespace rebirth
 {
 
-Renderer::Renderer(SDL_Window *window) : window(window)
+void Renderer::initialize(SDL_Window *window)
 {
     assert(window);
+    this->window = window;
 
-    graphics = new vulkan::Graphics(window);
+    graphics.initialize(window);
 
-    meshPipeline.initialize(*graphics);
-    shadowPipeline.initialize(*graphics);
-    skyboxPipeline.initialize(*graphics);
-    imguiPipeline.initialize(*graphics);
-    wireframePipeline.initialize(*graphics);
+    // pipelines
+    meshPipeline.initialize(graphics);
+    shadowPipeline.initialize(graphics);
+    skyboxPipeline.initialize(graphics);
+    imguiPipeline.initialize(graphics);
+    wireframePipeline.initialize(graphics);
 }
 
-Renderer::~Renderer()
+void Renderer::shutdown()
 {
-    const VkDevice device = graphics->getDevice();
+    const VkDevice device = graphics.getDevice();
     vkDeviceWaitIdle(device);
 
-    resourceManager.destroy(*graphics);
+    resourceManager.destroy(graphics);
 
     shadowPipeline.destroy(device);
     meshPipeline.destroy(device);
-    skyboxPipeline.destroy(*graphics);
+    skyboxPipeline.destroy(graphics);
     imguiPipeline.destroy(device);
     wireframePipeline.destroy(device);
 
-    graphics->destroyBuffer(&sceneDataBuffer);
-    graphics->destroyBuffer(&materialsBuffer);
-    graphics->destroyBuffer(&lightsBuffer);
+    graphics.destroyBuffer(&sceneDataBuffer);
+    graphics.destroyBuffer(&materialsBuffer);
+    graphics.destroyBuffer(&lightsBuffer);
 
-    delete graphics;
+    graphics.destroy();
 }
 
 void Renderer::addLight(Light light) { resourceManager.addLight(light); }
@@ -53,7 +55,7 @@ void Renderer::drawScene(Scene &scene)
             drawCommands.push_back(
                 DrawCommand{
                     .meshId = mesh,
-                    .transform = scene.transform.getModelMatrix() * node.transform.getModelMatrix(),
+                    .transform = scene.transform.getModelMatrix() * scene.getNodeWorldMatrix(&node),
                     .boundingSphere = Sphere(),
                     .jointMatricesBuffer =
                         node.skin > -1 ? scene.skins[node.skin].jointMatricesBuffer.address : 0,
@@ -71,20 +73,18 @@ void Renderer::drawScene(Scene &scene)
     }
 }
 
-void Renderer::present()
+void Renderer::present(ApplicationState &state, Camera &camera)
 {
     if (!prepared) {
         createResources();
         prepared = true;
     }
 
-    updateDynamicData();
+    updateDynamicData(camera);
 
-    Frustum frustum(*camera);
+    Frustum frustum(camera);
 
-    const VkCommandBuffer cmd = graphics->beginCommandBuffer();
-
-    // TODO: recreate camera perspective when resizing
+    const VkCommandBuffer cmd = graphics.beginCommandBuffer();
 
     // resizing window / recreating swapchain
     if (cmd == VK_NULL_HANDLE)
@@ -92,50 +92,58 @@ void Renderer::present()
 
     // Skybox Pass
     {
-        skyboxPipeline.beginFrame(*graphics, cmd);
-        skyboxPipeline.drawSkybox(*graphics, cmd, skyboxIdx);
-        skyboxPipeline.endFrame(*graphics, cmd);
+        skyboxPipeline.beginFrame(graphics, cmd);
+        if (state.skybox) {
+            skyboxPipeline.drawSkybox(graphics, cmd, skyboxIdx);
+        }
+        skyboxPipeline.endFrame(graphics, cmd);
     }
 
     // Shadow Pass
     if (!drawCommands.empty()) {
-        shadowPipeline.beginFrame(*graphics, cmd);
+        Image &shadowMap = resourceManager.getImage(shadowMapIdx);
 
-        auto &lights = resourceManager.lights;
-        for (auto &light : lights)
-            shadowPipeline.draw(*graphics, resourceManager, cmd, drawCommands, light.mvp);
+        shadowPipeline.beginFrame(graphics, cmd, shadowMap);
 
-        shadowPipeline.endFrame(*graphics, cmd, debugShadows);
+        if (state.shadows) {
+            auto &lights = resourceManager.lights;
+            for (auto &light : lights)
+                shadowPipeline.draw(graphics, resourceManager, cmd, drawCommands, light.mvp);
+        }
+
+        shadowPipeline.endFrame(graphics, cmd, shadowMap, state.debugShadowMap);
     }
 
     // Mesh Pass
-    if (!debugShadows && !drawCommands.empty()) {
-        if (!wireframe) {
-            meshPipeline.beginFrame(*graphics, cmd);
-            meshPipeline.draw(*graphics, resourceManager, cmd, frustum, drawCommands);
-            meshPipeline.endFrame(*graphics, cmd);
+    if (!state.debugShadowMap && !drawCommands.empty()) {
+        if (!state.wireframe) {
+            meshPipeline.beginFrame(graphics, cmd);
+            meshPipeline.draw(graphics, resourceManager, cmd, frustum, drawCommands);
+            meshPipeline.endFrame(graphics, cmd);
         } else {
-            wireframePipeline.beginFrame(*graphics, cmd);
+            wireframePipeline.beginFrame(graphics, cmd);
             wireframePipeline.draw(
-                *graphics, resourceManager, cmd, frustum, drawCommands, vec4(0.0, 1.0, 0.0, 1.0)
+                graphics, resourceManager, cmd, frustum, drawCommands, vec4(0.0, 1.0, 0.0, 1.0)
             );
-            wireframePipeline.endFrame(*graphics, cmd);
+            wireframePipeline.endFrame(graphics, cmd);
         }
     }
 
     // Imgui Pass
     {
-        imguiPipeline.beginFrame(*graphics, cmd);
-        updateImGui();
-        imguiPipeline.endFrame(*graphics, cmd);
+        imguiPipeline.beginFrame(graphics, cmd);
+        if (state.imgui) {
+            updateImGui(state, camera);
+        }
+        imguiPipeline.endFrame(graphics, cmd);
     }
 
-    graphics->submitCommandBuffer(cmd);
+    graphics.submitCommandBuffer(cmd);
 
     drawCommands.clear();
 }
 
-void Renderer::updateDynamicData()
+void Renderer::updateDynamicData(Camera &camera)
 {
     auto &lights = resourceManager.lights;
     for (auto &light : lights) {
@@ -147,25 +155,79 @@ void Renderer::updateDynamicData()
     memcpy(lightsBuffer.info.pMappedData, lights.data(), lightsBuffer.size);
 
     SceneDrawData sceneData = {};
-    sceneData.projection = camera->getProjection();
-    sceneData.view = camera->getViewMatrix();
-    sceneData.cameraPosAndLightNum = vec4(camera->getTransform().getPosition(), lights.size());
+    sceneData.projection = camera.getProjection();
+    sceneData.view = camera.getViewMatrix();
+    sceneData.cameraPosAndLightNum = vec4(camera.getTransform().getPosition(), lights.size());
     sceneData.shadowMapIndex = shadowMapIdx;
     memcpy(sceneDataBuffer.info.pMappedData, &sceneData, sizeof(sceneData));
 }
 
-void Renderer::updateImGui()
+void Renderer::updateImGui(ApplicationState &state, Camera &camera)
 {
     ImGui::ShowDemoWindow();
 
     {
-        auto camPos = camera->getTransform().getPosition();
+        auto camPos = camera.getTransform().getPosition();
 
         ImGui::Begin("Debug");
-        ImGui::Text("Camera pos: [%f, %f, %f]", camPos.x, camPos.y, camPos.z);
-        ImGui::Checkbox("Debug shadows", &debugShadows);
-        ImGui::Checkbox("Debug wireframe", &wireframe);
 
+        ImGui::Text("Camera pos: [%f, %f, %f]", camPos.x, camPos.y, camPos.z);
+        ImGui::Checkbox("Debug shadow map", &state.debugShadowMap);
+        ImGui::Checkbox("Enable wireframe", &state.wireframe);
+        ImGui::Checkbox("Enable shadows", &state.shadows);
+        ImGui::Checkbox("Enable skybox", &state.skybox);
+
+        {
+            ImGui::Checkbox("Enable imgui", &state.imgui);
+
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("You can toggle it using 'H' key.");
+            }
+        }
+
+        ImGui::End();
+    }
+
+    {
+        ImGui::Begin("Lights");
+
+        auto &lights = resourceManager.lights;
+        for (size_t i = 0; i < lights.size(); i++) {
+            if (ImGui::TreeNode(std::string("Light " + std::to_string(i)).c_str())) {
+                ImGui::DragFloat3("position", &lights[i].position[0], 1.0f, -100.0f, 100.0f);
+
+                ImGui::TreePop();
+            }
+        }
+        ImGui::End();
+    }
+
+    {
+        ImGui::Begin("Scenes");
+
+        auto &scenes = state.scenes;
+        for (size_t i = 0; i < scenes.size(); i++) {
+            std::vector<std::string> animationNames;
+            for (auto &anim : scenes[i].animations)
+                animationNames.push_back(anim.name);
+
+            if (ImGui::TreeNode(std::string("Scene " + std::to_string(i)).c_str())) {
+                if (ImGui::BeginCombo("Animations", scenes[i].currentAnimation.c_str())) {
+                    for (size_t n = 0; n < animationNames.size(); n++) {
+                        const bool is_selected = scenes[i].currentAnimation == animationNames[n];
+                        if (ImGui::Selectable(animationNames[n].c_str(), is_selected))
+                            scenes[i].currentAnimation = animationNames[n];
+
+                        // Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
+                        if (is_selected)
+                            ImGui::SetItemDefaultFocus();
+                    }
+                    ImGui::EndCombo();
+                }
+
+                ImGui::TreePop();
+            }
+        }
         ImGui::End();
     }
 }
@@ -174,24 +236,23 @@ void Renderer::createResources()
 {
     // shadow map
     vulkan::Image shadowMap;
-    graphics->createImage(
+    graphics.createImage(
         &shadowMap, shadowPipeline.getShadowMapSize(), shadowPipeline.getShadowMapSize(),
         VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
         VK_FORMAT_D32_SFLOAT, VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_DEPTH_BIT
     );
     vulkan::setDebugName(
-        graphics->getDevice(), reinterpret_cast<uint64_t>(shadowMap.image), VK_OBJECT_TYPE_IMAGE,
+        graphics.getDevice(), reinterpret_cast<uint64_t>(shadowMap.image), VK_OBJECT_TYPE_IMAGE,
         "Shadowmap image"
     );
 
     shadowMapIdx = resourceManager.addImage(shadowMap);
-    shadowPipeline.setShadowMapImage(*resourceManager.getImage(shadowMapIdx));
 
     // skybox
     vulkan::Image skybox;
-    graphics->createCubemapImage(&skybox, "assets/textures/skybox", VK_FORMAT_R8G8B8A8_SRGB);
+    graphics.createCubemapImage(&skybox, "assets/textures/skybox", VK_FORMAT_R8G8B8A8_SRGB);
     vulkan::setDebugName(
-        graphics->getDevice(), reinterpret_cast<uint64_t>(skybox.image), VK_OBJECT_TYPE_IMAGE,
+        graphics.getDevice(), reinterpret_cast<uint64_t>(skybox.image), VK_OBJECT_TYPE_IMAGE,
         "Skybox image"
     );
     skyboxIdx = resourceManager.addImage(skybox);
@@ -203,10 +264,10 @@ void Renderer::createResources()
 
 void Renderer::createBuffers()
 {
-    const VkDevice device = graphics->getDevice();
+    const VkDevice device = graphics.getDevice();
 
     // scene data
-    graphics->createBuffer(
+    graphics.createBuffer(
         &sceneDataBuffer, sizeof(SceneDrawData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT
     );
     vulkan::setDebugName(
@@ -216,7 +277,7 @@ void Renderer::createBuffers()
 
     // materials
     auto &materials = resourceManager.materials;
-    graphics->createBuffer(
+    graphics.createBuffer(
         &materialsBuffer, materials.size() * sizeof(Material),
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
             VK_BUFFER_USAGE_TRANSFER_DST_BIT
@@ -229,7 +290,7 @@ void Renderer::createBuffers()
 
     // lights
     auto &lights = resourceManager.lights;
-    graphics->createBuffer(
+    graphics.createBuffer(
         &lightsBuffer, lights.size() * sizeof(Light),
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
             VK_BUFFER_USAGE_TRANSFER_DST_BIT
@@ -276,7 +337,7 @@ void Renderer::updateDescriptors()
         );
     }
 
-    writer.update(graphics->getDevice(), graphics->getDescriptorManager().getSet());
+    writer.update(graphics.getDevice(), graphics.getDescriptorManager().getSet());
 }
 
 } // namespace rebirth

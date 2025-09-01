@@ -47,10 +47,9 @@ void loadTextures(
     cgltf_data *data
 );
 
-void loadAnimations(Scene *scene, cgltf_data *data);
-void loadSkins(Graphics &graphics, Scene *scene, cgltf_data *data);
+void loadAnimations(Scene &scene, cgltf_data *data);
+void loadSkins(Graphics &graphics, Scene &scene, cgltf_data *data);
 
-SceneNode *getNodeByIndex(Scene &scene, size_t index);
-Transform loadTransform(cgltf_node *node);
+Transform loadTransform(cgltf_node *node, bool world);
 
 } // namespace rebirth::gltf

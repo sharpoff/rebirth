@@ -21,11 +21,10 @@ public:
     void initialize(vulkan::Graphics &graphics);
     void destroy(VkDevice device);
 
-    void setShadowMapImage(Image &shadowMap) { this->shadowMap = &shadowMap; }
     uint32_t getShadowMapSize() { return shadowMapSize; }
 
-    void beginFrame(vulkan::Graphics &graphics, VkCommandBuffer cmd);
-    void endFrame(vulkan::Graphics &graphics, VkCommandBuffer cmd, bool debug = false);
+    void beginFrame(vulkan::Graphics &graphics, VkCommandBuffer cmd, Image &shadowMap);
+    void endFrame(vulkan::Graphics &graphics, VkCommandBuffer cmd, Image &shadowMap, bool debug = false);
     void draw(
         vulkan::Graphics &graphics,
         ResourceManager &resourceManager,
@@ -45,10 +44,9 @@ private:
     {
         mat4 transform;
         VkDeviceAddress vertexBuffer;
-        int shadowMapIndex = -1;
+        VkDeviceAddress jointMatricesBuffer;
     };
 
-    Image *shadowMap;
     const uint32_t shadowMapSize = 2048;
 };
 
