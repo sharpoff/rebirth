@@ -13,7 +13,7 @@ struct Material
     int emissiveIdx = -1;
 
     vec4 baseColorFactor = vec4(1.0);
-    float metallicFactor = 1.0;
+    float metallicFactor = 0.0;
     float roughnessFactor = 1.0;
 
     float _pad0;

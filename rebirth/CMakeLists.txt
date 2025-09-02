@@ -24,6 +24,7 @@ target_link_libraries(rebirth-engine
     glm
     cgltf
     imgui
+    Jolt
 )
 
 # main executable

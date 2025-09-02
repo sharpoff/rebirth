@@ -7,6 +7,7 @@ C++20 Vulkan Game engine
 ## Features
 * PBR (without IBL)
 * Shadow maps
+* Skeleton animations (vertex skinning)
 * Dynamic rendering (vulkan)
 * Multisampling (MSAA)
 * Mip map generation

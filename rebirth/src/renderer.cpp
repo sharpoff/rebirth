@@ -24,6 +24,14 @@ void Renderer::initialize(SDL_Window *window)
     skyboxPipeline.initialize(graphics);
     imguiPipeline.initialize(graphics);
     wireframePipeline.initialize(graphics);
+
+    Image checkerboard;
+    graphics.createImageFromFile(&checkerboard, "assets/textures/checkerboard.png", VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT);
+    defaultImageId = resourceManager.addImage(checkerboard);
+
+    Material defaultMaterial;
+    defaultMaterial.baseColorIdx = defaultImageId;
+    defaultMaterialId = resourceManager.addMaterial(defaultMaterial);
 }
 
 void Renderer::shutdown()
@@ -48,14 +56,14 @@ void Renderer::shutdown()
 
 void Renderer::addLight(Light light) { resourceManager.addLight(light); }
 
-void Renderer::drawScene(Scene &scene)
+void Renderer::drawScene(Scene &scene, Transform transform)
 {
     std::function<void(SceneNode &)> nodeDraw = [&](SceneNode &node) {
         for (auto &mesh : node.mesh.primitives) {
             drawCommands.push_back(
                 DrawCommand{
                     .meshId = mesh,
-                    .transform = scene.transform.getModelMatrix() * scene.getNodeWorldMatrix(&node),
+                    .transform = transform.getModelMatrix() * scene.getNodeWorldMatrix(&node),
                     .boundingSphere = Sphere(),
                     .jointMatricesBuffer =
                         node.skin > -1 ? scene.skins[node.skin].jointMatricesBuffer.address : 0,
@@ -71,6 +79,11 @@ void Renderer::drawScene(Scene &scene)
     for (auto &node : scene.nodes) {
         nodeDraw(node);
     }
+}
+
+void Renderer::drawObject(Object object)
+{
+    drawScene(object.scene, object.transform);
 }
 
 void Renderer::present(ApplicationState &state, Camera &camera)
@@ -202,34 +215,34 @@ void Renderer::updateImGui(ApplicationState &state, Camera &camera)
         ImGui::End();
     }
 
-    {
-        ImGui::Begin("Scenes");
+    // {
+    //     ImGui::Begin("Scenes");
 
-        auto &scenes = state.scenes;
-        for (size_t i = 0; i < scenes.size(); i++) {
-            std::vector<std::string> animationNames;
-            for (auto &anim : scenes[i].animations)
-                animationNames.push_back(anim.name);
+    //     auto &scenes = state.scenes;
+    //     for (size_t i = 0; i < scenes.size(); i++) {
+    //         std::vector<std::string> animationNames;
+    //         for (auto &anim : scenes[i].animations)
+    //             animationNames.push_back(anim.name);
 
-            if (ImGui::TreeNode(std::string("Scene " + std::to_string(i)).c_str())) {
-                if (ImGui::BeginCombo("Animations", scenes[i].currentAnimation.c_str())) {
-                    for (size_t n = 0; n < animationNames.size(); n++) {
-                        const bool is_selected = scenes[i].currentAnimation == animationNames[n];
-                        if (ImGui::Selectable(animationNames[n].c_str(), is_selected))
-                            scenes[i].currentAnimation = animationNames[n];
+    //         if (ImGui::TreeNode(std::string("Scene " + std::to_string(i)).c_str())) {
+    //             if (ImGui::BeginCombo("Animations", scenes[i].currentAnimation.c_str())) {
+    //                 for (size_t n = 0; n < animationNames.size(); n++) {
+    //                     const bool is_selected = scenes[i].currentAnimation == animationNames[n];
+    //                     if (ImGui::Selectable(animationNames[n].c_str(), is_selected))
+    //                         scenes[i].currentAnimation = animationNames[n];
 
-                        // Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
-                        if (is_selected)
-                            ImGui::SetItemDefaultFocus();
-                    }
-                    ImGui::EndCombo();
-                }
+    //                     // Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
+    //                     if (is_selected)
+    //                         ImGui::SetItemDefaultFocus();
+    //                 }
+    //                 ImGui::EndCombo();
+    //             }
 
-                ImGui::TreePop();
-            }
-        }
-        ImGui::End();
-    }
+    //             ImGui::TreePop();
+    //         }
+    //     }
+    //     ImGui::End();
+    // }
 }
 
 void Renderer::createResources()

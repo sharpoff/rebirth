@@ -1,5 +1,6 @@
 #pragma once
 
+#include <rebirth/types/object.h>
 #include <rebirth/pipelines/imgui_pipeline.h>
 #include <rebirth/pipelines/mesh_pipeline.h>
 #include <rebirth/pipelines/shadow_pipeline.h>
@@ -34,7 +35,9 @@ public:
 
     void addLight(Light light);
 
-    void drawScene(Scene &scene);
+    void drawScene(Scene &scene, Transform transform);
+    void drawObject(Object object);
+
     void present(ApplicationState &state, Camera &camera);
 
     void requestResize() { graphics.requestResize(); }
@@ -64,6 +67,8 @@ private:
     vulkan::Buffer lightsBuffer;
 
     ResourceManager resourceManager;
+    ImageID defaultImageId;
+    MaterialID defaultMaterialId;
 
     std::vector<DrawCommand> drawCommands;
 

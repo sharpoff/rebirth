@@ -51,6 +51,7 @@ public:
     std::string name;
     Transform transform = Transform();
     std::vector<SceneNode> nodes;
+    std::vector<Vertex> vertices;
 
     std::vector<Skin> skins;
     std::vector<Animation> animations;
@@ -60,7 +61,7 @@ public:
 
     void merge(Scene &scene);
 
-    void updateAnimation(vulkan::Graphics &graphics, float deltaTime, std::string name);
+    void updateAnimation(vulkan::Graphics &graphics, float deltaTime);
 
     SceneNode *getNodeByIndex(int index);
     mat4 getNodeWorldMatrix(SceneNode *node);

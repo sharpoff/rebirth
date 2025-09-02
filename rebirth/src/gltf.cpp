@@ -8,11 +8,8 @@
 namespace rebirth::gltf
 {
 
-bool loadScene(Scene *scene, Renderer &renderer, std::filesystem::path file)
+bool loadScene(Scene &scene, Renderer &renderer, std::filesystem::path file)
 {
-    if (!scene)
-        return false;
-
     cgltf_options options = {};
     cgltf_data *data = NULL;
     cgltf_result result = cgltf_parse_file(&options, file.c_str(), &data);
@@ -35,27 +32,27 @@ bool loadScene(Scene *scene, Renderer &renderer, std::filesystem::path file)
     vulkan::Graphics &graphics = renderer.getGraphics();
     ResourceManager &resourceManager = renderer.getResourceManager();
 
-    scene->name = file.stem();
+    scene.name = file.stem();
     size_t materialOffset = resourceManager.materials.size();
 
     cgltf_scene *root = data->scene;
 
     // recursively load nodes
     if (root) {
-        scene->nodes.resize(root->nodes_count);
-        for (size_t i = 0; i < scene->nodes.size(); i++)
+        scene.nodes.resize(root->nodes_count);
+        for (size_t i = 0; i < scene.nodes.size(); i++)
             loadNode(
-                graphics, resourceManager, *scene, scene->nodes[i], data, root->nodes[i],
+                graphics, resourceManager, scene, scene.nodes[i], data, root->nodes[i],
                 materialOffset
             );
     }
 
     loadMaterials(resourceManager, data);
     loadTextures(graphics, resourceManager, file.parent_path(), data);
-    loadSkins(graphics, *scene, data);
-    loadAnimations(*scene, data);
-    if (scene->animations.size() > 0)
-        scene->currentAnimation = scene->animations[0].name;
+    loadSkins(graphics, scene, data);
+    loadAnimations(scene, data);
+    if (scene.animations.size() > 0)
+        scene.currentAnimation = scene.animations[0].name;
 
     cgltf_free(data);
     return true;
@@ -83,7 +80,7 @@ void loadNode(
     }
 
     if (gltfNode->mesh)
-        loadMesh(graphics, resourceManager, node, data, gltfNode->mesh, materialOffset);
+        loadMesh(graphics, resourceManager, scene, node, data, gltfNode->mesh, materialOffset);
 
     // recursively load child nodes
     node.children.resize(gltfNode->children_count);
@@ -99,6 +96,7 @@ void loadNode(
 void loadMesh(
     vulkan::Graphics &graphics,
     ResourceManager &resourceManager,
+    Scene &scene,
     SceneNode &node,
     cgltf_data *data,
     cgltf_mesh *gltfMesh,
@@ -208,7 +206,8 @@ void loadMesh(
         }
 
         Mesh mesh;
-        mesh.materialIdx = materialOffset + cgltf_material_index(data, prim.material);
+        mesh.materialIdx =
+            prim.material ? (materialOffset + cgltf_material_index(data, prim.material)) : -1;
         mesh.vertices = vertices;
         mesh.indices = indices;
 
@@ -224,9 +223,10 @@ void loadMesh(
         graphics.uploadBuffer(mesh.vertexBuffer, vertices.data(), vertices.size() * sizeof(Vertex));
         graphics.uploadBuffer(mesh.indexBuffer, indices.data(), indices.size() * sizeof(uint32_t));
 
-        size_t meshIdx = resourceManager.addMesh(mesh);
+        MeshID meshId = resourceManager.addMesh(mesh);
 
-        node.mesh.primitives.push_back(meshIdx);
+        node.mesh.primitives.push_back(meshId);
+        scene.vertices.insert(scene.vertices.end(), vertices.begin(), vertices.end());
     }
 }
 
@@ -314,7 +314,8 @@ void loadAnimations(Scene &scene, cgltf_data *data)
         Animation &animation = scene.animations[i];
         cgltf_animation gltfAnimation = data->animations[i];
 
-        animation.name = gltfAnimation.name ? gltfAnimation.name : std::string("Animation ") + std::to_string(i);
+        animation.name =
+            gltfAnimation.name ? gltfAnimation.name : std::string("Animation ") + std::to_string(i);
 
         // channels
         animation.channels.resize(gltfAnimation.channels_count);
@@ -458,7 +459,7 @@ Transform loadTransform(cgltf_node *node, bool world)
         else
             cgltf_node_transform_local(node, &matrix[0][0]);
     }
-        
+
     if (node->has_translation)
         position = glm::make_vec3(node->translation);
 
@@ -468,7 +469,8 @@ Transform loadTransform(cgltf_node *node, bool world)
     if (node->has_rotation)
         rotation = glm::make_quat(node->rotation);
 
-    matrix = glm::translate(mat4(1.0f), position) * mat4(rotation) * glm::scale(mat4(1.0f), scale) * matrix;
+    matrix = glm::translate(mat4(1.0f), position) * mat4(rotation) * glm::scale(mat4(1.0f), scale) *
+             matrix;
 
     return Transform(matrix);
 }

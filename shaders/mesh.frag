@@ -18,6 +18,8 @@ layout (location = 4) in mat3 inTBN;
 
 layout (location = 0) out vec4 fragColor;
 
+#define DEFAULT_MATERIAL_ID 0
+
 void main()
 {
     vec3 cameraPos = scene_data.cameraPosAndLightNum.xyz;
@@ -47,6 +49,12 @@ void main()
 
         if (material.emissiveIdx > -1) {
             emissive = TEX(material.emissiveIdx, inUV).rgb;
+        }
+    } else {
+        Material material = materials[DEFAULT_MATERIAL_ID];
+
+        if (material.baseColorIdx > -1) {
+            baseColor = TEX(material.baseColorIdx, inUV) * material.baseColorFactor;
         }
     }
 

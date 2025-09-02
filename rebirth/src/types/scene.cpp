@@ -15,7 +15,8 @@ void Scene::destroy(vulkan::Graphics &graphics)
 
 void Scene::merge(Scene &scene)
 {
-    if (this == &scene) return;
+    if (this == &scene)
+        return;
 
     size_t nodesCount = nodes.size();
     size_t skinsCount = skins.size();
@@ -54,12 +55,14 @@ void Scene::merge(Scene &scene)
     }
 }
 
-void Scene::updateAnimation(vulkan::Graphics &graphics, float deltaTime, std::string name)
+void Scene::updateAnimation(vulkan::Graphics &graphics, float deltaTime)
 {
-    if (animations.size() < 1) return;
+    if (animations.size() < 1)
+        return;
 
-    Animation *animation = getAnimationByName(name);
-    if (!animation) return;
+    Animation *animation = getAnimationByName(currentAnimation);
+    if (!animation)
+        return;
 
     animation->currentTime += deltaTime;
     if (animation->currentTime > animation->end) {
@@ -75,7 +78,8 @@ void Scene::updateAnimation(vulkan::Graphics &graphics, float deltaTime, std::st
         for (size_t i = 0; i < sampler.inputs.size() - 1; i++) {
             if ((animation->currentTime >= sampler.inputs[i]) &&
                 (animation->currentTime <= sampler.inputs[i + 1])) {
-                float step = (animation->currentTime - sampler.inputs[i]) / (sampler.inputs[i + 1] - sampler.inputs[i]);
+                float step = (animation->currentTime - sampler.inputs[i]) /
+                             (sampler.inputs[i + 1] - sampler.inputs[i]);
                 SceneNode *node = getNodeByIndex(channel.node);
 
                 if (channel.path == AnimationPath::translation) {
@@ -119,7 +123,8 @@ SceneNode *Scene::getNodeByIndex(int index)
     SceneNode *found = nullptr;
     for (auto &node : nodes) {
         found = searchNode(&node, index);
-        if (found) break;
+        if (found)
+            break;
     }
 
     return found;
@@ -130,10 +135,11 @@ SceneNode *Scene::searchNode(SceneNode *node, int index)
     SceneNode *found = nullptr;
     if (node->index == index)
         return node;
-    
+
     for (auto &child : node->children) {
         found = searchNode(&child, index);
-        if (found) break;
+        if (found)
+            break;
     }
 
     return found;
@@ -141,7 +147,8 @@ SceneNode *Scene::searchNode(SceneNode *node, int index)
 
 mat4 Scene::getNodeWorldMatrix(SceneNode *node)
 {
-    if (!node || node->parent < 0) return mat4(1.0f);
+    if (!node || node->parent < 0)
+        return mat4(1.0f);
 
     mat4 worldMatrix = node->localTransform.getModelMatrix();
     SceneNode *parent = getNodeByIndex(node->parent);

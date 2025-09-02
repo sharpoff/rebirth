@@ -13,10 +13,10 @@ Transform::Transform(mat4 matrix)
 
 void Transform::rotate(float angle, vec3 axis)
 {
-    rotation_ = glm::angleAxis(angle, axis) * rotation_;
+    rotation_ = glm::normalize(glm::angleAxis(angle, axis) * rotation_);
 }
 
-void Transform::rotate(quat q) { rotation_ = q * rotation_; }
+void Transform::rotate(quat q) { rotation_ = glm::normalize(q * rotation_); }
 
 void Transform::translate(vec3 pos) { position_ += pos; }
 

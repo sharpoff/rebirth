@@ -640,6 +640,8 @@ void Graphics::createImage(
     VkImageViewType viewType,
     VkImageAspectFlags aspect,
     VkSampleCountFlagBits samples,
+    VkFilter filter,
+    VkSamplerAddressMode addressMode,
     bool generateMipMaps
 )
 {
@@ -698,13 +700,13 @@ void Graphics::createImage(
     VK_CHECK(vkCreateImageView(device, &imageViewInfo, nullptr, &image->view));
 
     image->sampler = createSampler(
-        VK_FILTER_LINEAR, VK_FILTER_LINEAR,
-        isCubemap ? VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER : VK_SAMPLER_ADDRESS_MODE_REPEAT,
+        filter, filter,
+        isCubemap ? VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER : addressMode,
         image->mipLevels
     );
 }
 
-void Graphics::createImageFromFile(Image *image, std::filesystem::path path)
+void Graphics::createImageFromFile(Image *image, std::filesystem::path path, VkFilter filter, VkSamplerAddressMode addressMode)
 {
     if (!image) {
         util::logWarn("Cannot create image - pointer is null.\n");
@@ -719,10 +721,10 @@ void Graphics::createImageFromFile(Image *image, std::filesystem::path path)
     }
 
     uint32_t size = image->width * image->height * STBI_rgb_alpha;
-    createLoadImage(image, pixels, size);
+    createLoadImage(image, pixels, size, filter, addressMode);
 }
 
-void Graphics::createImageFromMemory(Image *image, unsigned char *data, int dataSize)
+void Graphics::createImageFromMemory(Image *image, unsigned char *data, int dataSize, VkFilter filter, VkSamplerAddressMode addressMode)
 {
     if (!image) {
         util::logWarn("Cannot create image - pointer is null.\n");
@@ -736,10 +738,10 @@ void Graphics::createImageFromMemory(Image *image, unsigned char *data, int data
     }
 
     uint32_t size = image->width * image->height * STBI_rgb_alpha;
-    createLoadImage(image, pixels, size);
+    createLoadImage(image, pixels, size, filter, addressMode);
 }
 
-void Graphics::createLoadImage(Image *image, unsigned char *pixels, uint32_t size, bool freePixels)
+void Graphics::createLoadImage(Image *image, unsigned char *pixels, uint32_t size, VkFilter filter, VkSamplerAddressMode addressMode, bool freePixels)
 {
     if (!image) {
         util::logWarn("Cannot create image - pointer is null.\n");
@@ -751,7 +753,7 @@ void Graphics::createLoadImage(Image *image, unsigned char *pixels, uint32_t siz
         VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
             VK_IMAGE_USAGE_SAMPLED_BIT,
         VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_COLOR_BIT,
-        VK_SAMPLE_COUNT_1_BIT, true
+        VK_SAMPLE_COUNT_1_BIT, filter, addressMode, true
     );
 
     Buffer staging;

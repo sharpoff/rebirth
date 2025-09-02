@@ -21,4 +21,7 @@
 
 // cgltf
 #define CGLTF_IMPLEMENTATION
-#include "cgltf.h"
+#include <cgltf.h>
+
+// jolt physics
+#include <Jolt/Jolt.h>

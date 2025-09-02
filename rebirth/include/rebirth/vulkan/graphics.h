@@ -129,21 +129,56 @@ public:
         VkImageViewType viewType,
         VkImageAspectFlags aspect,
         VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT,
+        VkFilter filter = VK_FILTER_LINEAR,
+        VkSamplerAddressMode addressMode = VK_SAMPLER_ADDRESS_MODE_REPEAT,
         bool generateMipMaps = false
     );
-    void createImageFromFile(Image *image, std::filesystem::path path);
-    void createImageFromMemory(Image *image, unsigned char *data, int size);
-    void createLoadImage(Image *image, unsigned char *pixels, uint32_t size, bool freePixels = true);
+    void createImageFromFile(
+        Image *image,
+        std::filesystem::path path,
+        VkFilter filter = VK_FILTER_LINEAR,
+        VkSamplerAddressMode addressMode = VK_SAMPLER_ADDRESS_MODE_REPEAT
+    );
+    void createImageFromMemory(
+        Image *image,
+        unsigned char *data,
+        int size,
+        VkFilter filter = VK_FILTER_LINEAR,
+        VkSamplerAddressMode addressMode = VK_SAMPLER_ADDRESS_MODE_REPEAT
+    );
+    void createLoadImage(
+        Image *image,
+        unsigned char *pixels,
+        uint32_t size,
+        VkFilter filter = VK_FILTER_LINEAR,
+        VkSamplerAddressMode addressMode = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+        bool freePixels = true
+    );
     void createCubemapImage(Image *image, std::filesystem::path dir, VkFormat format);
     void generateMipmaps(Image *image);
 
-    void createBuffer(Buffer *buffer, uint32_t size, VkBufferUsageFlags usage, VmaMemoryUsage memUsage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE);
+    void createBuffer(
+        Buffer *buffer,
+        uint32_t size,
+        VkBufferUsageFlags usage,
+        VmaMemoryUsage memUsage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE
+    );
 
     void destroyImage(Image *image);
     void destroyBuffer(Buffer *buffer);
 
-    VkImageView createImageView(VkImage image, VkImageViewType viewType, VkFormat format, VkImageSubresourceRange subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1});
-    VkSampler createSampler(VkFilter minFilter, VkFilter magFilter, VkSamplerAddressMode samplerMode, float maxLod);
+    VkImageView createImageView(
+        VkImage image,
+        VkImageViewType viewType,
+        VkFormat format,
+        VkImageSubresourceRange subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}
+    );
+    VkSampler createSampler(
+        VkFilter minFilter,
+        VkFilter magFilter,
+        VkSamplerAddressMode samplerMode,
+        float maxLod
+    );
 
     // Command buffer
     void flushCommandBuffer(VkCommandBuffer cmd, VkQueue queue, VkCommandPool pool, bool free);
@@ -154,12 +189,20 @@ public:
     VkFence createFence(VkFenceCreateFlags flags = 0);
 
     // Descriptor
-    VkDescriptorPool createDescriptorPool(std::vector<VkDescriptorPoolSize> poolSizes, VkDescriptorPoolCreateFlags flags = 0);
-    VkDescriptorSetLayout createDescriptorSetLayout(VkDescriptorSetLayoutBinding *bindings, uint32_t bindingCount, VkDescriptorBindingFlags *bindingFlags);
+    VkDescriptorPool createDescriptorPool(
+        std::vector<VkDescriptorPoolSize> poolSizes,
+        VkDescriptorPoolCreateFlags flags = 0
+    );
+    VkDescriptorSetLayout createDescriptorSetLayout(
+        VkDescriptorSetLayoutBinding *bindings,
+        uint32_t bindingCount,
+        VkDescriptorBindingFlags *bindingFlags
+    );
     VkDescriptorSet createDescriptorSet(VkDescriptorPool pool, VkDescriptorSetLayout layout);
 
     // Pipeline
-    VkPipelineLayout createPipelineLayout(VkDescriptorSetLayout *setLayout, VkPushConstantRange *pushConstant);
+    VkPipelineLayout
+    createPipelineLayout(VkDescriptorSetLayout *setLayout, VkPushConstantRange *pushConstant);
 };
 
 } // namespace rebirth::vulkan

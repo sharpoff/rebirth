@@ -17,11 +17,7 @@ class Graphics;
 namespace rebirth::gltf
 {
 
-bool loadScene(
-    Scene *scene,
-    Renderer &renderer,
-    std::filesystem::path file
-);
+bool loadScene(Scene &scene, Renderer &renderer, std::filesystem::path file);
 void loadNode(
     vulkan::Graphics &graphics,
     ResourceManager &resourceManager,
@@ -34,6 +30,7 @@ void loadNode(
 void loadMesh(
     vulkan::Graphics &graphics,
     ResourceManager &resourceManager,
+    Scene &scene,
     SceneNode &node,
     cgltf_data *data,
     cgltf_mesh *gltfMesh,

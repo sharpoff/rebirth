@@ -8,6 +8,7 @@ using MeshID = int32_t;
 using MaterialID = int32_t;
 using ImageID = int32_t;
 using LightID = int32_t;
+using RigidBodyID = int32_t;
 
 struct SceneDrawData
 {
