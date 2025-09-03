@@ -1,4 +1,6 @@
 #include <rebirth/application.h>
+#include <rebirth/input/input.h>
+
 #include <rebirth/gltf.h>
 #include <rebirth/util/filesystem.h>
 #include <rebirth/util/logger.h>
@@ -11,7 +13,7 @@ namespace rebirth
 {
 
 Application::Application(std::string name, unsigned int width, unsigned int height)
-    : width(width), height(height)
+    : name(name), width(width), height(height)
 {
     // set consistent path
     util::setCurrentPath(util::getExecutablePath().parent_path().parent_path());
@@ -64,9 +66,16 @@ Application::Application(std::string name, unsigned int width, unsigned int heig
         exit(EXIT_FAILURE);
     }
 
+    if (!gltf::loadScene(cylinder, renderer, "assets/models/cylinder.glb")) {
+        util::logError("Failed to load scene.");
+        exit(EXIT_FAILURE);
+    }
+
     // setup camera
     camera.setPerspective(glm::radians(60.0f), float(width) / height, 0.1f, 300.0f);
-    camera.setPosition(vec3(0, 0, 2));
+    camera.setPosition(vec3(0, 2, 2));
+    camera.type = CameraType::LookAt;
+    // camera.type = CameraType::FirstPerson;
 
     renderer.addLight(
         Light{
@@ -79,14 +88,6 @@ Application::Application(std::string name, unsigned int width, unsigned int heig
     physicsSystem.initialize();
 
     // create game objects
-    // cube
-    Object cubeObj(cube, cube.transform, "Cube");
-    cubeObj.aabb = calculateAABB(cubeObj.scene, cubeObj.transform * cube.transform);
-
-    cubeObj.rigidBodyId =
-        physicsSystem.createBox(cubeObj.transform, cubeObj.aabb.getHalfExtent(), false);
-    gameState.objects.push_back(cubeObj);
-
     // plane
     Object planeObj(cube, cube.transform, "Plane");
     planeObj.transform.setScale(vec3(30.0f, 0.2f, 30.0f));
@@ -95,7 +96,12 @@ Application::Application(std::string name, unsigned int width, unsigned int heig
 
     planeObj.rigidBodyId =
         physicsSystem.createBox(planeObj.transform, planeObj.aabb.getHalfExtent(), true);
+    physicsSystem.setFriction(planeObj.rigidBodyId, 1.0f);
+
     gameState.objects.push_back(planeObj);
+
+    // car
+    car.initialize(physicsSystem, vec3(0, 3, 0));
 }
 
 Application::~Application()
@@ -127,7 +133,14 @@ void Application::run()
         update(deltaTime);
 
         for (auto &object : gameState.objects) {
-            renderer.drawScene(object.scene, object.transform * object.scene.transform);
+            renderer.drawObject(object);
+        }
+
+        // draw wheels
+        for (int i = 0; i < 4; i++) {
+            renderer.drawScene(cylinder, Transform(car.getWheelTransform(i)));
+            Transform transform(car.getPosition(), car.getRotation(), vec3(1.0f, 0.02f, 1.6f));
+            renderer.drawScene(cube, transform);
         }
 
         renderer.present(state, camera);
@@ -140,14 +153,16 @@ void Application::handleInput(float deltaTime)
     while (SDL_PollEvent(&event)) {
         ImGui_ImplSDL3_ProcessEvent(&event);
 
+        Input &input = Input::getInstance();
+        input.processEvent(&event);
+
         if (event.type == SDL_EVENT_WINDOW_RESIZED ||
             event.type == SDL_EVENT_WINDOW_ENTER_FULLSCREEN ||
             event.type == SDL_EVENT_WINDOW_LEAVE_FULLSCREEN) {
             renderer.requestResize();
         }
 
-        if (event.type == SDL_EVENT_QUIT ||
-            (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_ESCAPE)) {
+        if (event.type == SDL_EVENT_QUIT || input.isKeyPressed(KeyboardKey::ESCAPE)) {
             running = false;
         }
 
@@ -157,7 +172,12 @@ void Application::handleInput(float deltaTime)
         std::uniform_int_distribution<int> int_dist(0, 1);
 
         // create box
-        if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_F) {
+        if (input.isKeyPressed(KeyboardKey::R)) {
+            car.setPosition(vec3(0, 3, 0));
+            car.setRotation(glm::identity<quat>());
+        }
+
+        if (input.isKeyPressed(KeyboardKey::F)) {
             Object obj(cube, cube.transform, "Cube");
             obj.transform.translate(vec3(0.0f, 10.0f, 0.0f));
             obj.transform.rotate(
@@ -171,7 +191,7 @@ void Application::handleInput(float deltaTime)
         }
 
         // create plane
-        if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_T) {
+        if (input.isKeyPressed(KeyboardKey::T)) {
             Object obj(cube, cube.transform, "Plane");
             obj.transform.scale(vec3(3.0f, 0.2f, 0.2f));
             obj.transform.translate(vec3(0.0f, 10.0f, 0.0f));
@@ -186,7 +206,7 @@ void Application::handleInput(float deltaTime)
         }
 
         // create sphere
-        if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_V) {
+        if (input.isKeyPressed(KeyboardKey::V)) {
             Object obj(sphere, sphere.transform, "Sphere");
             obj.transform.translate(vec3(0.0f, 10.0f, 0.0f));
             obj.aabb = calculateAABB(obj.scene, obj.transform * sphere.transform);
@@ -196,12 +216,12 @@ void Application::handleInput(float deltaTime)
         }
 
         // enable imgui
-        if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_H) {
+        if (input.isKeyPressed(KeyboardKey::H)) {
             state.imgui = !state.imgui;
         }
 
         // enable fullscreen
-        if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_F) {
+        if (input.isKeyPressed(KeyboardKey::F)) {
             // TODO: this is not working for some reason
             // state.fullscreen = !state.fullscreen;
             // SDL_SetWindowFullscreen(window, state.fullscreen);
@@ -210,6 +230,7 @@ void Application::handleInput(float deltaTime)
         }
 
         camera.handleEvent(event, deltaTime);
+        car.processInput();
     }
 }
 
@@ -218,6 +239,10 @@ void Application::update(float deltaTime)
     for (auto &object : gameState.objects) {
         object.scene.updateAnimation(renderer.getGraphics(), deltaTime);
     }
+
+    // car update should be called before physics system update
+    car.update(deltaTime);
+    camera.setPosition(car.getPosition());
 
     physicsSystem.update(deltaTime);
 

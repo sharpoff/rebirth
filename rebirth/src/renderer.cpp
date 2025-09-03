@@ -26,7 +26,7 @@ void Renderer::initialize(SDL_Window *window)
     wireframePipeline.initialize(graphics);
 
     Image checkerboard;
-    graphics.createImageFromFile(&checkerboard, "assets/textures/checkerboard.png", VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT);
+    graphics.createImageFromFile(&checkerboard, "assets/textures/checkerboard.png");
     defaultImageId = resourceManager.addImage(checkerboard);
 
     Material defaultMaterial;
@@ -83,7 +83,7 @@ void Renderer::drawScene(Scene &scene, Transform transform)
 
 void Renderer::drawObject(Object object)
 {
-    drawScene(object.scene, object.transform);
+    drawScene(object.scene, object.transform * object.scene.transform);
 }
 
 void Renderer::present(ApplicationState &state, Camera &camera)
@@ -168,9 +168,9 @@ void Renderer::updateDynamicData(Camera &camera)
     memcpy(lightsBuffer.info.pMappedData, lights.data(), lightsBuffer.size);
 
     SceneDrawData sceneData = {};
-    sceneData.projection = camera.getProjection();
-    sceneData.view = camera.getViewMatrix();
-    sceneData.cameraPosAndLightNum = vec4(camera.getTransform().getPosition(), lights.size());
+    sceneData.projection = camera.projection;
+    sceneData.view = camera.view;
+    sceneData.cameraPosAndLightNum = vec4(camera.position, lights.size());
     sceneData.shadowMapIndex = shadowMapIdx;
     memcpy(sceneDataBuffer.info.pMappedData, &sceneData, sizeof(sceneData));
 }
@@ -180,7 +180,7 @@ void Renderer::updateImGui(ApplicationState &state, Camera &camera)
     ImGui::ShowDemoWindow();
 
     {
-        auto camPos = camera.getTransform().getPosition();
+        auto camPos = camera.position;
 
         ImGui::Begin("Debug");
 

@@ -3,6 +3,8 @@
 #include <rebirth/math/aabb.h>
 #include <rebirth/types/scene.h>
 
+using namespace rebirth;
+
 namespace rebirth
 {
 
@@ -19,4 +21,4 @@ struct Object
     AABB aabb;
 };
 
-} // namespace rebirth
+} // namespace rcg

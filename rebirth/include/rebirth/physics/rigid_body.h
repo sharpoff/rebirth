@@ -9,6 +9,4 @@ struct RigidBody
     JPH::BodyID bodyId;
     JPH::Ref<JPH::Shape> shape;
     bool isStatic = false;
-
-    vec3 halfExtent = vec3(1.0f);
 };

@@ -1,12 +1,9 @@
 # General
-* Skeleton animation.
-* Speed up model loading
+* Speed up model loading of big scenes(like sponza)
 	- Add multithreading
 	- Convert textures to dds/ktx?
-* Physics (FPS controller, object interaction)
 * Add profiler (Tracy?)
-* Networking (boost asio?)
-* Terrain(texture) painting
+* Networking?
 * Procedural terrain generation (noise)
 
 # Renderer

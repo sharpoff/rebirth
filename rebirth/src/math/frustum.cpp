@@ -8,17 +8,15 @@ namespace rebirth
 
 Frustum::Frustum(const Camera &camera)
 {
-    Transform transform = camera.getTransform();
+    const vec3 position = camera.position;
+    const vec3 right = camera.right;
+    const vec3 front = camera.front;
+    const vec3 up = camera.up;
 
-    const vec3 position = transform.getPosition();
-    const vec3 right = transform.getRight();
-    const vec3 front = transform.getFront();
-    const vec3 up = transform.getUp();
-
-    const float near = camera.getNear();
-    const float far = camera.getFar();
-    const float fov = camera.getFov();
-    const float aspect = camera.getAspectRatio();
+    const float near = camera.near;
+    const float far = camera.far;
+    const float fov = camera.fov;
+    const float aspect = camera.aspectRatio;
 
     const float halfVSide = far * tanf(fov * .5f);
     const float halfHSide = halfVSide * aspect;

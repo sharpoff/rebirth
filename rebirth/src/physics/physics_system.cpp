@@ -69,7 +69,8 @@ RigidBodyID PhysicsSystem::createBox(Transform transform, vec3 halfExtent, bool 
 
     rigidBody.bodyId = bodyInterface.CreateAndAddBody(
         JPH::BodyCreationSettings(
-            rigidBody.shape.GetPtr(), toJolt(position), toJolt(rotation), isStatic ? JPH::EMotionType::Static : JPH::EMotionType::Dynamic,
+            rigidBody.shape.GetPtr(), toJolt(position), toJolt(rotation),
+            isStatic ? JPH::EMotionType::Static : JPH::EMotionType::Dynamic,
             isStatic ? Layers::NON_MOVING : Layers::MOVING
         ),
         isStatic ? JPH::EActivation::DontActivate : JPH::EActivation::Activate
@@ -79,7 +80,6 @@ RigidBodyID PhysicsSystem::createBox(Transform transform, vec3 halfExtent, bool 
 
     rigidBodies.push_back(rigidBody);
     return rigidBodies.size() - 1;
-
 }
 
 RigidBodyID PhysicsSystem::createSphere(Transform transform, float radius, bool isStatic)
@@ -103,7 +103,8 @@ RigidBodyID PhysicsSystem::createSphere(Transform transform, float radius, bool 
 
     rigidBody.bodyId = bodyInterface.CreateAndAddBody(
         JPH::BodyCreationSettings(
-            rigidBody.shape.GetPtr(), toJolt(position), toJolt(rotation), isStatic ? JPH::EMotionType::Static : JPH::EMotionType::Dynamic,
+            rigidBody.shape.GetPtr(), toJolt(position), toJolt(rotation),
+            isStatic ? JPH::EMotionType::Static : JPH::EMotionType::Dynamic,
             isStatic ? Layers::NON_MOVING : Layers::MOVING
         ),
         isStatic ? JPH::EActivation::DontActivate : JPH::EActivation::Activate
@@ -116,10 +117,45 @@ RigidBodyID PhysicsSystem::createSphere(Transform transform, float radius, bool 
     return rigidBodies.size() - 1;
 }
 
+RigidBodyID PhysicsSystem::createShape(
+    JPH::Ref<JPH::Shape> &shape,
+    JPH::BodyCreationSettings settings,
+    JPH::EActivation activation
+)
+{
+    JPH::BodyInterface &bodyInterface = physicsSystem.GetBodyInterface();
+
+    RigidBody rigidBody;
+    rigidBody.shape = shape;
+    rigidBody.bodyId = bodyInterface.CreateAndAddBody(settings, activation);
+
+    rigidBodies.push_back(rigidBody);
+    return rigidBodies.size() - 1;
+}
+
+RigidBodyID PhysicsSystem::addShape(
+    JPH::Ref<JPH::Shape> &shape,
+    JPH::BodyID bodyId
+)
+{
+    RigidBody rigidBody;
+    rigidBody.shape = shape;
+    rigidBody.bodyId = bodyId;
+
+    rigidBodies.push_back(rigidBody);
+    return rigidBodies.size() - 1;
+}
+
 void PhysicsSystem::removeRigidBody(RigidBodyID id)
 {
     if (id > -1)
         rigidBodies.erase(rigidBodies.begin() + id);
+}
+
+void PhysicsSystem::setFriction(RigidBodyID id, float friction)
+{
+    JPH::BodyInterface &bodyInterface = physicsSystem.GetBodyInterface();
+    bodyInterface.SetFriction(getRigidBody(id).bodyId, friction);
 }
 
 void PhysicsSystem::update(float dt)

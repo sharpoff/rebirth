@@ -1,6 +1,5 @@
 #pragma once
 
-#include <rebirth/types/object.h>
 #include <rebirth/pipelines/imgui_pipeline.h>
 #include <rebirth/pipelines/mesh_pipeline.h>
 #include <rebirth/pipelines/shadow_pipeline.h>
@@ -15,6 +14,8 @@
 #include <rebirth/vulkan/graphics.h>
 
 #include <rebirth/application_state.h>
+
+#include <rebirth/game/object.h>
 
 using namespace rebirth::vulkan;
 
@@ -45,7 +46,7 @@ public:
     vulkan::Graphics &getGraphics() { return graphics; }
     ResourceManager &getResourceManager() { return resourceManager; }
 
-private:
+protected:
     void updateDynamicData(Camera &camera);
     void updateImGui(ApplicationState &state, Camera &camera);
 

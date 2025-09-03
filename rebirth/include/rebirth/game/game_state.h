@@ -1,6 +1,6 @@
 #pragma once
 
-#include <rebirth/types/object.h>
+#include <rebirth/game/object.h>
 
 namespace rebirth
 {
@@ -10,4 +10,4 @@ struct GameState
     std::vector<Object> objects;
 };
 
-} // namespace rebirth
+} // namespace rcg

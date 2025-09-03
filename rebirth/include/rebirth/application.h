@@ -1,15 +1,14 @@
 #pragma once
 
-#include <SDL3/SDL.h>
-#include <string>
-
+#include <rebirth/application_state.h>
+#include <rebirth/game/game_state.h>
 #include <rebirth/renderer.h>
-#include <rebirth/types/scene.h>
 #include <rebirth/util/timer.h>
 
+#include <rebirth/physics/physics_car.h>
 #include <rebirth/physics/physics_system.h>
 
-#include <rebirth/game/game_state.h>
+#include <SDL3/SDL.h>
 
 namespace rebirth
 {
@@ -21,13 +20,16 @@ public:
     ~Application();
 
     void run();
+    void handleInput(float deltaTime);
+    void update(float deltaTime);
 
 private:
     bool running = false;
-    uint32_t width;
-    uint32_t height;
+    std::string name = "Application";
+    uint32_t width = 0;
+    uint32_t height = 0;
+    ApplicationState state{};
 
-    ApplicationState state;
     GameState gameState;
 
     util::Timer timer;
@@ -35,14 +37,13 @@ private:
 
     Renderer renderer;
     Camera camera;
+    PhysicsCar car;
 
     Scene cube;
     Scene sphere;
+    Scene cylinder;
 
     PhysicsSystem physicsSystem;
-
-    void handleInput(float deltaTime);
-    void update(float deltaTime);
 };
 
 } // namespace rebirth

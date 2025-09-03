@@ -33,11 +33,21 @@ public:
 
     RigidBodyID createBox(Transform transform, vec3 halfExtent, bool isStatic = false);
     RigidBodyID createSphere(Transform transform, float radius, bool isStatic = false);
+    RigidBodyID createShape(
+        JPH::Ref<JPH::Shape> &shape,
+        JPH::BodyCreationSettings settings,
+        JPH::EActivation activation
+    );
+    RigidBodyID addShape(JPH::Ref<JPH::Shape> &shape, JPH::BodyID bodyId);
 
     void removeRigidBody(RigidBodyID id);
 
+    void setFriction(RigidBodyID id, float friction);
+
     vec3 getPosition(RigidBodyID id);
     quat getRotation(RigidBodyID id);
+    JPH::PhysicsSystem &getPhysicsSystem() { return physicsSystem; };
+    RigidBody &getRigidBody(RigidBodyID id) { return rigidBodies[id]; };
 
 private:
     JPH::JobSystemThreadPool *jobSystem;

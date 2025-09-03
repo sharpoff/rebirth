@@ -1,6 +1,7 @@
 #pragma once
 
-#include <rebirth/types/scene.h>
+namespace rebirth
+{
 
 struct ApplicationState
 {
@@ -10,6 +11,6 @@ struct ApplicationState
     bool shadows = true;
     bool skybox = true;
     bool imgui = true;
-
-    // std::vector<rebirth::Scene> scenes;
 };
+
+} // namespace rebirth

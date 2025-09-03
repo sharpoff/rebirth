@@ -1,3 +1,4 @@
+#include <rebirth/input/input.h>
 #include <rebirth/types/camera.h>
 
 #include <algorithm>
@@ -6,6 +7,12 @@
 
 namespace rebirth
 {
+
+void Camera::setPosition(vec3 position)
+{
+    this->position = position;
+    updateViewMatrix();
+}
 
 void Camera::setPerspective(float fov, float aspectRatio, float near, float far)
 {
@@ -19,47 +26,54 @@ void Camera::setPerspective(float fov, float aspectRatio, float near, float far)
 
 void Camera::update(float deltaTime)
 {
-    glm::quat yawRotation = glm::angleAxis(glm::radians(yaw), vec3(0.0f, -1.0f, 0.0f));
-    glm::quat pitchRotation = glm::angleAxis(glm::radians(pitch), vec3(1.0f, 0.0f, 0.0f));
-    transform.setRotation(yawRotation * pitchRotation);
+    ImGuiIO io = ImGui::GetIO();
+    Input &input = Input::getInstance();
 
-    float speedBoost = 1.0f;
-    if (keys[SDLK_LSHIFT])
-        speedBoost = 4.0f;
+    front.x = cos(glm::radians(pitch)) * sin(glm::radians(yaw));
+    front.y = sin(glm::radians(pitch));
+    front.z = cos(glm::radians(pitch)) * cos(glm::radians(yaw));
+    front = glm::normalize(front);
 
-    transform.translate(vec3(
-        transform.getRotation() * vec4(velocity * movementSpeed * speedBoost * deltaTime, 0.0f)
-    ));
+    right = glm::normalize(glm::cross(front, up));
+
+    float moveSpeed = deltaTime * movementSpeed;
+    if (!io.WantCaptureKeyboard && type == CameraType::FirstPerson) {
+        if (input.isKeyPressed(KeyboardKey::W))
+            position += front * moveSpeed;
+        if (input.isKeyPressed(KeyboardKey::S))
+            position -= front * moveSpeed;
+        if (input.isKeyPressed(KeyboardKey::A))
+            position -= right * moveSpeed;
+        if (input.isKeyPressed(KeyboardKey::D))
+            position += right * moveSpeed;
+    }
+
+    updateViewMatrix();
 }
 
 void Camera::handleEvent(SDL_Event event, float deltaTime)
 {
-    auto io = ImGui::GetIO();
+    ImGuiIO io = ImGui::GetIO();
+    Input &input = Input::getInstance();
 
     // mouse
-    if (!io.WantCaptureMouse && event.type == SDL_EVENT_MOUSE_MOTION &&
-        event.button.button == SDL_BUTTON_LEFT) {
-
-        yaw += event.motion.xrel * rotationSpeed;
+    if (!io.WantCaptureMouse && input.isMouseButtonPressed(MouseButton::LEFT)) {
+        yaw -= event.motion.xrel * rotationSpeed;
         pitch -= event.motion.yrel * rotationSpeed;
 
         pitch = std::clamp(pitch, -89.9f, 89.9f);
     }
-
-    // keyboard
-    if (!io.WantCaptureKeyboard) {
-        keys[event.key.key] = event.type == SDL_EVENT_KEY_DOWN;
-        vec2 cameraMotion = vec2(keys[SDLK_W], keys[SDLK_D]) - vec2(keys[SDLK_S], keys[SDLK_A]);
-
-        velocity = vec3(cameraMotion.y, 0.0, -cameraMotion.x);
-    }
 }
 
-const mat4 Camera::getViewMatrix() const
+void Camera::updateViewMatrix()
 {
-    mat4 translation = translate(mat4(1.0f), transform.getPosition());
-    mat4 rotation = glm::toMat4(transform.getRotation());
-    return glm::inverse(translation * rotation);
+    if (type == CameraType::FirstPerson) {
+        view = glm::lookAt(position, position + front, up);
+    } else {
+        vec3 eye = position + (-front * 10.0f) + (up * 3.0f);
+        vec3 target = position + (front * 5.0f);
+        view = glm::lookAt(eye, target, up);
+    }
 }
 
 } // namespace rebirth

@@ -8,41 +8,44 @@
 namespace rebirth
 {
 
+enum class CameraType
+{
+    FirstPerson,
+    LookAt,
+};
+
 class Camera
 {
 public:
     void update(float deltaTime);
     void handleEvent(SDL_Event event, float deltaTime);
 
-    void setPosition(vec3 position) { transform.setPosition(position); }
-    void setMovementSpeed(float speed) { this->movementSpeed = speed; }
-    void setRotationSpeed(float speed) { this->rotationSpeed = speed; }
+    void setPosition(vec3 position);
     void setPerspective(float fov, float aspectRatio, float near, float far);
 
-    const float &getFov() const { return fov; }
-    const float &getAspectRatio() const { return aspectRatio; }
-    const float &getNear() const { return near; }
-    const float &getFar() const { return far; }
+    CameraType type = CameraType::FirstPerson;
 
-    const Transform &getTransform() const { return transform; }
-    const float &getMovementSpeed() const { return movementSpeed; }
-    const float &getRotationSpeed() const { return rotationSpeed; }
-    const mat4 &getProjection() const { return projection; }
-    const mat4 getViewMatrix() const;
+    vec3 position = vec3();
 
-private:
+    vec3 front = vec3(0.0f, 0.0f, -1.0f);
+    vec3 right = vec3(1.0f, 0.0f, 0.0f);
+    vec3 up = vec3(0.0f, 1.0f, 0.0f);
+
     mat4 projection = mat4(1.0f);
-    Transform transform;
-    glm::vec3 velocity = vec3(0.0f);
-
-    float yaw = 0.0f, pitch = 0.0f;
-
-    float fov;
-    float aspectRatio;
-    float near, far;
+    mat4 view = mat4(1.0f);
 
     float movementSpeed = 3.0;
     float rotationSpeed = 1.0;
+
+    float yaw = 0.0f;
+    float pitch = 0.0f;
+
+    float fov = 60.0f;
+    float aspectRatio = 0.0f;
+    float near = 0.1f, far = 100.0f;
+
+private:
+    void updateViewMatrix();
 
     std::map<unsigned int, bool> keys;
 };

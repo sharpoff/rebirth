@@ -8,11 +8,12 @@ C++20 Vulkan Game engine
 * PBR (without IBL)
 * Shadow maps
 * Skeleton animations (vertex skinning)
+* Physics engine integration using Jolt Physics
 * Dynamic rendering (vulkan)
 * Multisampling (MSAA)
 * Mip map generation
 * glTF scene loader
-* Dear ImGui integration
+* Dear ImGui integration for custom tooling
 
 ## Third party libraries
 * SDL3
@@ -22,3 +23,4 @@ C++20 Vulkan Game engine
 * stb
 * volk
 * VulkanMemoryAllocator
+* Jolt Physics

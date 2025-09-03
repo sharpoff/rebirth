@@ -27,7 +27,6 @@ target_link_libraries(rebirth-engine
     Jolt
 )
 
-# main executable
 add_executable(main
     src/main.cpp
 )
