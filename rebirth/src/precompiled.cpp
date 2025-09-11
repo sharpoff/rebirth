@@ -1,12 +1,14 @@
 // vma
 #define VK_NO_PROTOTYPES
 #define VMA_IMPLEMENTATION
-// To debug allocations uncomment this
-// #define VMA_DEBUG_LOG_FORMAT(format, ...)                                                                                                                                                              \
-//     do {                                                                                                                                                                                               \
-//         printf((format), __VA_ARGS__);                                                                                                                                                                 \
-//         printf("\n");                                                                                                                                                                                  \
-//     } while (false)
+#if 0
+// debug allocations
+#define VMA_DEBUG_LOG_FORMAT(format, ...)                                                                                                                                                              \
+    do {                                                                                                                                                                                               \
+        printf((format), __VA_ARGS__);                                                                                                                                                                 \
+        printf("\n");                                                                                                                                                                                  \
+    } while (false)
+#endif
 #include <vk_mem_alloc.h>
 
 // volk
@@ -25,3 +27,17 @@
 
 // jolt physics
 #include <Jolt/Jolt.h>
+
+// required by EASTL
+
+void* operator new[](size_t size, const char* pName, int flags, unsigned debugFlags, const char* file, int line)
+{
+	return new uint8_t[size];
+}
+
+void* operator new[](size_t size, size_t alignment, size_t alignmentOffset, const char* pName, int flags, unsigned debugFlags, const char* file, int line)
+{
+	return new uint8_t[size];
+}
+
+// #include <EASTL/allocator.h>

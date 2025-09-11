@@ -2,15 +2,10 @@
 
 #include <rebirth/math/math.h>
 
-namespace rebirth
-{
-
 class Transform
 {
 public:
-    Transform() = default;
-    Transform(vec3 position, quat rotation, vec3 scale)
-        : position_(position), rotation_(rotation), scale_(scale) {};
+    Transform(vec3 position = vec3(0.0f, 0.0f, 0.0f), quat rotation = glm::identity<quat>(), vec3 scale = vec3(1.0f, 1.0f, 1.0f)) : position_(position), rotation_(rotation), scale_(scale) {};
     Transform(mat4 matrix);
 
     void rotate(float angle, vec3 axis);
@@ -45,5 +40,3 @@ inline Transform operator*(const Transform &t1, const Transform &t2)
 {
     return Transform(t1.getModelMatrix() * t2.getModelMatrix());
 }
-
-} // namespace rebirth

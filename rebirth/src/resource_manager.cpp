@@ -1,43 +1,54 @@
 #include <rebirth/resource_manager.h>
-#include <rebirth/vulkan/graphics.h>
 
-namespace rebirth
-{
+#include <rebirth/graphics/vulkan/graphics.h>
 
-void ResourceManager::destroy(Graphics &graphics)
+ResourceManager g_resourceManager;
+
+void ResourceManager::destroy()
 {
     for (auto &image : images) {
-        graphics.destroyImage(&image);
+        g_graphics.destroyImage(image);
     }
 
-    for (auto &mesh : meshes) {
-        graphics.destroyBuffer(&mesh.vertexBuffer);
-        graphics.destroyBuffer(&mesh.indexBuffer);
+    // NOTE: don't destroy model's meshes, because they destroyed here
+    for (auto &mesh : gpuMeshes) {
+        g_graphics.destroyBuffer(mesh.vertexBuffer);
+        g_graphics.destroyBuffer(mesh.indexBuffer);
     }
 }
 
 ImageID ResourceManager::addImage(vulkan::Image &image)
 {
     images.push_back(image);
-    return images.size() - 1;
+    return ImageID(images.size() - 1);
 }
 
 MaterialID ResourceManager::addMaterial(Material &material)
 {
     materials.push_back(material);
-    return materials.size() - 1;
+    return MaterialID(materials.size() - 1);
 }
 
-MeshID ResourceManager::addMesh(Mesh &mesh)
+ModelID ResourceManager::addModel(Model &model)
 {
-    meshes.push_back(mesh);
-    return meshes.size() - 1;
+    models.push_back(model);
+    return ModelID(models.size() - 1);
+}
+
+GPUMeshID ResourceManager::addGPUMesh(GPUMesh &mesh)
+{
+    gpuMeshes.push_back(mesh);
+    return GPUMeshID(gpuMeshes.size() - 1);
+}
+
+CPUMeshID ResourceManager::addCPUMesh(CPUMesh &mesh)
+{
+    cpuMeshes.push_back(mesh);
+    return CPUMeshID(cpuMeshes.size() - 1);
 }
 
 LightID ResourceManager::addLight(Light &light)
 {
     lights.push_back(light);
-    return lights.size() - 1;
+    return LightID(lights.size() - 1);
 }
-
-} // namespace rebirth

@@ -4,7 +4,7 @@
 
 using namespace std::chrono;
 
-namespace rebirth::util
+namespace util
 {
 struct Timer
 {
@@ -12,7 +12,10 @@ struct Timer
 
     inline double elapsedSeconds() { return (now() - time_).count(); }
 
-    inline double elapsedMilliseconds() { return duration<float, std::milli>(now() - time_).count(); }
+    inline double elapsedMilliseconds()
+    {
+        return duration<float, std::milli>(now() - time_).count();
+    }
 
     inline high_resolution_clock::time_point time() { return time_; }
 
@@ -21,4 +24,4 @@ struct Timer
 private:
     high_resolution_clock::time_point time_;
 };
-} // namespace rebirth::util
+} // namespace util

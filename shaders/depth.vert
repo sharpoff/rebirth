@@ -16,7 +16,7 @@ layout (push_constant) uniform PushConstant
     JointMatricesBuffer jointMatricesBuffer;
 } pc;
 
-#define getJointMatrix(idx) pc.jointMatricesBuffer.jointMatrices[(idx)]
+#define getJointMatrix(id) pc.jointMatricesBuffer.jointMatrices[(id)]
 
 void main()
 {

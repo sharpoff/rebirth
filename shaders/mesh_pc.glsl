@@ -9,7 +9,7 @@ layout (push_constant) uniform PushConstant
     mat4 transform;
     VertexBuffer vertexBuffer;
     JointMatricesBuffer jointMatricesBuffer;
-    int materialIdx;
+    int materialId;
 } pc;
 
 #endif

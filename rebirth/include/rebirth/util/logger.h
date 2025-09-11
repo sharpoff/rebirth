@@ -8,7 +8,7 @@ constexpr const char *beginEscape = "\x1B[";
 constexpr const char *endEscape = "\x1B[m";
 } // namespace
 
-namespace rebirth::util
+namespace util
 {
 
 template <class... Args>
@@ -35,4 +35,4 @@ static void logError(Args... args)
     std::cout << endEscape << "\n";
 }
 
-} // namespace rebirth::util
+} // namespace util

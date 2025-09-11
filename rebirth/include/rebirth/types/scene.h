@@ -1,33 +1,17 @@
 #pragma once
 
+#include <rebirth/types/camera.h>
 #include <rebirth/math/transform.h>
-#include <rebirth/types/material.h>
 #include <rebirth/types/animation.h>
+#include <rebirth/types/material.h>
 #include <rebirth/types/mesh.h>
-#include <rebirth/vulkan/resources.h>
-
-#include <string>
-
-namespace rebirth::vulkan
-{
-class Graphics;
-}
-
-namespace rebirth
-{
-
-struct SceneNode;
-
-struct SceneMesh
-{
-    std::vector<MeshID> primitives;
-};
+#include <rebirth/types/model.h>
 
 struct Skin
 {
     std::string name;
-    int skeleton = -1; // idx to a node
-    std::vector<int> joints; // indices to a node
+    SceneNodeID skeletonId = SceneNodeID::Invalid;
+    std::vector<SceneNodeID> jointIds;
     std::vector<mat4> inverseBindMatrices;
 
     vulkan::Buffer jointMatricesBuffer;
@@ -37,12 +21,12 @@ struct SceneNode
 {
     std::string name = "Node";
     Transform localTransform = Transform();
-    int index = -1; // idx to a node
-    int skin = -1; // idx to a skin
+    SceneNodeID id = SceneNodeID::Invalid;
+    SkinID skinId = SkinID::Invalid;
 
-    int parent = -1; // idx to a node
+    SceneNodeID parentId = SceneNodeID::Invalid;
     std::vector<SceneNode> children;
-    SceneMesh mesh;
+    Model model;
 };
 
 class Scene
@@ -51,25 +35,23 @@ public:
     std::string name;
     Transform transform = Transform();
     std::vector<SceneNode> nodes;
-    std::vector<Vertex> vertices;
 
     std::vector<Skin> skins;
     std::vector<Animation> animations;
-    std::string currentAnimation = "";
+    std::vector<Camera> cameras;
+    std::vector<LightID> lights;
 
-    void destroy(vulkan::Graphics &graphics);
+    void destroy();
 
     void merge(Scene &scene);
 
-    void updateAnimation(vulkan::Graphics &graphics, float deltaTime);
+    void updateAnimation(float deltaTime, std::string name);
 
-    SceneNode *getNodeByIndex(int index);
+    SceneNode *getNodeByIndex(SceneNodeID index);
     mat4 getNodeWorldMatrix(SceneNode *node);
     Animation *getAnimationByName(std::string name);
 
 private:
-    SceneNode *searchNode(SceneNode *node, int index);
-    void updateJoints(vulkan::Graphics &graphics, SceneNode &node);
+    SceneNode *searchNode(SceneNode *node, SceneNodeID index);
+    void updateJoints(SceneNode &node);
 };
-
-} // namespace rebirth

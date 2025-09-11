@@ -1,21 +1,17 @@
 #pragma once
 
 #include <rebirth/math/math.h>
-
-namespace rebirth
-{
+#include <vector>
 
 struct Vertex;
 
-struct Sphere
+struct SphereBounding
 {
-    Sphere() = default;
-    Sphere(vec3 center, float radius) : center(center), radius(radius) {};
+    SphereBounding() = default;
+    SphereBounding(vec3 center, float radius) : center(center), radius(radius) {};
 
-    vec3 center = vec3(0.0f);
+    vec3 center{};
     float radius = 0.0f;
 };
 
-Sphere calculateBoundingSphere(std::vector<Vertex> vertices);
-
-} // namespace rebirth
+SphereBounding calculateBoundingSphere(std::vector<Vertex> vertices);

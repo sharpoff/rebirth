@@ -1,9 +1,10 @@
-#include <rebirth/physics/physics_helpers.h>
 #include <rebirth/physics/physics_system.h>
+
+#include <rebirth/physics/physics_helpers.h>
+#include <rebirth/physics/rigid_body.h>
 #include <rebirth/util/logger.h>
 
-namespace rebirth
-{
+PhysicsSystem g_physicsSystem;
 
 void PhysicsSystem::initialize()
 {
@@ -21,13 +22,18 @@ void PhysicsSystem::initialize()
 
     // We need a job system that will execute physics jobs on multiple threads.
     jobSystem = new JPH::JobSystemThreadPool(
-        JPH::cMaxPhysicsJobs, JPH::cMaxPhysicsBarriers, JPH::thread::hardware_concurrency() - 1
-    );
+        JPH::cMaxPhysicsJobs,
+        JPH::cMaxPhysicsBarriers,
+        JPH::thread::hardware_concurrency() - 1);
 
     physicsSystem.Init(
-        maxBodies, numBodyMutexes, maxBodies, maxContactConstraints, broadPhaseLayerInterface,
-        objectVsBroadPhaseLayerFilter, objectVsObjectFilter
-    );
+        maxBodies,
+        numBodyMutexes,
+        maxBodies,
+        maxContactConstraints,
+        broadPhaseLayerInterface,
+        objectVsBroadPhaseLayerFilter,
+        objectVsObjectFilter);
 
     physicsSystem.SetBodyActivationListener(&bodyActivationListener);
     physicsSystem.SetContactListener(&contactListener);
@@ -38,8 +44,8 @@ void PhysicsSystem::shutdown()
     JPH::BodyInterface &bodyInterface = physicsSystem.GetBodyInterface();
 
     for (auto &rigidBody : rigidBodies) {
-        bodyInterface.RemoveBody(rigidBody.bodyId);
-        bodyInterface.DestroyBody(rigidBody.bodyId);
+        bodyInterface.RemoveBody(rigidBody.getBodyID());
+        bodyInterface.DestroyBody(rigidBody.getBodyID());
     }
 
     JPH::UnregisterTypes();
@@ -50,135 +56,123 @@ void PhysicsSystem::shutdown()
 
 RigidBodyID PhysicsSystem::createBox(Transform transform, vec3 halfExtent, bool isStatic)
 {
-    JPH::BodyInterface &bodyInterface = physicsSystem.GetBodyInterface();
-
-    JPH::BoxShapeSettings settings(toJolt(halfExtent));
+    JPH::BoxShapeSettings settings(MathToJolt(halfExtent));
     settings.SetEmbedded();
 
-    RigidBody rigidBody;
+    JPH::Ref<JPH::Shape> shape;
     JPH::Shape::ShapeResult result = settings.Create();
     if (result.IsValid()) {
-        rigidBody.shape = result.Get();
+        shape = result.Get();
     } else {
-        util::logError("Failed to create physics box: ", result.GetError());
-        return -1;
+        util::logError("Failed to create physics sphere: ", result.GetError());
+        return RigidBodyID::Invalid;
     }
 
     vec3 position = transform.getPosition();
     quat rotation = transform.getRotation();
 
-    rigidBody.bodyId = bodyInterface.CreateAndAddBody(
-        JPH::BodyCreationSettings(
-            rigidBody.shape.GetPtr(), toJolt(position), toJolt(rotation),
-            isStatic ? JPH::EMotionType::Static : JPH::EMotionType::Dynamic,
-            isStatic ? Layers::NON_MOVING : Layers::MOVING
-        ),
-        isStatic ? JPH::EActivation::DontActivate : JPH::EActivation::Activate
-    );
+    JPH::BodyCreationSettings bodySettings = JPH::BodyCreationSettings(
+        shape.GetPtr(),
+        MathToJolt(position),
+        MathToJolt(rotation),
+        isStatic ? JPH::EMotionType::Static : JPH::EMotionType::Dynamic,
+        isStatic ? Layers::NON_MOVING : Layers::MOVING);
+    JPH::EActivation activation = isStatic ? JPH::EActivation::DontActivate : JPH::EActivation::Activate;
 
-    bodyInterface.SetLinearVelocity(rigidBody.bodyId, JPH::Vec3(0.0f, -5.0f, 0.0f));
-
-    rigidBodies.push_back(rigidBody);
-    return rigidBodies.size() - 1;
+    return createShape(shape, bodySettings, activation, isStatic);
 }
 
 RigidBodyID PhysicsSystem::createSphere(Transform transform, float radius, bool isStatic)
 {
-    JPH::BodyInterface &bodyInterface = physicsSystem.GetBodyInterface();
-
     JPH::SphereShapeSettings settings(radius);
     settings.SetEmbedded();
 
-    RigidBody rigidBody;
+    JPH::Ref<JPH::Shape> shape;
     JPH::Shape::ShapeResult result = settings.Create();
     if (result.IsValid()) {
-        rigidBody.shape = result.Get();
+        shape = result.Get();
     } else {
         util::logError("Failed to create physics sphere: ", result.GetError());
-        return -1;
+        return RigidBodyID::Invalid;
     }
 
     vec3 position = transform.getPosition();
     quat rotation = transform.getRotation();
 
-    rigidBody.bodyId = bodyInterface.CreateAndAddBody(
-        JPH::BodyCreationSettings(
-            rigidBody.shape.GetPtr(), toJolt(position), toJolt(rotation),
-            isStatic ? JPH::EMotionType::Static : JPH::EMotionType::Dynamic,
-            isStatic ? Layers::NON_MOVING : Layers::MOVING
-        ),
-        isStatic ? JPH::EActivation::DontActivate : JPH::EActivation::Activate
-    );
+    JPH::BodyCreationSettings bodySettings = JPH::BodyCreationSettings(
+        shape.GetPtr(),
+        MathToJolt(position),
+        MathToJolt(rotation),
+        isStatic ? JPH::EMotionType::Static : JPH::EMotionType::Dynamic,
+        isStatic ? Layers::NON_MOVING : Layers::MOVING);
+    JPH::EActivation activation = isStatic ? JPH::EActivation::DontActivate : JPH::EActivation::Activate;
 
-    if (!isStatic)
-        bodyInterface.SetLinearVelocity(rigidBody.bodyId, JPH::Vec3(0.0f, -5.0f, 0.0f));
-
-    rigidBodies.push_back(rigidBody);
-    return rigidBodies.size() - 1;
+    return createShape(shape, bodySettings, activation, isStatic);
 }
 
 RigidBodyID PhysicsSystem::createShape(
     JPH::Ref<JPH::Shape> &shape,
     JPH::BodyCreationSettings settings,
-    JPH::EActivation activation
-)
+    JPH::EActivation activation,
+    bool isStatic)
 {
     JPH::BodyInterface &bodyInterface = physicsSystem.GetBodyInterface();
-
-    RigidBody rigidBody;
-    rigidBody.shape = shape;
-    rigidBody.bodyId = bodyInterface.CreateAndAddBody(settings, activation);
+    RigidBody rigidBody(bodyInterface.CreateBody(settings), shape, isStatic);
+    bodyInterface.AddBody(rigidBody.getBodyID(), activation);
 
     rigidBodies.push_back(rigidBody);
-    return rigidBodies.size() - 1;
-}
-
-RigidBodyID PhysicsSystem::addShape(
-    JPH::Ref<JPH::Shape> &shape,
-    JPH::BodyID bodyId
-)
-{
-    RigidBody rigidBody;
-    rigidBody.shape = shape;
-    rigidBody.bodyId = bodyId;
-
-    rigidBodies.push_back(rigidBody);
-    return rigidBodies.size() - 1;
+    return RigidBodyID(rigidBodies.size() - 1);
 }
 
 void PhysicsSystem::removeRigidBody(RigidBodyID id)
 {
-    if (id > -1)
-        rigidBodies.erase(rigidBodies.begin() + id);
+    if (id != RigidBodyID::Invalid) {
+        JPH::BodyInterface &bodyInterface = physicsSystem.GetBodyInterface();
+        RigidBody &rigidBody = getRigidBody(id);
+        bodyInterface.RemoveBody(rigidBody.getBodyID());
+        bodyInterface.DestroyBody(rigidBody.getBodyID());
+
+        rigidBodies.erase(rigidBodies.begin() + ID(id));
+    }
 }
 
 void PhysicsSystem::setFriction(RigidBodyID id, float friction)
 {
     JPH::BodyInterface &bodyInterface = physicsSystem.GetBodyInterface();
-    bodyInterface.SetFriction(getRigidBody(id).bodyId, friction);
+    bodyInterface.SetFriction(getRigidBody(id).getBodyID(), friction);
 }
 
 void PhysicsSystem::update(float dt)
 {
     float physicsDeltaTime = 1.0f / 60.0f;
-
     physicsSystem.Update(physicsDeltaTime, 1, tempAllocator, jobSystem);
 }
 
 vec3 PhysicsSystem::getPosition(RigidBodyID id)
 {
-    RigidBody &rigidBody = rigidBodies[id];
-
     JPH::BodyInterface &bodyInterface = physicsSystem.GetBodyInterface();
-    return toGLM(bodyInterface.GetPosition(rigidBody.bodyId));
+    return JoltToMath(bodyInterface.GetPosition(getRigidBody(id).getBodyID()));
 }
 
 quat PhysicsSystem::getRotation(RigidBodyID id)
 {
-    RigidBody &rigidBody = rigidBodies[id];
-
     JPH::BodyInterface &bodyInterface = physicsSystem.GetBodyInterface();
-    return toGLM(bodyInterface.GetRotation(rigidBody.bodyId));
+    return JoltToMath(bodyInterface.GetRotation(getRigidBody(id).getBodyID()));
 }
 
-} // namespace rebirth
+RigidBody &PhysicsSystem::getRigidBody(RigidBodyID id)
+{
+    return rigidBodies[ID(id)];
+}
+
+void PhysicsSystem::setLinearVelocity(RigidBodyID id, vec3 velocity)
+{
+    JPH::BodyInterface &bodyInterface = physicsSystem.GetBodyInterface();
+    bodyInterface.SetLinearVelocity(getRigidBody(id).getBodyID(), MathToJolt(velocity));
+}
+
+void PhysicsSystem::activateBody(RigidBodyID id)
+{
+    JPH::BodyInterface &bodyInterface = physicsSystem.GetBodyInterface();
+    bodyInterface.ActivateBody(getRigidBody(id).getBodyID());
+}

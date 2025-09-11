@@ -1,43 +1,44 @@
 #pragma once
 
 #include <rebirth/types/animation.h>
+#include <rebirth/types/light.h>
 #include <rebirth/types/material.h>
 #include <rebirth/types/mesh.h>
-#include <rebirth/types/light.h>
-#include <rebirth/types/types.h>
-#include <rebirth/vulkan/resources.h>
+#include <rebirth/types/model.h>
 
-#include <vector>
+#include <rebirth/types/id_types.h>
 
-using namespace rebirth::vulkan;
-
-namespace rebirth::vulkan
-{
-class Graphics;
-}
-
-namespace rebirth
-{
+#include <rebirth/graphics/vulkan/resources.h>
 
 class ResourceManager
 {
 public:
-    void destroy(Graphics &graphics);
+    ResourceManager() = default;
+    ResourceManager(ResourceManager const &) = delete;
+    void operator=(ResourceManager const &) = delete;
 
-    ImageID addImage(Image &image);
+    void destroy();
+
+    ImageID addImage(vulkan::Image &image);
     MaterialID addMaterial(Material &material);
-    MeshID addMesh(Mesh &mesh);
+    ModelID addModel(Model &model);
+    GPUMeshID addGPUMesh(GPUMesh &mesh);
+    CPUMeshID addCPUMesh(CPUMesh &mesh);
     LightID addLight(Light &light);
 
-    Image &getImage(ImageID id) { return images[id]; }
-    Material &getMaterial(MaterialID id) { return materials[id]; }
-    Mesh &getMesh(MeshID id) { return meshes[id]; }
-    Light &getLight(LightID id) { return lights[id]; }
+    vulkan::Image &getImage(ImageID id) { return images[ID(id)]; }
+    Material &getMaterial(MaterialID id) { return materials[ID(id)]; }
+    Model &getModel(ModelID id) { return models[ID(id)]; }
+    GPUMesh &getGPUMesh(GPUMeshID id) { return gpuMeshes[ID(id)]; }
+    CPUMesh &getCPUMesh(CPUMeshID id) { return cpuMeshes[ID(id)]; }
+    Light &getLight(LightID id) { return lights[ID(id)]; }
 
-    std::vector<Image> images;
+    std::vector<vulkan::Image> images;
     std::vector<Material> materials;
-    std::vector<Mesh> meshes;
+    std::vector<Model> models;
+    std::vector<GPUMesh> gpuMeshes;
+    std::vector<CPUMesh> cpuMeshes;
     std::vector<Light> lights;
 };
 
-} // namespace rebirth
+extern ResourceManager g_resourceManager;

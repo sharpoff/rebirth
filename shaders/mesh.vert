@@ -13,7 +13,7 @@ layout (location = 2) out vec2 outUV;
 layout (location = 3) out vec4 outTangent;
 layout (location = 4) out mat3 outTBN;
 
-#define getJointMatrix(idx) pc.jointMatricesBuffer.jointMatrices[(idx)]
+#define getJointMatrix(id) pc.jointMatricesBuffer.jointMatrices[(id)]
 
 void main()
 {

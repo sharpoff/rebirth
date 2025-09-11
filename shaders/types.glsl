@@ -14,10 +14,10 @@ struct Vertex
 
 struct Material
 {
-    int baseColorIdx;
-    int metallicRoughnessIdx;
-    int normalIdx;
-    int emissiveIdx;
+    int baseColorId;
+    int metallicRoughnessId;
+    int normalId;
+    int emissiveId;
 
     vec4 baseColorFactor;
     float metallicFactor;
@@ -39,8 +39,8 @@ struct Light
     float _pad0;
 };
 
-const uint LIGHT_TYPE_DIRECTIONAL = 1;
-const uint LIGHT_TYPE_POINT = 2;
-const uint LIGHT_TYPE_SPOT = 3;
+const uint LIGHT_TYPE_DIRECTIONAL = 0;
+const uint LIGHT_TYPE_POINT = 1;
+const uint LIGHT_TYPE_SPOT = 2;
 
 #endif

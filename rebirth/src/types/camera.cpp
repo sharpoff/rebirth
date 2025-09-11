@@ -1,12 +1,12 @@
-#include <rebirth/input/input.h>
 #include <rebirth/types/camera.h>
+
+#include <rebirth/graphics/render_settings.h>
+#include <rebirth/input/input.h>
+#include <rebirth/math/perspective.h>
 
 #include <algorithm>
 
 #include "imgui.h"
-
-namespace rebirth
-{
 
 void Camera::setPosition(vec3 position)
 {
@@ -24,10 +24,21 @@ void Camera::setPerspective(float fov, float aspectRatio, float near, float far)
     this->far = far;
 }
 
+void Camera::setOrthographic(float left, float right, float bottom, float top, float near, float far)
+{
+    projection = glm::ortho(left, right, bottom, top, near, far);
+
+    this->near = near;
+    this->far = far;
+}
+
 void Camera::update(float deltaTime)
 {
     ImGuiIO io = ImGui::GetIO();
-    Input &input = Input::getInstance();
+    Input &input = g_input;
+
+    if (io.WantCaptureKeyboard)
+        return;
 
     front.x = cos(glm::radians(pitch)) * sin(glm::radians(yaw));
     front.y = sin(glm::radians(pitch));
@@ -36,8 +47,12 @@ void Camera::update(float deltaTime)
 
     right = glm::normalize(glm::cross(front, up));
 
-    float moveSpeed = deltaTime * movementSpeed;
-    if (!io.WantCaptureKeyboard && type == CameraType::FirstPerson) {
+    if (type == CameraType::FirstPerson) {
+        float moveSpeed = deltaTime * movementSpeed;
+        if (input.isKeyPressed(KeyboardKey::LSHIFT)) {
+            moveSpeed *= 4;
+        }
+
         if (input.isKeyPressed(KeyboardKey::W))
             position += front * moveSpeed;
         if (input.isKeyPressed(KeyboardKey::S))
@@ -54,10 +69,13 @@ void Camera::update(float deltaTime)
 void Camera::handleEvent(SDL_Event event, float deltaTime)
 {
     ImGuiIO io = ImGui::GetIO();
-    Input &input = Input::getInstance();
+    Input &input = g_input;
+
+    if (io.WantCaptureMouse)
+        return;
 
     // mouse
-    if (!io.WantCaptureMouse && input.isMouseButtonPressed(MouseButton::LEFT)) {
+    if (input.isMouseButtonPressed(MouseButton::LEFT)) {
         yaw -= event.motion.xrel * rotationSpeed;
         pitch -= event.motion.yrel * rotationSpeed;
 
@@ -75,5 +93,3 @@ void Camera::updateViewMatrix()
         view = glm::lookAt(eye, target, up);
     }
 }
-
-} // namespace rebirth

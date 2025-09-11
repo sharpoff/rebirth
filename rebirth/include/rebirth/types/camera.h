@@ -2,11 +2,7 @@
 
 #include <SDL3/SDL.h>
 #include <map>
-#include <rebirth/math/math.h>
 #include <rebirth/math/transform.h>
-
-namespace rebirth
-{
 
 enum class CameraType
 {
@@ -22,6 +18,7 @@ public:
 
     void setPosition(vec3 position);
     void setPerspective(float fov, float aspectRatio, float near, float far);
+    void setOrthographic(float left, float right, float bottom, float top, float near, float far);
 
     CameraType type = CameraType::FirstPerson;
 
@@ -49,5 +46,3 @@ private:
 
     std::map<unsigned int, bool> keys;
 };
-
-} // namespace rebirth

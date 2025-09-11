@@ -20,8 +20,8 @@ target_link_libraries(rebirth-engine
     volk
     VulkanMemoryAllocator
     SDL3::SDL3
-    stb
     glm
+    stb
     cgltf
     imgui
     Jolt

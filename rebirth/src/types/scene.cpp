@@ -1,18 +1,16 @@
+#include <rebirth/graphics/vulkan/graphics.h>
 #include <rebirth/types/scene.h>
-#include <rebirth/vulkan/graphics.h>
 
-namespace rebirth
+void Scene::destroy()
 {
-
-void Scene::destroy(vulkan::Graphics &graphics)
-{
-    vkDeviceWaitIdle(graphics.getDevice());
+    vkDeviceWaitIdle(g_graphics.getDevice());
 
     for (auto &skin : skins) {
-        graphics.destroyBuffer(&skin.jointMatricesBuffer);
+        g_graphics.destroyBuffer(skin.jointMatricesBuffer);
     }
 }
 
+// XXX: is it working properly?
 void Scene::merge(Scene &scene)
 {
     if (this == &scene)
@@ -23,9 +21,15 @@ void Scene::merge(Scene &scene)
 
     std::function<void(SceneNode &)> mergeNode = [&](SceneNode &node) {
         node.localTransform = scene.transform * node.localTransform;
-        node.index += node.index > -1 ? nodesCount : 0;
-        node.skin += node.skin > -1 ? skinsCount : 0;
-        node.parent += node.parent > -1 ? nodesCount : 0;
+        if (node.id != SceneNodeID::Invalid) {
+            node.id = SceneNodeID(ID(node.id) + nodesCount);
+        }
+        if (node.skinId != SkinID::Invalid) {
+            node.skinId = SkinID(ID(node.skinId) + skinsCount);
+        }
+        if (node.parentId != SceneNodeID::Invalid) {
+            node.parentId = SceneNodeID(ID(node.parentId) + nodesCount);
+        }
 
         for (auto &child : node.children) {
             mergeNode(child);
@@ -38,9 +42,13 @@ void Scene::merge(Scene &scene)
     }
 
     for (auto &skin : scene.skins) {
-        skin.skeleton += skin.skeleton > -1 ? nodesCount : 0;
-        for (auto &joint : skin.joints) {
-            joint += joint > -1 ? nodesCount : 0;
+        if (skin.skeletonId != SceneNodeID::Invalid) {
+            skin.skeletonId = SceneNodeID(ID(skin.skeletonId) + nodesCount);
+        }
+        for (auto &jointId : skin.jointIds) {
+            if (jointId != SceneNodeID::Invalid) {
+                jointId = SceneNodeID(ID(jointId) + nodesCount);
+            }
         }
 
         skins.push_back(skin);
@@ -48,19 +56,21 @@ void Scene::merge(Scene &scene)
 
     for (auto &animation : scene.animations) {
         for (auto &channel : animation.channels) {
-            channel.node += channel.node > -1 ? nodesCount : 0;
+            if (channel.nodeId != SceneNodeID::Invalid) {
+                channel.nodeId = SceneNodeID(ID(channel.nodeId) + nodesCount);
+            }
         }
 
         animations.push_back(animation);
     }
 }
 
-void Scene::updateAnimation(vulkan::Graphics &graphics, float deltaTime)
+void Scene::updateAnimation(float deltaTime, std::string name)
 {
     if (animations.size() < 1)
         return;
 
-    Animation *animation = getAnimationByName(currentAnimation);
+    Animation *animation = getAnimationByName(name);
     if (!animation)
         return;
 
@@ -70,22 +80,21 @@ void Scene::updateAnimation(vulkan::Graphics &graphics, float deltaTime)
     }
 
     for (auto &channel : animation->channels) {
-        if (channel.sampler == -1)
+        if (channel.samplerId == SamplerID::Invalid)
             continue;
 
-        AnimationSampler &sampler = animation->samplers[channel.sampler];
+        AnimationSampler &sampler = animation->samplers[ID(channel.samplerId)];
 
         for (size_t i = 0; i < sampler.inputs.size() - 1; i++) {
             if ((animation->currentTime >= sampler.inputs[i]) &&
                 (animation->currentTime <= sampler.inputs[i + 1])) {
                 float step = (animation->currentTime - sampler.inputs[i]) /
                              (sampler.inputs[i + 1] - sampler.inputs[i]);
-                SceneNode *node = getNodeByIndex(channel.node);
+                SceneNode *node = getNodeByIndex(channel.nodeId);
 
                 if (channel.path == AnimationPath::translation) {
                     node->localTransform.setPosition(
-                        glm::mix(sampler.outputs[i], sampler.outputs[i + 1], step)
-                    );
+                        glm::mix(sampler.outputs[i], sampler.outputs[i + 1], step));
                 }
 
                 if (channel.path == AnimationPath::rotation) {
@@ -106,20 +115,22 @@ void Scene::updateAnimation(vulkan::Graphics &graphics, float deltaTime)
 
                 if (channel.path == AnimationPath::scale) {
                     node->localTransform.setScale(
-                        glm::mix(sampler.outputs[i], sampler.outputs[i + 1], step)
-                    );
+                        glm::mix(sampler.outputs[i], sampler.outputs[i + 1], step));
                 }
             }
         }
     }
 
     for (auto &node : nodes) {
-        updateJoints(graphics, node);
+        updateJoints(node);
     }
 }
 
-SceneNode *Scene::getNodeByIndex(int index)
+SceneNode *Scene::getNodeByIndex(SceneNodeID index)
 {
+    if (index == SceneNodeID::Invalid)
+        return nullptr;
+
     SceneNode *found = nullptr;
     for (auto &node : nodes) {
         found = searchNode(&node, index);
@@ -130,10 +141,13 @@ SceneNode *Scene::getNodeByIndex(int index)
     return found;
 }
 
-SceneNode *Scene::searchNode(SceneNode *node, int index)
+SceneNode *Scene::searchNode(SceneNode *node, SceneNodeID index)
 {
+    if (index == SceneNodeID::Invalid)
+        return nullptr;
+
     SceneNode *found = nullptr;
-    if (node->index == index)
+    if (node->id == index)
         return node;
 
     for (auto &child : node->children) {
@@ -147,14 +161,14 @@ SceneNode *Scene::searchNode(SceneNode *node, int index)
 
 mat4 Scene::getNodeWorldMatrix(SceneNode *node)
 {
-    if (!node || node->parent < 0)
+    if (!node)
         return mat4(1.0f);
 
     mat4 worldMatrix = node->localTransform.getModelMatrix();
-    SceneNode *parent = getNodeByIndex(node->parent);
+    SceneNode *parent = getNodeByIndex(node->parentId);
     while (parent) {
         worldMatrix = parent->localTransform.getModelMatrix() * worldMatrix;
-        parent = getNodeByIndex(parent->parent);
+        parent = getNodeByIndex(parent->parentId);
     }
 
     return worldMatrix;
@@ -170,31 +184,30 @@ Animation *Scene::getAnimationByName(std::string name)
     return nullptr;
 }
 
-void Scene::updateJoints(vulkan::Graphics &graphics, SceneNode &node)
+void Scene::updateJoints(SceneNode &node)
 {
-    if (node.skin > -1) {
+    if (node.skinId == SkinID::Invalid) {
         mat4 inverseTransform = glm::inverse(getNodeWorldMatrix(&node));
-        Skin &skin = skins[node.skin];
+        Skin &skin = skins[ID(node.skinId)];
 
-        size_t jointsCount = skin.joints.size();
+        size_t jointsCount = skin.jointIds.size();
         std::vector<mat4> jointMatrices(jointsCount);
 
         for (size_t i = 0; i < jointsCount; i++) {
-            SceneNode *joint = getNodeByIndex(skin.joints[i]);
+            SceneNode *joint = getNodeByIndex(skin.jointIds[i]);
 
             jointMatrices[i] = getNodeWorldMatrix(joint) * skin.inverseBindMatrices[i];
             jointMatrices[i] = inverseTransform * jointMatrices[i];
         }
 
         // Update ssbo
-        graphics.uploadBuffer(
-            skin.jointMatricesBuffer, jointMatrices.data(), jointMatrices.size() * sizeof(mat4)
-        );
+        g_graphics.uploadBuffer(
+            skin.jointMatricesBuffer,
+            jointMatrices.data(),
+            jointMatrices.size() * sizeof(mat4));
     }
 
     for (auto &child : node.children) {
-        updateJoints(graphics, child);
+        updateJoints(child);
     }
 }
-
-} // namespace rebirth

@@ -11,7 +11,7 @@ layout (buffer_reference, std430) readonly buffer VertexBuffer { Vertex vertices
 layout (push_constant) uniform PushConstant
 {
     VertexBuffer vertexBuffer;
-    int skyboxIndex;
+    int skyboxId;
 } pc;
 
 layout (location = 0) out vec3 outUVW;

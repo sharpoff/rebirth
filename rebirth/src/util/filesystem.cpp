@@ -6,7 +6,7 @@
 #include <unistd.h>
 #endif
 
-namespace rebirth::util
+namespace util
 {
 
 std::filesystem::path getExecutablePath()
@@ -44,4 +44,4 @@ std::vector<char> readFile(std::filesystem::path path)
     return buffer;
 }
 
-} // namespace rebirth::util
+} // namespace util

@@ -1,14 +1,10 @@
 #pragma once
 
 #include <rebirth/math/math.h>
+#include <rebirth/types/id_types.h>
 
-#include <string>
 #include <vector>
-
-namespace rebirth
-{
-
-struct SceneNode;
+#include <string>
 
 enum class AnimationPath
 {
@@ -21,8 +17,8 @@ enum class AnimationPath
 
 struct AnimationChannel
 {
-    int sampler = -1; // idx to a sampler
-    int node = -1; // idx to a node
+    SamplerID samplerId = SamplerID::Invalid;
+    SceneNodeID nodeId = SceneNodeID::Invalid;
     AnimationPath path;
 };
 
@@ -42,5 +38,3 @@ struct Animation
     float end = std::numeric_limits<float>::min();
     float currentTime = 0.0f;
 };
-
-} // namespace rebirth

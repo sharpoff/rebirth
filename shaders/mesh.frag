@@ -30,31 +30,32 @@ void main()
     vec3 normal = inNormal;
     vec3 emissive = vec3(0);
 
-    if (pc.materialIdx > -1) {
-        Material material = materials[pc.materialIdx];
+    if (pc.materialId > -1) {
+        Material material = materials[pc.materialId];
 
-        if (material.baseColorIdx > -1) {
-            baseColor = TEX(material.baseColorIdx, inUV) * material.baseColorFactor;
+        if (material.baseColorId > -1) {
+            baseColor = TEX(material.baseColorId, inUV) * material.baseColorFactor;
         }
 
-        if (material.metallicRoughnessIdx > -1) {
-            metallicRoughtness = TEX(material.metallicRoughnessIdx, inUV);
+        if (material.metallicRoughnessId > -1) {
+            metallicRoughtness = TEX(material.metallicRoughnessId, inUV);
             metallicRoughtness.g *= material.roughnessFactor; // roughness
             metallicRoughtness.b *= material.metallicFactor; // metallic
         }
 
-        if (material.normalIdx > -1) {
-            normal = TEX(material.normalIdx, inUV).rgb;
+        if (material.normalId > -1) {
+            normal = TEX(material.normalId, inUV).rgb;
         }
 
-        if (material.emissiveIdx > -1) {
-            emissive = TEX(material.emissiveIdx, inUV).rgb;
+        if (material.emissiveId > -1) {
+            emissive = TEX(material.emissiveId, inUV).rgb;
         }
     } else {
+        // set default material
         Material material = materials[DEFAULT_MATERIAL_ID];
 
-        if (material.baseColorIdx > -1) {
-            baseColor = TEX(material.baseColorIdx, inUV) * material.baseColorFactor;
+        if (material.baseColorId > -1) {
+            baseColor = TEX(material.baseColorId, inUV) * material.baseColorFactor;
         }
     }
 
@@ -80,26 +81,32 @@ void main()
         Light light = lights[i];
 
         // Lighting
-        vec3 lightDir = normalize(light.position - inWorldPos);
-        float NoL = clamp(dot(normal, lightDir), 0.0, 1.0);
+        vec3 lightDir = vec3(0.0);
+        float NoL = 0.0;
+        vec3 lightColor = vec3(0.0);
 
-        vec3 lightColor = pbrBRDF(lightDir, viewDir, normal, roughness, f0, diffuseColor) * NoL * light.color;
+        if (light.type == LIGHT_TYPE_DIRECTIONAL) {
+            lightDir = normalize(-light.direction);
+            NoL = clamp(dot(normal, lightDir), 0.0, 1.0);
+
+            lightColor = pbrBRDF(lightDir, viewDir, normal, roughness, f0, diffuseColor) * NoL * light.color;
+        }
 
         // Shadow mapping
         float visibility = 1.0;
-        if (scene_data.shadowMapIndex > -1) {
+        if (scene_data.shadowMapId > -1) {
             vec4 lightSpace = light.mvp * vec4(inWorldPos, 1.0);
             vec3 projCoords = lightSpace.xyz / lightSpace.w;
 
             vec2 coords = (projCoords.xy * 0.5 + 0.5);
-            float closestDepth = TEX(scene_data.shadowMapIndex, coords).r;
+            float closestDepth = TEX(scene_data.shadowMapId, coords).r;
             float currentDepth = projCoords.z;
 
             float bias = max(0.0005 * (1.0 - NoL), 0.0001);
 
             // poisson sampling
             for (int i = 0; i < 4; i++) {
-                if (TEX(scene_data.shadowMapIndex, coords + poissonDisk[i] / 5000.0).r > currentDepth - bias) {
+                if (TEX(scene_data.shadowMapId, coords + poissonDisk[i] / 5000.0).r > currentDepth - bias) {
                     visibility -= 0.2;
                 }
             }

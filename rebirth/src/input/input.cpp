@@ -1,14 +1,6 @@
 #include <rebirth/input/input.h>
 
-namespace rebirth
-{
-
-Input &Input::getInstance()
-{
-    static Input instance;
-
-    return instance;
-}
+Input g_input;
 
 void Input::processEvent(SDL_Event *event)
 {
@@ -506,5 +498,3 @@ KeyboardKey Input::getKeyFromSDL(SDL_Keycode key)
 
     return KeyboardKey::UNDEFINED;
 }
-
-} // namespace rebirth

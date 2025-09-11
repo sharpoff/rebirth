@@ -12,8 +12,8 @@ layout (location = 0) out vec4 fragColor;
 void main()
 {
     float depth = 0.0;
-    if (scene_data.shadowMapIndex > -1)
-        depth = TEX(scene_data.shadowMapIndex, inUV).r;
+    if (scene_data.shadowMapId > -1)
+        depth = TEX(scene_data.shadowMapId, inUV).r;
 
     fragColor = vec4(vec3(depth), 1.0);
 }

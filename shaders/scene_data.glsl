@@ -10,7 +10,7 @@ layout (binding = 0) uniform SceneData
     mat4 projection;
     mat4 view;
     vec4 cameraPosAndLightNum; // vec4 -> vec3 (camera position) / int (number of lights)
-    int shadowMapIndex;
+    int shadowMapId;
 } scene_data;
 
 layout (binding = 2) readonly buffer MaterialsBuffer {

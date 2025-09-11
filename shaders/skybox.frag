@@ -15,10 +15,10 @@ layout (buffer_reference, std430) readonly buffer VertexBuffer { Vertex vertices
 layout (push_constant) uniform PushConstant
 {
     VertexBuffer vertexBuffer;
-    int skyboxIndex;
+    int skyboxId;
 } pc;
 
 void main()
 {
-    fragColor = texture(textureCubes[nonuniformEXT(pc.skyboxIndex)], inUVW);
+    fragColor = texture(textureCubes[nonuniformEXT(pc.skyboxId)], inUVW);
 }

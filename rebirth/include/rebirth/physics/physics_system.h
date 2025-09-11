@@ -12,20 +12,20 @@
 #include <Jolt/Physics/PhysicsSystem.h>
 #include <Jolt/RegisterTypes.h>
 
-#include <rebirth/math/math.h>
 #include <rebirth/math/transform.h>
-#include <rebirth/types/types.h>
+#include <rebirth/types/id_types.h>
 
 #include <rebirth/physics/physics_layers.h>
 #include <rebirth/physics/physics_listeners.h>
 #include <rebirth/physics/rigid_body.h>
 
-namespace rebirth
-{
-
 class PhysicsSystem
 {
 public:
+    PhysicsSystem() = default;
+    PhysicsSystem(PhysicsSystem const &) = delete;
+    void operator=(PhysicsSystem const &) = delete;
+
     void initialize();
     void shutdown();
 
@@ -36,18 +36,20 @@ public:
     RigidBodyID createShape(
         JPH::Ref<JPH::Shape> &shape,
         JPH::BodyCreationSettings settings,
-        JPH::EActivation activation
-    );
-    RigidBodyID addShape(JPH::Ref<JPH::Shape> &shape, JPH::BodyID bodyId);
+        JPH::EActivation activation,
+        bool isStatic = false);
 
     void removeRigidBody(RigidBodyID id);
 
     void setFriction(RigidBodyID id, float friction);
+    void setLinearVelocity(RigidBodyID id, vec3 velocity);
+    void activateBody(RigidBodyID id);
 
     vec3 getPosition(RigidBodyID id);
     quat getRotation(RigidBodyID id);
     JPH::PhysicsSystem &getPhysicsSystem() { return physicsSystem; };
-    RigidBody &getRigidBody(RigidBodyID id) { return rigidBodies[id]; };
+    JPH::BodyInterface &getBodyInterface() { return physicsSystem.GetBodyInterface(); };
+    RigidBody &getRigidBody(RigidBodyID id);
 
 private:
     JPH::JobSystemThreadPool *jobSystem;
@@ -81,4 +83,4 @@ private:
     std::vector<RigidBody> rigidBodies;
 };
 
-} // namespace rebirth
+extern PhysicsSystem g_physicsSystem;

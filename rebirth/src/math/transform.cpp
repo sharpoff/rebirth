@@ -1,8 +1,5 @@
 #include <rebirth/math/transform.h>
 
-namespace rebirth
-{
-
 Transform::Transform(mat4 matrix)
 {
     vec3 skew;
@@ -30,5 +27,3 @@ mat4 Transform::getModelMatrix() const
 
     return position * rotation * scale;
 }
-
-} // namespace rebirth

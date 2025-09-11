@@ -3,9 +3,6 @@
 #include <rebirth/util/common.h>
 #include <rebirth/util/logger.h>
 
-namespace rebirth
-{
-
 Frustum::Frustum(const Camera &camera)
 {
     const vec3 position = camera.position;
@@ -20,14 +17,14 @@ Frustum::Frustum(const Camera &camera)
 
     const float halfVSide = far * tanf(fov * .5f);
     const float halfHSide = halfVSide * aspect;
-    const glm::vec3 frontMultFar = far * front;
+    const vec3 frontMultFar = front * far;
 
-    nearPlane = {position + near * front, front};
+    nearPlane = {position + front * near, front};
     farPlane = {position + frontMultFar, -front};
-    rightPlane = {position, glm::cross(frontMultFar - right * halfHSide, up)};
-    leftPlane = {position, glm::cross(up, frontMultFar + right * halfHSide)};
-    topPlane = {position, glm::cross(right, frontMultFar - up * halfVSide)};
-    bottomPlane = {position, glm::cross(frontMultFar + up * halfVSide, right)};
+    rightPlane = {position, cross(frontMultFar - right * halfHSide, up)};
+    leftPlane = {position, cross(up, frontMultFar + right * halfHSide)};
+    topPlane = {position, cross(right, frontMultFar - up * halfVSide)};
+    bottomPlane = {position, cross(frontMultFar + up * halfVSide, right)};
 }
 
 bool isInFrustum(const Frustum &frustum, const AABB &aabb, const Transform &transform)
@@ -40,13 +37,13 @@ bool isInFrustum(const Frustum &frustum, const AABB &aabb, const Transform &tran
     return true;
 }
 
-bool isInFrustum(const Frustum &frustum, const Sphere &sphere, const Transform &transform)
+bool isInFrustum(const Frustum &frustum, const SphereBounding &sphere, const Transform &transform)
 {
     const glm::vec3 scale = transform.getScale();
     const glm::vec3 center{transform.getModelMatrix() * glm::vec4(sphere.center, 1.f)};
     const float maxScale = std::max(std::max(scale.x, scale.y), scale.z);
 
-    Sphere worldSphere(center, sphere.radius * (maxScale * 0.5f));
+    SphereBounding worldSphere(center, sphere.radius * (maxScale * 0.5f));
 
     return (
         isOnPlane(worldSphere, frustum.leftPlane) && isOnPlane(worldSphere, frustum.rightPlane) &&
@@ -71,10 +68,8 @@ bool isOnPlane(const AABB &aabb, const Plane &plane)
     return -radius <= std::abs(distance);
 }
 
-bool isOnPlane(const Sphere &sphere, const Plane &plane)
+bool isOnPlane(const SphereBounding &sphere, const Plane &plane)
 {
     float distance = glm::dot(plane.normal, sphere.center) - plane.distance;
     return distance > -sphere.radius;
 }
-
-} // namespace rebirth

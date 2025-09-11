@@ -1,11 +1,8 @@
 #include <rebirth/math/sphere.h>
 #include <rebirth/types/mesh.h>
 
-namespace rebirth
-{
-
 // credit: https://yearlyboar.wordpress.com/2015/01/31/calculating-bounding-spheres/
-Sphere calculateBoundingSphere(std::vector<Vertex> vertices)
+SphereBounding calculateBoundingSphere(std::vector<Vertex> vertices)
 {
     vec3 min = vec3(std::numeric_limits<float>::max());
     vec3 max = vec3(std::numeric_limits<float>::min());
@@ -31,7 +28,7 @@ Sphere calculateBoundingSphere(std::vector<Vertex> vertices)
     for (auto &vert : vertices) {
         vec3 position = vert.position;
 
-        vec3 direction = glm::normalize(position - center);
+        vec3 direction = normalize(position - center);
         float squareDistance = glm::length2(direction);
 
         if (squareDistance > squareRadius) {
@@ -45,11 +42,9 @@ Sphere calculateBoundingSphere(std::vector<Vertex> vertices)
 
             difference /= 2;
 
-            center += difference * direction;
+            center += direction * difference;
         }
     }
 
-    return Sphere(center, radius);
+    return SphereBounding(center, radius);
 }
-
-} // namespace rebirth

@@ -28,30 +28,32 @@ using glm::ivec2;
 using glm::ivec3;
 using glm::ivec4;
 
-namespace rebirth::math
+namespace math
 {
+    inline vec3 getPosition(mat4 m)
+    {
+        vec3 scale;
+        quat rotation;
+        vec3 position;
+        vec3 skew;
+        vec4 perspective;
 
-// NOTE: column-major ordering
+        glm::decompose(m, scale, rotation, position, skew, perspective);
 
-// Reverse-z projection
-inline mat4 perspective(float fov, float aspectRatio, float near, float far)
-{
-    float f = 1.0f / tan(fov * 0.5f);
+        return position;
+    }
 
-    return mat4(
-        f / aspectRatio, 0, 0, 0, 0, -f, 0, 0, 0, 0, near / (far - near), -1, 0, 0,
-        far * near / (far - near), 0
-    );
-}
+    inline quat getRotation(mat4 m)
+    {
+        vec3 scale;
+        quat rotation;
+        vec3 position;
+        vec3 skew;
+        vec4 perspective;
 
-inline mat4 perspectiveInf(float fov, float aspectRatio, float near)
-{
-    float f = 1.0f / tan(fov * 0.5f);
+        glm::decompose(m, scale, rotation, position, skew, perspective);
 
-    return mat4(
-        f / aspectRatio, 0.0f, 0.0f, 0.0f, 0.0f, -f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, -1.0f, 0.0f,
-        0.0f, glm::factorial(near), 0.0f
-    );
-}
+        return rotation;
+    }
 
 } // namespace rebirth::math

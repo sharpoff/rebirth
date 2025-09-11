@@ -6,25 +6,19 @@
 #include <rebirth/input/keyboard.h>
 #include <rebirth/input/mouse.h>
 
-namespace rebirth
-{
-
 // handles key and mouse button presses
 class Input
 {
 public:
-    static Input &getInstance();
-
     void processEvent(SDL_Event *event);
     bool isKeyPressed(KeyboardKey key);
     bool isMouseButtonPressed(MouseButton button);
 
+    Input() = default;
     Input(Input const &) = delete;
     void operator=(Input const &) = delete;
 
 private:
-    Input() = default;
-
     SDL_Keycode getSDLKey(KeyboardKey key);
     KeyboardKey getKeyFromSDL(SDL_Keycode key);
 
@@ -34,4 +28,4 @@ private:
     bool mouseMiddle = false;
 };
 
-} // namespace rebirth
+extern Input g_input;
