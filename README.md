@@ -14,6 +14,7 @@ C++20 Vulkan Game engine
 * Mip map generation
 * glTF scene loader
 * Dear ImGui integration for custom tooling
+* Tracy profiler
 
 ## Third party libraries
 * SDL3
@@ -24,3 +25,4 @@ C++20 Vulkan Game engine
 * volk
 * VulkanMemoryAllocator
 * Jolt Physics
+* tracy

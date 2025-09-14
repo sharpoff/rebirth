@@ -11,9 +11,13 @@
 
 #include "backend/imgui_impl_sdl3.h"
 
+#include <tracy/Tracy.hpp>
+
 Application::Application(std::string name, unsigned int width, unsigned int height)
     : name(name), width(width), height(height)
 {
+    ZoneScopedN("Application init");
+
     // set consistent path
     util::setCurrentPath(util::getExecutablePath().parent_path().parent_path());
 
@@ -32,9 +36,12 @@ Application::Application(std::string name, unsigned int width, unsigned int heig
     renderer.initialize(window);
 
     // load scenes
-    if (!gltf::loadScene(scene, "assets/models/sponza/Sponza.gltf")) {
-        util::logError("Failed to load scene.");
-        exit(EXIT_FAILURE);
+    {
+        ZoneScopedN("Load scenes");
+        if (!gltf::loadScene(scene, "assets/models/subway_station/scene.gltf")) {
+            util::logError("Failed to load scene.");
+            exit(EXIT_FAILURE);
+        }
     }
 
     // setup camera
@@ -67,6 +74,8 @@ Application::Application(std::string name, unsigned int width, unsigned int heig
 
 Application::~Application()
 {
+    ZoneScopedN("Application shutdown");
+
     Game::shutdown();
 
     g_physicsSystem.shutdown();
@@ -84,6 +93,7 @@ void Application::run()
     deltaTimer.start();
 
     while (running) {
+        ZoneScopedN("Main loop");
         float deltaTime = deltaTimer.elapsedMilliseconds() / 1000;
         deltaTimer.start();
 
@@ -95,6 +105,8 @@ void Application::run()
 
 void Application::handleInput(float deltaTime)
 {
+    ZoneScopedN("Handle input");
+
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
         ImGui_ImplSDL3_ProcessEvent(&event);
@@ -180,6 +192,8 @@ void Application::handleInput(float deltaTime)
 
 void Application::update(float deltaTime)
 {
+    ZoneScopedN("Update");
+
     g_physicsSystem.update(deltaTime);
 
     Game::update(deltaTime);
@@ -196,6 +210,8 @@ void Application::update(float deltaTime)
 
 void Application::render()
 {
+    ZoneScopedN("Render");
+
     Game::draw(renderer);
 
     renderer.drawScene(scene, scene.transform);

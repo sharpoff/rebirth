@@ -4,10 +4,14 @@
 #include <rebirth/physics/rigid_body.h>
 #include <rebirth/util/logger.h>
 
+#include <tracy/Tracy.hpp>
+
 PhysicsSystem g_physicsSystem;
 
 void PhysicsSystem::initialize()
 {
+    ZoneScopedN("Physics init");
+
     // Register allocation hook.
     JPH::RegisterDefaultAllocator();
 
@@ -41,6 +45,8 @@ void PhysicsSystem::initialize()
 
 void PhysicsSystem::shutdown()
 {
+    ZoneScopedN("Physics shutdown");
+
     JPH::BodyInterface &bodyInterface = physicsSystem.GetBodyInterface();
 
     for (auto &rigidBody : rigidBodies) {
@@ -144,8 +150,9 @@ void PhysicsSystem::setFriction(RigidBodyID id, float friction)
 
 void PhysicsSystem::update(float dt)
 {
-    float physicsDeltaTime = 1.0f / 60.0f;
-    physicsSystem.Update(physicsDeltaTime, 1, tempAllocator, jobSystem);
+    ZoneScopedN("Physics update");
+
+    physicsSystem.Update(dt, 1, tempAllocator, jobSystem);
 }
 
 vec3 PhysicsSystem::getPosition(RigidBodyID id)

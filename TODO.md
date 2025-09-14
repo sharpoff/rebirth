@@ -1,11 +1,18 @@
+# Current tasks
+* Add Tracy profiler. Why subway station is lagging?
+* Add object picking to see object's properties. Also add gizmo to transform objects
+* Implement frustum culling
+* Build basic AI citizens that would walk around.
+* Dont render when app is minimized.
+* Chracter controller (jolt virtual character)
+* Ragdolls and constraints
+
 # General
 * Speed up model loading of big scenes(like sponza)
 	- Add multithreading
 	- Convert textures to dds/ktx?
-* Replace GLM with my math lib (also add tests and perf checks for it)
-* Add object picking to see object's properties. Also add gizmo to transform an object
-* Audio
-* Add profiler (Tracy?)
+* Audio support
+* Gamepad support?
 
 # Renderer
 * CSM shadows

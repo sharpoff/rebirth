@@ -18,6 +18,8 @@
 #include <rebirth/graphics/vulkan/resources.h>
 #include <rebirth/graphics/vulkan/swapchain.h>
 
+#include <tracy/TracyVulkan.hpp>
+
 constexpr int FRAMES_IN_FLIGHT = 2;
 
 namespace vulkan
@@ -55,6 +57,7 @@ namespace vulkan
         Image &getColorImage() { return colorImage; }
         Image &getColorImageOneSample() { return colorImageOneSample; }
         Image &getDepthImage() { return depthImage; }
+        TracyVkCtx &getTracyContext() { return tracyVkCtx[currentFrame]; }; // tracy profiler
 
         // Resources
         void createImage(Image &image, ImageCreateInfo &createInfo, bool generateMipmaps);
@@ -153,6 +156,8 @@ namespace vulkan
         vulkan::Image depthImage;
 
         VkSampleCountFlagBits sampleCount = VK_SAMPLE_COUNT_1_BIT;
+
+        std::array<TracyVkCtx, FRAMES_IN_FLIGHT> tracyVkCtx;
 
         uint32_t currentFrame = 0;
         bool resizeRequested = false;

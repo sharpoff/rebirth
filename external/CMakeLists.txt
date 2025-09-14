@@ -29,13 +29,8 @@ add_subdirectory(JoltPhysics/Build)
 # glm
 add_subdirectory(glm)
 
-# eastl
-set(EASTL_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/EASTL")
-include_directories(${EASTL_ROOT_DIR}/include)
-include_directories(${EASTL_ROOT_DIR}/test/packages/EAAssert/include)
-include_directories(${EASTL_ROOT_DIR}/test/packages/EABase/include/Common)
-include_directories(${EASTL_ROOT_DIR}/test/packages/EAMain/include)
-include_directories(${EASTL_ROOT_DIR}/test/packages/EAStdC/include)
-include_directories(${EASTL_ROOT_DIR}/test/packages/EATest/include)
-include_directories(${EASTL_ROOT_DIR}/test/packages/EAThread/include)
-set(EASTL_LIBRARY ${EASTL_ROOT_DIR}/build/EASTL.lib)
+# tracy client
+option(TRACY_ENABLE " " ON)
+option(TRACY_ON_DEMAND " " ON) # capture only when connected to profiler server
+option(TRACY_ONLY_LOCALHOST " " ON)
+add_subdirectory(tracy)

@@ -15,8 +15,13 @@
 
 #include <rebirth/graphics/gltf.h>
 
+#include <tracy/Tracy.hpp>
+#include <tracy/TracyVulkan.hpp>
+
 void Renderer::initialize(SDL_Window *window)
 {
+    ZoneScopedN("Renderer initialize");
+
     assert(window);
     this->window = window;
 
@@ -47,6 +52,8 @@ void Renderer::initialize(SDL_Window *window)
 
 void Renderer::shutdown()
 {
+    ZoneScopedN("Renderer shutdown");
+
     vkDeviceWaitIdle(g_graphics.getDevice());
 
     g_resourceManager.destroy();
@@ -66,6 +73,8 @@ void Renderer::addLight(Light light) { g_resourceManager.addLight(light); }
 
 void Renderer::drawScene(Scene &scene, Transform transform)
 {
+    ZoneScoped;
+
     std::function<void(SceneNode &)> nodeDraw = [&](SceneNode &node) {
         for (GPUMeshID gpuMeshId : node.model.meshes) {
             meshDraws.push_back(
@@ -89,6 +98,8 @@ void Renderer::drawScene(Scene &scene, Transform transform)
 
 void Renderer::drawModel(ModelID modelId, Transform transform)
 {
+    ZoneScoped;
+
     Model &model = g_resourceManager.getModel(modelId);
 
     for (GPUMeshID gpuMeshId : model.meshes) {
@@ -103,6 +114,8 @@ void Renderer::drawModel(ModelID modelId, Transform transform)
 
 void Renderer::drawMesh(GPUMeshID gpuMeshId, Transform transform)
 {
+    ZoneScoped;
+
     meshDraws.push_back(
         MeshDraw{
             .meshId = gpuMeshId,
@@ -113,6 +126,8 @@ void Renderer::drawMesh(GPUMeshID gpuMeshId, Transform transform)
 
 void Renderer::present(Camera &camera)
 {
+    ZoneScoped;
+
     if (!prepared) {
         createResources();
         prepared = true;
@@ -158,6 +173,9 @@ void Renderer::present(Camera &camera)
 
     // Skybox Pass
     {
+        ZoneScopedN("Skybox Pass");
+        TracyVkZone(g_graphics.getTracyContext(), cmd, "Skybox Pass");
+
         skyboxPipeline.beginFrame(cmd);
         if (g_renderSettings.skybox) {
             skyboxPipeline.drawSkybox(cmd, skyboxId);
@@ -170,6 +188,9 @@ void Renderer::present(Camera &camera)
 
     // Shadow Pass
     if (!meshDraws.empty()) {
+        ZoneScopedN("Shadow Pass");
+        TracyVkZone(g_graphics.getTracyContext(), cmd, "Shadow Pass");
+
         shadowPipeline.beginFrame(cmd, shadowMap.view);
 
         if (g_renderSettings.shadows) {
@@ -186,6 +207,9 @@ void Renderer::present(Camera &camera)
 
     // Mesh Pass
     if (!g_renderSettings.debugShadowMap && !meshDraws.empty()) {
+        ZoneScopedN("Mesh Pass");
+        TracyVkZone(g_graphics.getTracyContext(), cmd, "Mesh Pass");
+
         meshPipeline.beginFrame(cmd, g_renderSettings.wireframe);
         meshPipeline.draw(cmd, frustum, meshDraws);
         meshPipeline.endFrame(cmd);
@@ -196,6 +220,9 @@ void Renderer::present(Camera &camera)
 
     // Imgui Pass
     {
+        ZoneScopedN("ImGui Pass");
+        TracyVkZone(g_graphics.getTracyContext(), cmd, "ImGui Pass");
+
         imguiPipeline.beginFrame(cmd);
         imguiPipeline.draw();
         imguiPipeline.endFrame(cmd);
@@ -208,12 +235,16 @@ void Renderer::present(Camera &camera)
     // Render passes end
     //
 
+    TracyVkCollect(g_graphics.getTracyContext(), cmd);
+
     g_graphics.submitCommandBuffer(cmd);
     meshDraws.clear();
 }
 
 void Renderer::createPipelines()
 {
+    ZoneScoped;
+
     meshPipeline.initialize();
     shadowPipeline.initialize();
     skyboxPipeline.initialize(cubeModelId);
@@ -221,6 +252,8 @@ void Renderer::createPipelines()
 
 void Renderer::updateDynamicData(Camera &camera)
 {
+    ZoneScoped;
+
     auto &lights = g_resourceManager.lights;
     for (auto &light : lights) {
         if (light.type == LightType::Point) {
@@ -248,6 +281,8 @@ void Renderer::updateDynamicData(Camera &camera)
 
 void Renderer::createResources()
 {
+    ZoneScoped;
+
     // shadow map
     {
         ImageCreateInfo createInfo = {
@@ -289,6 +324,8 @@ void Renderer::createResources()
 
 void Renderer::createBuffers()
 {
+    ZoneScoped;
+
     const VkDevice device = g_graphics.getDevice();
 
     // scene data
@@ -323,6 +360,8 @@ void Renderer::createBuffers()
 
 void Renderer::updateDescriptors()
 {
+    ZoneScoped;
+
     // Update descriptors, if necessary
     DescriptorWriter writer;
     if (sceneDataBuffer.buffer != VK_NULL_HANDLE) {
@@ -370,6 +409,8 @@ void Renderer::updateDescriptors()
 
 void Renderer::reloadShaders()
 {
+    ZoneScoped;
+
     ::util::logInfo("Reloading shaders.");
 
     vkDeviceWaitIdle(g_graphics.getDevice());

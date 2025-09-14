@@ -25,6 +25,7 @@ target_link_libraries(rebirth-engine
     cgltf
     imgui
     Jolt
+    Tracy::TracyClient
 )
 
 add_executable(main

@@ -16,6 +16,9 @@
 
 #include <stb_image.h>
 
+#include <tracy/Tracy.hpp>
+#include <tracy/TracyVulkan.hpp>
+
 vulkan::Graphics g_graphics;
 
 namespace vulkan
@@ -51,6 +54,8 @@ namespace vulkan
 
     void Graphics::initialize(SDL_Window *window)
     {
+        ZoneScoped;
+
         assert(window);
         this->window = window;
 
@@ -83,11 +88,21 @@ namespace vulkan
         createImages();
 
         setupImGui();
+
+        for (int i = 0; i < FRAMES_IN_FLIGHT; i++) {
+            tracyVkCtx[i] = TracyVkContext(physicalDevice, device, graphicsQueue, commandBuffers[i]);
+        }
     }
 
     void Graphics::destroy()
     {
+        ZoneScoped;
+
         vkDeviceWaitIdle(device);
+
+        for (unsigned int i = 0; i < FRAMES_IN_FLIGHT; i++) {
+            TracyVkDestroy(tracyVkCtx[i]);
+        }
 
         ImGui_ImplVulkan_Shutdown();
         ImGui_ImplSDL3_Shutdown();
