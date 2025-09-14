@@ -59,6 +59,8 @@ void ImGuiPipeline::draw()
     {
         ImGui::Begin("Debug");
 
+        ImGui::Text("Frame time: %f ms", g_renderSettings.timestampDeltaMs);
+        ImGui::Text("FPS: %d", int(1000.0f / g_renderSettings.timestampDeltaMs));
         ImGui::Checkbox("Debug shadow map", &g_renderSettings.debugShadowMap);
         ImGui::Checkbox("Enable wireframe", &g_renderSettings.wireframe);
         ImGui::Checkbox("Enable shadows", &g_renderSettings.shadows);

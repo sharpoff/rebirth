@@ -43,6 +43,8 @@ public:
     ModelID getSpherePrimitive() { return sphereModelId; };
     ModelID getCylinderPrimitive() { return cylinderModelId; };
 
+    float getTimestampDeltaMs() { return float(timestamps[1] - timestamps[0]) * g_graphics.getDevicePropertices().limits.timestampPeriod * 1e-6; };
+
 protected:
     void createPipelines();
     void updateDynamicData(Camera &camera);
@@ -62,6 +64,9 @@ protected:
     vulkan::Buffer sceneDataBuffer;
     vulkan::Buffer materialsBuffer;
     vulkan::Buffer lightsBuffer;
+
+    VkQueryPool queryPool;
+    std::array<uint64_t, 2> timestamps;
 
     ImageID defaultImageId;
     MaterialID defaultMaterialId;

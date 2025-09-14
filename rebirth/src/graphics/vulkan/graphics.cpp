@@ -398,6 +398,27 @@ namespace vulkan
         return commandBuffer;
     }
 
+    VkQueryPool Graphics::createQueryPool(VkQueryType type, uint32_t queryCount)
+    {
+        VkQueryPoolCreateInfo createInfo = {VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO};
+        createInfo.queryType = type;
+        createInfo.queryCount = queryCount;
+
+        VkQueryPool queryPool;
+        VK_CHECK(vkCreateQueryPool(device, &createInfo, nullptr, &queryPool));
+        return queryPool;
+    }
+
+    void Graphics::resetQueryPool(VkCommandBuffer cmd, VkQueryPool queryPool, uint32_t firstQuery, uint32_t queryCount)
+    {
+        vkCmdResetQueryPool(cmd, queryPool, firstQuery, queryCount);
+    }
+
+    void Graphics::writeTimestamp(VkCommandBuffer cmd, VkPipelineStageFlagBits pipelineStage, VkQueryPool queryPool, uint32_t query)
+    {
+        vkCmdWriteTimestamp(cmd, pipelineStage, queryPool, query);
+    }
+
     void Graphics::flushCommandBuffer(VkCommandBuffer cmd, VkQueue queue, VkCommandPool pool, bool free)
     {
         if (cmd == VK_NULL_HANDLE)
@@ -607,6 +628,11 @@ namespace vulkan
             recreateSwapchain();
 
         currentFrame = (currentFrame + 1) % FRAMES_IN_FLIGHT;
+    }
+
+    bool Graphics::supportTimestamps()
+    {
+        return deviceProperties.limits.timestampPeriod > 0 && deviceProperties.limits.timestampComputeAndGraphics;
     }
 
     void Graphics::createImage(Image &image, ImageCreateInfo &createInfo, bool generateMipmaps)

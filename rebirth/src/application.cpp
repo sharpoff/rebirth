@@ -38,7 +38,8 @@ Application::Application(std::string name, unsigned int width, unsigned int heig
     // load scenes
     {
         ZoneScopedN("Load scenes");
-        if (!gltf::loadScene(scene, "assets/models/subway_station/scene.gltf")) {
+        // if (!gltf::loadScene(scene, "assets/models/subway_station/scene.gltf")) {
+        if (!gltf::loadScene(scene, "assets/models/sponza/Sponza.gltf")) {
             util::logError("Failed to load scene.");
             exit(EXIT_FAILURE);
         }
@@ -204,6 +205,8 @@ void Application::update(float deltaTime)
 
         camera.setPosition(controlledCar.getPosition());
     }
+
+    g_renderSettings.timestampDeltaMs = renderer.getTimestampDeltaMs();
 
     camera.update(deltaTime);
 }

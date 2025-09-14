@@ -57,7 +57,13 @@ namespace vulkan
         Image &getColorImage() { return colorImage; }
         Image &getColorImageOneSample() { return colorImageOneSample; }
         Image &getDepthImage() { return depthImage; }
-        TracyVkCtx &getTracyContext() { return tracyVkCtx[currentFrame]; }; // tracy profiler
+        VkPhysicalDeviceFeatures &getDeviceFeatures() { return deviceFeatures; }
+        VkPhysicalDeviceProperties &getDevicePropertices() { return deviceProperties; }
+        TracyVkCtx &getTracyContext() { return tracyVkCtx[currentFrame]; } // tracy profiler
+        uint32_t getCurrentFrame() { return currentFrame; }
+        
+        // Features support
+        bool supportTimestamps();
 
         // Resources
         void createImage(Image &image, ImageCreateInfo &createInfo, bool generateMipmaps);
@@ -74,6 +80,11 @@ namespace vulkan
 
         VkImageView createImageView(VkImage image, VkImageViewType viewType, VkFormat format, VkImageSubresourceRange subresourceRange);
         VkSampler createSampler(VkFilter minFilter, VkFilter magFilter, VkSamplerAddressMode samplerMode, float maxLod);
+
+        // Query
+        VkQueryPool createQueryPool(VkQueryType type, uint32_t queryCount);
+        void resetQueryPool(VkCommandBuffer cmd, VkQueryPool queryPool, uint32_t firstQuery, uint32_t queryCount);
+        void writeTimestamp(VkCommandBuffer cmd, VkPipelineStageFlagBits pipelineStage, VkQueryPool queryPool, uint32_t query);
 
         // Command buffer
         void flushCommandBuffer(VkCommandBuffer cmd, VkQueue queue, VkCommandPool pool, bool free);

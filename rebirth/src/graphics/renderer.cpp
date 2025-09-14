@@ -27,6 +27,9 @@ void Renderer::initialize(SDL_Window *window)
 
     g_graphics.initialize(window);
 
+    // query
+    queryPool = g_graphics.createQueryPool(VK_QUERY_TYPE_TIMESTAMP, timestamps.size());
+
     // load common mesh primitives
     cubeModelId = generateCube();
     sphereModelId = generateUVSphere(1.0f);
@@ -57,6 +60,8 @@ void Renderer::shutdown()
     vkDeviceWaitIdle(g_graphics.getDevice());
 
     g_resourceManager.destroy();
+
+    vkDestroyQueryPool(g_graphics.getDevice(), queryPool, nullptr);
 
     shadowPipeline.destroy();
     meshPipeline.destroy();
@@ -135,13 +140,21 @@ void Renderer::present(Camera &camera)
 
     updateDynamicData(camera);
 
-    Frustum frustum(camera);
-
+    //
+    // Create and begin command buffer
+    //
     const VkCommandBuffer cmd = g_graphics.beginCommandBuffer();
 
-    // resizing window / recreating swapchain
     if (cmd == VK_NULL_HANDLE) {
+        // Don't present - recreating swapchain
         return;
+    }
+
+    if (g_graphics.supportTimestamps()) {
+        g_graphics.resetQueryPool(cmd, queryPool, 0, timestamps.size());
+
+        // write start timestamp
+        g_graphics.writeTimestamp(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, queryPool, 0);
     }
 
     vulkan::Swapchain &swapchain = g_graphics.getSwapchain();
@@ -170,6 +183,8 @@ void Renderer::present(Camera &camera)
     //
     // Render passes start
     //
+
+    Frustum frustum(camera);
 
     // Skybox Pass
     {
@@ -235,9 +250,20 @@ void Renderer::present(Camera &camera)
     // Render passes end
     //
 
+    if (g_graphics.supportTimestamps()) {
+        // write end timestamp
+        g_graphics.writeTimestamp(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, queryPool, 1);
+    }
+
     TracyVkCollect(g_graphics.getTracyContext(), cmd);
 
     g_graphics.submitCommandBuffer(cmd);
+
+    if (g_graphics.supportTimestamps()) {
+        // get timestamp result
+        vkGetQueryPoolResults(g_graphics.getDevice(), queryPool, 0, timestamps.size(), timestamps.size() * sizeof(uint64_t), timestamps.data(), sizeof(uint64_t), VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
+    }
+
     meshDraws.clear();
 }
 

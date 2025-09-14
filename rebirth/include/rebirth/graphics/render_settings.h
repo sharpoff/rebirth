@@ -8,6 +8,7 @@ struct RenderSettings
     bool shadows = true;
     bool skybox = true;
     bool imgui = true;
+    float timestampDeltaMs = 0.0f;
 };
 
 extern RenderSettings g_renderSettings;
