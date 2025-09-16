@@ -8,12 +8,11 @@ void DescriptorManager::initialize(Graphics &graphics)
 {
     std::vector<VkDescriptorPoolSize> poolSizes = {
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1}, // scene data
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_TEXTURES},
-        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, MAX_MATERIALS + MAX_LIGHTS}, // materials, lights
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_TEXTURES}, // textures
+        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 4}, // materials, lights, joints, vertices
     };
 
-    pool =
-        graphics.createDescriptorPool(poolSizes, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT);
+    pool = graphics.createDescriptorPool(poolSizes, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT);
 
     std::vector<VkDescriptorSetLayoutBinding> bindings = {
         {
@@ -31,13 +30,25 @@ void DescriptorManager::initialize(Graphics &graphics)
         {
             .binding = MATERIALS_BINDING,
             .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-            .descriptorCount = MAX_MATERIALS,
+            .descriptorCount = 1,
             .stageFlags = VK_SHADER_STAGE_ALL,
         },
         {
             .binding = LIGHTS_BINDING,
             .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-            .descriptorCount = MAX_LIGHTS,
+            .descriptorCount = 1,
+            .stageFlags = VK_SHADER_STAGE_ALL,
+        },
+        {
+            .binding = VERTEX_BINDING,
+            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            .descriptorCount = 1,
+            .stageFlags = VK_SHADER_STAGE_ALL,
+        },
+        {
+            .binding = JOINT_MATRICES_BINDING,
+            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            .descriptorCount = 1,
             .stageFlags = VK_SHADER_STAGE_ALL,
         },
     };

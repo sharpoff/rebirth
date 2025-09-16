@@ -1,9 +1,11 @@
+#include "rebirth/graphics/render_settings.h"
 #include <rebirth/graphics/pipelines/mesh_pipeline.h>
 #include <rebirth/graphics/vulkan/graphics.h>
 #include <rebirth/graphics/vulkan/pipeline_builder.h>
 #include <rebirth/graphics/vulkan/util.h>
 
 #include <rebirth/math/frustum.h>
+#include <rebirth/util/logger.h>
 
 using namespace vulkan;
 
@@ -81,6 +83,7 @@ void MeshPipeline::beginFrame(VkCommandBuffer cmd, bool wireframe)
 {
     Swapchain &swapchain = g_graphics.getSwapchain();
 
+    // TODO: make RenderInfo that would contain all information needed for a pipeline
     const VkExtent2D extent = swapchain.getExtent();
     const Image &colorImage = g_graphics.getColorImage();
     const Image &colorImageOneSample = g_graphics.getColorImageOneSample();
@@ -121,15 +124,7 @@ void MeshPipeline::beginFrame(VkCommandBuffer cmd, bool wireframe)
     vulkan::util::setScissor(cmd, extent);
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, wireframe ? wireframePipeline : meshPipeline);
-    vkCmdBindDescriptorSets(
-        cmd,
-        VK_PIPELINE_BIND_POINT_GRAPHICS,
-        layout,
-        0,
-        1,
-        &g_graphics.getDescriptorManager().getSet(),
-        0,
-        nullptr);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, &g_graphics.getDescriptorManager().getSet(), 0, nullptr);
 }
 
 void MeshPipeline::endFrame(VkCommandBuffer cmd)
@@ -140,33 +135,26 @@ void MeshPipeline::endFrame(VkCommandBuffer cmd)
 
 void MeshPipeline::draw(VkCommandBuffer cmd, Frustum &frustum, std::vector<MeshDraw> &meshDraws)
 {
-    for (auto &meshDraw : meshDraws) {
+    vkCmdBindIndexBuffer(cmd, g_resourceManager.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+
+    for (MeshDraw &meshDraw : meshDraws) {
         // if (!isInFrustum(frustum, command.boundingSphere, command.transform)) {
         //     continue;
         // }
 
-        if (meshDraw.meshId == GPUMeshID::Invalid)
+        if (meshDraw.meshId == MeshID::Invalid)
             continue;
 
-        GPUMesh &gpuMesh = g_resourceManager.getGPUMesh(meshDraw.meshId);
-        CPUMesh &cpuMesh = g_resourceManager.getCPUMesh(gpuMesh.cpuMeshId);
-
-        vkCmdBindIndexBuffer(cmd, gpuMesh.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+        Mesh &mesh = g_resourceManager.getMesh(meshDraw.meshId);
 
         PushConstant pc = {
             .transform = meshDraw.transform,
-            .vertexBuffer = gpuMesh.vertexBuffer.address,
-            .jointMatricesBuffer = meshDraw.jointMatricesBuffer,
-            .materialId = gpuMesh.materialId == MaterialID::Invalid ? -1 : int(gpuMesh.materialId),
+            .materialId = mesh.materialId == MaterialID::Invalid ? -1 : int(mesh.materialId),
         };
 
-        vkCmdPushConstants(
-            cmd,
-            layout,
-            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-            0,
-            sizeof(pc),
-            &pc);
-        vkCmdDrawIndexed(cmd, cpuMesh.indices.size(), 1, 0, 0, 0);
+        vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pc), &pc);
+        vkCmdDrawIndexed(cmd, mesh.indexCount, 1, mesh.indexOffset, 0, 0);
+
+        g_renderSettings.drawCount++;
     }
 }

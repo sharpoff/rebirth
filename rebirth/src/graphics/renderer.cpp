@@ -1,6 +1,6 @@
 #include <rebirth/graphics/renderer.h>
 
-#include <rebirth/math/perspective.h>
+#include <rebirth/math/projection.h>
 
 #include <rebirth/graphics/primitives.h>
 #include <rebirth/graphics/render_settings.h>
@@ -81,13 +81,12 @@ void Renderer::drawScene(Scene &scene, Transform transform)
     ZoneScoped;
 
     std::function<void(SceneNode &)> nodeDraw = [&](SceneNode &node) {
-        for (GPUMeshID gpuMeshId : node.model.meshes) {
+        for (MeshID meshId : node.model.meshes) {
             meshDraws.push_back(
                 MeshDraw{
-                    .meshId = gpuMeshId,
+                    .meshId = meshId,
                     .transform = transform.getModelMatrix() * scene.getNodeWorldMatrix(&node),
                     .boundingSphere = SphereBounding(),
-                    .jointMatricesBuffer = node.skinId != SkinID::Invalid ? scene.skins[ID(node.skinId)].jointMatricesBuffer.address : 0,
                 });
         }
 
@@ -107,23 +106,23 @@ void Renderer::drawModel(ModelID modelId, Transform transform)
 
     Model &model = g_resourceManager.getModel(modelId);
 
-    for (GPUMeshID gpuMeshId : model.meshes) {
+    for (MeshID meshId : model.meshes) {
         meshDraws.push_back(
             MeshDraw{
-                .meshId = gpuMeshId,
+                .meshId = meshId,
                 .transform = transform.getModelMatrix(),
                 .boundingSphere = SphereBounding(),
             });
     }
 }
 
-void Renderer::drawMesh(GPUMeshID gpuMeshId, Transform transform)
+void Renderer::drawMesh(MeshID meshId, Transform transform)
 {
     ZoneScoped;
 
     meshDraws.push_back(
         MeshDraw{
-            .meshId = gpuMeshId,
+            .meshId = meshId,
             .transform = transform.getModelMatrix(),
             .boundingSphere = SphereBounding(),
         });
@@ -138,7 +137,11 @@ void Renderer::present(Camera &camera)
         prepared = true;
     }
 
+    // TODO: create and update global joints buffer
     updateDynamicData(camera);
+
+    // batchMeshDraws();
+    // cullDrawBatches();
 
     //
     // Create and begin command buffer
@@ -265,6 +268,41 @@ void Renderer::present(Camera &camera)
     }
 
     meshDraws.clear();
+    drawBatches.clear();
+    g_renderSettings.drawCount = 0;
+}
+
+void Renderer::batchMeshDraws()
+{
+    if (meshDraws.empty())
+        return;
+
+    DrawBatch firstBatch;
+    firstBatch.first = 0;
+    firstBatch.count = 1;
+    firstBatch.meshId = meshDraws[0].meshId;
+
+    drawBatches.push_back(firstBatch);
+
+    for (auto &meshDraw : meshDraws) {
+        if (drawBatches.back().meshId == meshDraw.meshId) {
+            // same batch
+            drawBatches.back().count++;
+        } else {
+            // new batch
+            DrawBatch firstBatch;
+            firstBatch.first = 0;
+            firstBatch.count = 1;
+            firstBatch.meshId = meshDraw.meshId;
+
+            drawBatches.push_back(firstBatch);
+        }
+    }
+}
+
+void Renderer::cullDrawBatches()
+{
+    // todo: add compute shader culling
 }
 
 void Renderer::createPipelines()
@@ -288,7 +326,7 @@ void Renderer::updateDynamicData(Camera &camera)
             mat4 mvp = projection * view;
             light.mvp = mvp;
         } else if (light.type == LightType::Directional) {
-            // mat4 projection = glm::ortho(0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 100.0f);  
+            // mat4 projection = glm::ortho(0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 100.0f);
             mat4 projection = math::perspectiveInf(glm::radians(45.0f), 1.0f, 1.0f);
             mat4 view = glm::lookAt(vec3(-4, 100, -4), vec3(0.0f), vec3(0.0f, 1.0f, 0.0f));
             mat4 mvp = projection * view;
@@ -343,6 +381,13 @@ void Renderer::createResources()
         skyboxId = g_resourceManager.addImage(skybox);
     }
 
+    // vertices/indices
+    {
+        g_resourceManager.createVertexBuffer();
+        g_resourceManager.createIndexBuffer();
+        g_resourceManager.createJointMatricesBuffer();
+    }
+
     createBuffers();
 
     updateDescriptors();
@@ -390,45 +435,16 @@ void Renderer::updateDescriptors()
 
     // Update descriptors, if necessary
     DescriptorWriter writer;
-    if (sceneDataBuffer.buffer != VK_NULL_HANDLE) {
-        writer.write(
-            SCENE_DATA_BINDING,
-            sceneDataBuffer.buffer,
-            sceneDataBuffer.size,
-            VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-            0);
-    }
 
     auto &textures = g_resourceManager.images;
     for (size_t i = 0; i < textures.size(); i++) {
-        writer.write(
-            TEXTURES_BINDING,
-            textures[i].view,
-            textures[i].sampler,
-            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            i);
+        writer.write(TEXTURES_BINDING, textures[i].view, textures[i].sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, i);
     }
 
-    auto &materials = g_resourceManager.materials;
-    for (size_t i = 0; i < materials.size(); i++) {
-        writer.write(
-            MATERIALS_BINDING,
-            materialsBuffer.buffer,
-            materialsBuffer.size,
-            VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-            i);
-    }
-
-    auto &lights = g_resourceManager.lights;
-    for (size_t i = 0; i < lights.size(); i++) {
-        writer.write(
-            LIGHTS_BINDING,
-            lightsBuffer.buffer,
-            lightsBuffer.size,
-            VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-            i);
-    }
+    writer.write(SCENE_DATA_BINDING, sceneDataBuffer.buffer, sceneDataBuffer.size, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0);
+    writer.write(MATERIALS_BINDING, materialsBuffer.buffer, materialsBuffer.size, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 0);
+    writer.write(LIGHTS_BINDING, lightsBuffer.buffer, lightsBuffer.size, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 0);
+    writer.write(VERTEX_BINDING, g_resourceManager.vertexBuffer.buffer, g_resourceManager.vertexBuffer.size, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 0);
 
     writer.update(g_graphics.getDevice(), g_graphics.getDescriptorManager().getSet());
 }

@@ -2,8 +2,8 @@
 
 #include <rebirth/math/math.h>
 #include <rebirth/math/transform.h>
-#include <rebirth/types/mesh.h>
 
+enum class ModelID : uint32_t;
 struct Vertex;
 
 struct AABB
@@ -15,5 +15,5 @@ struct AABB
 };
 
 AABB calculateAABB(std::vector<Vertex> vertices);
-AABB calculateAABB(CPUMeshID cpuMeshId, Transform transform);
+// AABB calculateAABB(CPUMeshID cpuMeshId, Transform transform);
 AABB calculateAABB(ModelID modelId, Transform transform);

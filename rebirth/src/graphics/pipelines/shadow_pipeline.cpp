@@ -1,3 +1,4 @@
+#include "rebirth/graphics/render_settings.h"
 #include <rebirth/graphics/pipelines/shadow_pipeline.h>
 #include <rebirth/graphics/vulkan/graphics.h>
 #include <rebirth/graphics/vulkan/pipeline_builder.h>
@@ -86,11 +87,7 @@ void ShadowPipeline::beginFrame(VkCommandBuffer cmd, const VkImageView shadowMap
     vulkan::util::setScissor(cmd, extent);
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-
-    vkCmdBindDescriptorSets(
-        cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1,
-        &g_graphics.getDescriptorManager().getSet(), 0, nullptr
-    );
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, &g_graphics.getDescriptorManager().getSet(), 0, nullptr);
 }
 
 void ShadowPipeline::endFrame(VkCommandBuffer cmd, bool debug)
@@ -105,23 +102,19 @@ void ShadowPipeline::endFrame(VkCommandBuffer cmd, bool debug)
 
 void ShadowPipeline::draw(VkCommandBuffer cmd, std::vector<MeshDraw> &meshDraws, mat4 lightMVP)
 {
-    for (auto &command : meshDraws) {
-        GPUMesh &gpuMesh = g_resourceManager.getGPUMesh(command.meshId);
-        CPUMesh &cpuMesh = g_resourceManager.getCPUMesh(gpuMesh.cpuMeshId);
+    vkCmdBindIndexBuffer(cmd, g_resourceManager.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 
-        vkCmdBindIndexBuffer(cmd, gpuMesh.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+    for (auto &command : meshDraws) {
+        Mesh &mesh = g_resourceManager.getMesh(command.meshId);
 
         PushConstant pc = {
             .transform = lightMVP * command.transform,
-            .vertexBuffer = gpuMesh.vertexBuffer.address,
-            .jointMatricesBuffer = command.jointMatricesBuffer,
         };
 
-        vkCmdPushConstants(
-            cmd, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pc),
-            &pc
-        );
-        vkCmdDrawIndexed(cmd, cpuMesh.indices.size(), 1, 0, 0, 0);
+        vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pc), &pc);
+        vkCmdDrawIndexed(cmd, mesh.indexCount, 1, mesh.indexOffset, 0, 0);
+
+        g_renderSettings.drawCount++;
     }
 }
 
@@ -159,6 +152,8 @@ void ShadowPipeline::debugDraw(VkCommandBuffer cmd)
 
     // draw quad
     vkCmdDraw(cmd, 3, 1, 0, 0);
+
+    g_renderSettings.drawCount++;
 
     vulkan::util::endRendering(cmd);
     vulkan::util::endDebugLabel(cmd);

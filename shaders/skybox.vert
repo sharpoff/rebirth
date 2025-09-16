@@ -1,24 +1,17 @@
 #version 450
 
-#extension GL_EXT_buffer_reference : require
 #extension GL_GOOGLE_include_directive : require
 
 #include "types.glsl"
+
 #include "scene_data.glsl"
-
-layout (buffer_reference, std430) readonly buffer VertexBuffer { Vertex vertices[]; };
-
-layout (push_constant) uniform PushConstant
-{
-    VertexBuffer vertexBuffer;
-    int skyboxId;
-} pc;
+#include "vertices.glsl"
 
 layout (location = 0) out vec3 outUVW;
 
 void main()
 {
-    Vertex vertex = pc.vertexBuffer.vertices[gl_VertexIndex];
+    Vertex vertex = vertices[gl_VertexIndex];
 
     outUVW = vertex.position;
 

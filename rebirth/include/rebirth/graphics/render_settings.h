@@ -9,6 +9,7 @@ struct RenderSettings
     bool skybox = true;
     bool imgui = true;
     float timestampDeltaMs = 0.0f;
+    unsigned int drawCount = 0;
 };
 
 extern RenderSettings g_renderSettings;

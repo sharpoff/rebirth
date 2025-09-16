@@ -18,6 +18,7 @@ public:
 
     void setPosition(vec3 position);
     void setPerspective(float fov, float aspectRatio, float near, float far);
+    void setPerspectiveInf(float fov, float aspectRatio, float near);
     void setOrthographic(float left, float right, float bottom, float top, float near, float far);
 
     CameraType type = CameraType::FirstPerson;

@@ -2,7 +2,7 @@
 
 #include <rebirth/graphics/render_settings.h>
 #include <rebirth/input/input.h>
-#include <rebirth/math/perspective.h>
+#include <rebirth/math/projection.h>
 
 #include <algorithm>
 
@@ -22,6 +22,16 @@ void Camera::setPerspective(float fov, float aspectRatio, float near, float far)
     this->aspectRatio = aspectRatio;
     this->near = near;
     this->far = far;
+}
+
+void Camera::setPerspectiveInf(float fov, float aspectRatio, float near)
+{
+    projection = math::perspectiveInf(fov, aspectRatio, near);
+
+    this->fov = fov;
+    this->aspectRatio = aspectRatio;
+    this->near = near;
+    this->far = 1000.0f;
 }
 
 void Camera::setOrthographic(float left, float right, float bottom, float top, float near, float far)

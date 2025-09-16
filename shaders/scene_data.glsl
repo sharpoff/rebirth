@@ -1,9 +1,5 @@
-#ifndef SCENE_DATA
-#define SCENE_DATA
-
-#include "types.glsl"
-
-#extension GL_EXT_buffer_reference : require
+#ifndef SCENE_DATA_GLSL
+#define SCENE_DATA_GLSL
 
 layout (binding = 0) uniform SceneData
 {

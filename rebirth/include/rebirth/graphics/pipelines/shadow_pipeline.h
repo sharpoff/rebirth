@@ -27,8 +27,6 @@ private:
     struct PushConstant
     {
         mat4 transform;
-        VkDeviceAddress vertexBuffer;
-        VkDeviceAddress jointMatricesBuffer;
     };
 
     const uint32_t shadowMapSize = 2048;

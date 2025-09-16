@@ -5,6 +5,7 @@
 #extension GL_GOOGLE_include_directive : require
 
 #include "types.glsl"
+
 #include "pbr.glsl"
 #include "scene_data.glsl"
 #include "mesh_pc.glsl"
@@ -34,28 +35,28 @@ void main()
         Material material = materials[pc.materialId];
 
         if (material.baseColorId > -1) {
-            baseColor = TEX(material.baseColorId, inUV) * material.baseColorFactor;
+            baseColor = TEX_2D(material.baseColorId, inUV) * material.baseColorFactor;
         }
 
         if (material.metallicRoughnessId > -1) {
-            metallicRoughtness = TEX(material.metallicRoughnessId, inUV);
+            metallicRoughtness = TEX_2D(material.metallicRoughnessId, inUV);
             metallicRoughtness.g *= material.roughnessFactor; // roughness
             metallicRoughtness.b *= material.metallicFactor; // metallic
         }
 
         if (material.normalId > -1) {
-            normal = TEX(material.normalId, inUV).rgb;
+            normal = TEX_2D(material.normalId, inUV).rgb;
         }
 
         if (material.emissiveId > -1) {
-            emissive = TEX(material.emissiveId, inUV).rgb;
+            emissive = TEX_2D(material.emissiveId, inUV).rgb;
         }
     } else {
         // set default material
         Material material = materials[DEFAULT_MATERIAL_ID];
 
         if (material.baseColorId > -1) {
-            baseColor = TEX(material.baseColorId, inUV) * material.baseColorFactor;
+            baseColor = TEX_2D(material.baseColorId, inUV) * material.baseColorFactor;
         }
     }
 
@@ -99,14 +100,14 @@ void main()
             vec3 projCoords = lightSpace.xyz / lightSpace.w;
 
             vec2 coords = (projCoords.xy * 0.5 + 0.5);
-            float closestDepth = TEX(scene_data.shadowMapId, coords).r;
+            float closestDepth = TEX_2D(scene_data.shadowMapId, coords).r;
             float currentDepth = projCoords.z;
 
             float bias = max(0.0005 * (1.0 - NoL), 0.0001);
 
             // poisson sampling
             for (int i = 0; i < 4; i++) {
-                if (TEX(scene_data.shadowMapId, coords + poissonDisk[i] / 5000.0).r > currentDepth - bias) {
+                if (TEX_2D(scene_data.shadowMapId, coords + poissonDisk[i] / 5000.0).r > currentDepth - bias) {
                     visibility -= 0.2;
                 }
             }

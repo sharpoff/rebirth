@@ -32,13 +32,10 @@ ModelID generateCube()
 
     std::vector<uint32_t> indices = {0, 1, 2, 2, 3, 0, 4, 6, 5, 6, 4, 7, 8, 9, 10, 10, 11, 8, 12, 14, 13, 14, 12, 15, 16, 17, 18, 18, 19, 16, 20, 22, 21, 22, 20, 23};
 
-    CPUMesh cpuMesh(vertices, indices);
-    CPUMeshID cpuMeshId = g_resourceManager.addCPUMesh(cpuMesh);
-
-    GPUMesh mesh(cpuMeshId);
+    Mesh mesh(MaterialID::Invalid, g_resourceManager.addVerticesAndIndices(vertices, indices), indices.size());
 
     Model model;
-    model.meshes.push_back(g_resourceManager.addGPUMesh(mesh));
+    model.meshes.push_back(g_resourceManager.addMesh(mesh));
     return g_resourceManager.addModel(model);
 }
 
@@ -115,12 +112,9 @@ ModelID generateUVSphere(float radius)
         }
     }
 
-    CPUMesh cpuMesh(vertices, indices);
-    CPUMeshID cpuMeshId = g_resourceManager.addCPUMesh(cpuMesh);
-
-    GPUMesh mesh(cpuMeshId);
+    Mesh mesh(MaterialID::Invalid, g_resourceManager.addVerticesAndIndices(vertices, indices), indices.size());
 
     Model model;
-    model.meshes.push_back(g_resourceManager.addGPUMesh(mesh));
+    model.meshes.push_back(g_resourceManager.addMesh(mesh));
     return g_resourceManager.addModel(model);
 }

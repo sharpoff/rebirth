@@ -1,14 +1,4 @@
-#include <rebirth/graphics/vulkan/graphics.h>
 #include <rebirth/types/scene.h>
-
-void Scene::destroy()
-{
-    vkDeviceWaitIdle(g_graphics.getDevice());
-
-    for (auto &skin : skins) {
-        g_graphics.destroyBuffer(skin.jointMatricesBuffer);
-    }
-}
 
 // XXX: is it working properly?
 void Scene::merge(Scene &scene)
@@ -200,11 +190,7 @@ void Scene::updateJoints(SceneNode &node)
             jointMatrices[i] = inverseTransform * jointMatrices[i];
         }
 
-        // Update ssbo
-        g_graphics.uploadBuffer(
-            skin.jointMatricesBuffer,
-            jointMatrices.data(),
-            jointMatrices.size() * sizeof(mat4));
+        // TODO: update global joints matrix
     }
 
     for (auto &child : node.children) {

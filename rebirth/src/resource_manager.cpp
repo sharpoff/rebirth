@@ -7,14 +7,18 @@ ResourceManager g_resourceManager;
 void ResourceManager::destroy()
 {
     for (auto &image : images) {
-        g_graphics.destroyImage(image);
+        if (image.image)
+            g_graphics.destroyImage(image);
     }
 
-    // NOTE: don't destroy model's meshes, because they destroyed here
-    for (auto &mesh : gpuMeshes) {
-        g_graphics.destroyBuffer(mesh.vertexBuffer);
-        g_graphics.destroyBuffer(mesh.indexBuffer);
-    }
+    if (vertexBuffer.buffer)
+        g_graphics.destroyBuffer(vertexBuffer);
+
+    if (indexBuffer.buffer)
+        g_graphics.destroyBuffer(indexBuffer);
+
+    if (jointMatricesBuffer.buffer)
+        g_graphics.destroyBuffer(jointMatricesBuffer);
 }
 
 ImageID ResourceManager::addImage(vulkan::Image &image)
@@ -35,20 +39,55 @@ ModelID ResourceManager::addModel(Model &model)
     return ModelID(models.size() - 1);
 }
 
-GPUMeshID ResourceManager::addGPUMesh(GPUMesh &mesh)
+MeshID ResourceManager::addMesh(Mesh &mesh)
 {
-    gpuMeshes.push_back(mesh);
-    return GPUMeshID(gpuMeshes.size() - 1);
-}
-
-CPUMeshID ResourceManager::addCPUMesh(CPUMesh &mesh)
-{
-    cpuMeshes.push_back(mesh);
-    return CPUMeshID(cpuMeshes.size() - 1);
+    meshes.push_back(mesh);
+    return MeshID(meshes.size() - 1);
 }
 
 LightID ResourceManager::addLight(Light &light)
 {
     lights.push_back(light);
     return LightID(lights.size() - 1);
+}
+
+uint32_t ResourceManager::addVerticesAndIndices(std::vector<Vertex> &newVertices, std::vector<uint32_t> &newIndices)
+{
+    uint32_t vertexOffset = vertices.size();
+    uint32_t indexOffset = indices.size();
+
+    vertices.insert(vertices.end(), newVertices.begin(), newVertices.end());
+
+    for (auto &index : newIndices) {
+        index += vertexOffset;
+    }
+
+    indices.insert(indices.end(), newIndices.begin(), newIndices.end());
+
+    return indexOffset;
+}
+
+void ResourceManager::createVertexBuffer()
+{
+    vulkan::BufferCreateInfo createInfo;
+    createInfo.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    createInfo.size = vertices.size() * sizeof(Vertex);
+
+    g_graphics.createBuffer(vertexBuffer, createInfo);
+    g_graphics.uploadBuffer(vertexBuffer, vertices.data(), createInfo.size);
+}
+
+void ResourceManager::createIndexBuffer()
+{
+    vulkan::BufferCreateInfo createInfo;
+    createInfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    createInfo.size = indices.size() * sizeof(uint32_t);
+
+    g_graphics.createBuffer(indexBuffer, createInfo);
+    g_graphics.uploadBuffer(indexBuffer, indices.data(), createInfo.size);
+}
+
+void ResourceManager::createJointMatricesBuffer()
+{
+    // TODO:
 }

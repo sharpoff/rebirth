@@ -249,7 +249,6 @@ namespace vulkan
             VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
         features12.runtimeDescriptorArray = VK_TRUE;
         features12.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
-        features12.descriptorBindingStorageBufferUpdateAfterBind = VK_TRUE;
         features12.bufferDeviceAddress = VK_TRUE;
 
         // Dynamic rendering features

@@ -22,23 +22,36 @@ public:
     ImageID addImage(vulkan::Image &image);
     MaterialID addMaterial(Material &material);
     ModelID addModel(Model &model);
-    GPUMeshID addGPUMesh(GPUMesh &mesh);
-    CPUMeshID addCPUMesh(CPUMesh &mesh);
+    MeshID addMesh(Mesh &mesh);
     LightID addLight(Light &light);
+
+    // returns index offset
+    uint32_t addVerticesAndIndices(std::vector<Vertex> &newVertices, std::vector<uint32_t> &newIndices);
+
+    void createVertexBuffer();
+    void createIndexBuffer();
+    void createJointMatricesBuffer();
 
     vulkan::Image &getImage(ImageID id) { return images[ID(id)]; }
     Material &getMaterial(MaterialID id) { return materials[ID(id)]; }
     Model &getModel(ModelID id) { return models[ID(id)]; }
-    GPUMesh &getGPUMesh(GPUMeshID id) { return gpuMeshes[ID(id)]; }
-    CPUMesh &getCPUMesh(CPUMeshID id) { return cpuMeshes[ID(id)]; }
+    Mesh &getMesh(MeshID id) { return meshes[ID(id)]; }
     Light &getLight(LightID id) { return lights[ID(id)]; }
 
     std::vector<vulkan::Image> images;
     std::vector<Material> materials;
     std::vector<Model> models;
-    std::vector<GPUMesh> gpuMeshes;
-    std::vector<CPUMesh> cpuMeshes;
+    std::vector<Mesh> meshes;
     std::vector<Light> lights;
+
+    // global vertex/index buffers for all meshes
+    std::vector<Vertex> vertices;
+    std::vector<uint32_t> indices;
+    vulkan::Buffer vertexBuffer;
+    vulkan::Buffer indexBuffer;
+
+    // global jointMatrices buffer
+    vulkan::Buffer jointMatricesBuffer;
 };
 
 extern ResourceManager g_resourceManager;

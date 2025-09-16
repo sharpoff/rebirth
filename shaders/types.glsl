@@ -1,5 +1,5 @@
-#ifndef TYPES
-#define TYPES
+#ifndef TYPES_GLSL
+#define TYPES_GLSL
 
 struct Vertex
 {

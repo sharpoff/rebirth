@@ -26,8 +26,6 @@ private:
     struct PushConstant
     {
         mat4 transform;
-        VkDeviceAddress vertexBuffer;
-        VkDeviceAddress jointMatricesBuffer;
         int materialId;
     };
 };

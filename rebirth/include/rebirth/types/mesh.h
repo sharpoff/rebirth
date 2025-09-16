@@ -1,25 +1,19 @@
 #pragma once
 
-#include <rebirth/graphics/vulkan/resources.h>
 #include <rebirth/types/id_types.h>
 #include <rebirth/types/vertex.h>
-#include <vector>
 
-struct CPUMesh
+// XXX: probably we should separate static and dynamic meshes.
+//      So static meshes would have global vertex/index buffers and dynamic meshes would have per mesh buffers?
+//      Or something like one separate *dynamic* buffer.
+//      We should also think about offsets inside meshes, because if we delete dynamic mesh we should correct offsets of all meshes after it.
+
+struct Mesh
 {
-    CPUMesh(std::vector<Vertex> vertices, std::vector<uint32_t> indices) : vertices(vertices), indices(indices) {};
-
-    std::vector<Vertex> vertices;
-    std::vector<uint32_t> indices;
-};
-
-struct GPUMesh
-{
-    GPUMesh(CPUMeshID cpuMeshId, MaterialID materialId = MaterialID::Invalid);
-
-    vulkan::Buffer vertexBuffer;
-    vulkan::Buffer indexBuffer;
+    Mesh(MaterialID materialId, uint32_t indexOffset, uint32_t indexCount) : materialId(materialId), indexOffset(indexOffset), indexCount(indexCount) {}
 
     MaterialID materialId = MaterialID::Invalid;
-    CPUMeshID cpuMeshId = CPUMeshID::Invalid;
+
+    uint32_t indexOffset = 0;
+    uint32_t indexCount = 0;
 };

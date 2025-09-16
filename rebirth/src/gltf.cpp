@@ -138,22 +138,20 @@ namespace gltf
         for (size_t i = 0; i < gltfMesh->primitives_count; i++) {
             cgltf_primitive prim = gltfMesh->primitives[i];
 
+            uint32_t materialOffset = g_resourceManager.materials.size();
+
             std::vector<Vertex> vertices;
             loadVertices(vertices, prim);
 
             std::vector<uint32_t> indices;
             loadIndices(indices, vertices.size(), prim);
 
-            size_t materialOffset = g_resourceManager.materials.size();
-
             MaterialID materialId = prim.material ? MaterialID(materialOffset + cgltf_material_index(data, prim.material)) : MaterialID::Invalid;
 
-            CPUMesh cpuMesh(vertices, indices);
-            CPUMeshID cpuMeshId = g_resourceManager.addCPUMesh(cpuMesh);
+            Mesh mesh(materialId, g_resourceManager.addVerticesAndIndices(vertices, indices), indices.size());
 
-            GPUMesh gpuMesh(cpuMeshId, materialId);
+            MeshID meshId = g_resourceManager.addMesh(mesh);
 
-            GPUMeshID meshId = g_resourceManager.addGPUMesh(gpuMesh);
             model.meshes.push_back(meshId);
         }
 
@@ -469,11 +467,12 @@ namespace gltf
                     };
                 }
 
-                vulkan::BufferCreateInfo createInfo = {
-                    .size = sizeof(mat4) * skin.inverseBindMatrices.size(),
-                    .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                };
-                g_graphics.createBuffer(skin.jointMatricesBuffer, createInfo);
+                // TODO: this should be changed to global joint materices buffer
+                // vulkan::BufferCreateInfo createInfo = {
+                //     .size = sizeof(mat4) * skin.inverseBindMatrices.size(),
+                //     .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                // };
+                // g_graphics.createBuffer(skin.jointMatricesBuffer, createInfo);
             }
         }
     }

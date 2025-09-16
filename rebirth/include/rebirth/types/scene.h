@@ -14,7 +14,7 @@ struct Skin
     std::vector<SceneNodeID> jointIds;
     std::vector<mat4> inverseBindMatrices;
 
-    vulkan::Buffer jointMatricesBuffer;
+    uint32_t jointMatrixIndex;
 };
 
 struct SceneNode
@@ -41,8 +41,7 @@ public:
     std::vector<Camera> cameras;
     std::vector<LightID> lights;
 
-    void destroy();
-
+    // XXX: is it working properly?
     void merge(Scene &scene);
 
     void updateAnimation(float deltaTime, std::string name);

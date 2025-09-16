@@ -4,6 +4,7 @@
 #include <rebirth/graphics/vulkan/pipeline_builder.h>
 #include <rebirth/graphics/vulkan/util.h>
 
+#include "rebirth/graphics/render_settings.h"
 #include <rebirth/resource_manager.h>
 
 using namespace vulkan;
@@ -20,10 +21,7 @@ void SkyboxPipeline::initialize(ModelID cubeModelId)
         vkDestroyPipeline(device, pipeline, nullptr);
 
     // create pipeline layout
-    VkPushConstantRange pushConstant = {
-        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-        0,
-        sizeof(PushConstant)};
+    VkPushConstantRange pushConstant = {VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstant)};
     layout = g_graphics.createPipelineLayout(&descriptorManager.getSetLayout(), &pushConstant);
 
     const auto vertex = vulkan::util::loadShaderModule(device, "build/shaders/skybox.vert.spv");
@@ -78,15 +76,7 @@ void SkyboxPipeline::beginFrame(VkCommandBuffer cmd)
     vulkan::util::setScissor(cmd, extent);
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-    vkCmdBindDescriptorSets(
-        cmd,
-        VK_PIPELINE_BIND_POINT_GRAPHICS,
-        layout,
-        0,
-        1,
-        &g_graphics.getDescriptorManager().getSet(),
-        0,
-        nullptr);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, &g_graphics.getDescriptorManager().getSet(), 0, nullptr);
 }
 
 void SkyboxPipeline::endFrame(VkCommandBuffer cmd)
@@ -97,28 +87,21 @@ void SkyboxPipeline::endFrame(VkCommandBuffer cmd)
 
 void SkyboxPipeline::drawSkybox(VkCommandBuffer cmd, ImageID skyboxId)
 {
+    vkCmdBindIndexBuffer(cmd, g_resourceManager.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+
     if (cubeModelId != ModelID::Invalid) {
         Model &model = g_resourceManager.getModel(cubeModelId);
-        for (GPUMeshID gpuMeshId : model.meshes) {
-            GPUMesh &gpuMesh = g_resourceManager.getGPUMesh(gpuMeshId);
-            CPUMesh &cpuMesh = g_resourceManager.getCPUMesh(gpuMesh.cpuMeshId);
-
-            vkCmdBindIndexBuffer(cmd, gpuMesh.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+        for (MeshID meshId : model.meshes) {
+            Mesh &mesh = g_resourceManager.getMesh(meshId);
 
             PushConstant pc = {
-                .vertexBuffer = gpuMesh.vertexBuffer.address,
                 .skyboxId = skyboxId != ImageID::Invalid ? int(skyboxId) : -1,
             };
 
-            vkCmdPushConstants(
-                cmd,
-                layout,
-                VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-                0,
-                sizeof(pc),
-                &pc);
+            vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pc), &pc);
+            vkCmdDrawIndexed(cmd, mesh.indexCount, 1, mesh.indexOffset, 0, 0);
 
-            vkCmdDrawIndexed(cmd, cpuMesh.indices.size(), 1, 0, 0, 0);
+            g_renderSettings.drawCount++;
         }
     }
 }

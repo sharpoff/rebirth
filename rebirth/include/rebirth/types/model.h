@@ -4,5 +4,5 @@
 
 struct Model
 {
-    std::vector<GPUMeshID> meshes;
+    std::vector<MeshID> meshes;
 };

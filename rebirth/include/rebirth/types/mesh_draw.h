@@ -5,9 +5,10 @@
 
 struct MeshDraw
 {
-    GPUMeshID meshId = GPUMeshID::Invalid;
+    MeshID meshId = MeshID::Invalid;
     mat4 transform = mat4(1.0f);
     SphereBounding boundingSphere = SphereBounding();
 
-    VkDeviceAddress jointMatricesBuffer = 0;
+    // TODO:
+    // uint32_t jointMatrixIndex = 0;
 };

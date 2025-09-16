@@ -4,9 +4,8 @@
 #include <volk.h>
 
 enum class ModelID : uint32_t { Invalid = UINT32_MAX };
-enum class GPUMeshID : uint32_t { Invalid = UINT32_MAX  };
-enum class CPUMeshID : uint32_t { Invalid = UINT32_MAX  };
-enum class MaterialID : uint32_t { Invalid = UINT32_MAX  };
+enum class MeshID : uint32_t { Invalid = UINT32_MAX  };
+enum class MaterialID : uint32_t { Invalid = UINT32_MAX };
 enum class ImageID : uint32_t { Invalid = UINT32_MAX  };
 enum class LightID : uint32_t { Invalid = UINT32_MAX  };
 enum class RigidBodyID : uint32_t { Invalid = UINT32_MAX  };

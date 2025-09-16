@@ -1,39 +1,34 @@
 #version 450
 
-#extension GL_EXT_buffer_reference : require
 #extension GL_GOOGLE_include_directive : require
 
 #include "types.glsl"
-#include "scene_data.glsl"
 
-layout (buffer_reference, std430) readonly buffer VertexBuffer { Vertex vertices[]; };
-layout (buffer_reference, std430) readonly buffer JointMatricesBuffer { mat4 jointMatrices[]; };
+#include "scene_data.glsl"
+#include "vertices.glsl"
+#include "joints.glsl"
 
 layout (push_constant) uniform PushConstant
 {
     mat4 transform;
-    VertexBuffer vertexBuffer;
-    JointMatricesBuffer jointMatricesBuffer;
 } pc;
-
-#define getJointMatrix(id) pc.jointMatricesBuffer.jointMatrices[(id)]
 
 void main()
 {
-    Vertex vertex = pc.vertexBuffer.vertices[gl_VertexIndex];
+    Vertex vertex = vertices[gl_VertexIndex];
 
     mat4 skinMat = mat4(0.0);
     if (vertex.jointIndices.x > -1) {
-        skinMat += vertex.jointWeights.x * getJointMatrix(vertex.jointIndices.x);
+        skinMat += vertex.jointWeights.x * jointMatrices[vertex.jointIndices.x];
     }
     if (vertex.jointIndices.y > -1) {
-        skinMat += vertex.jointWeights.y * getJointMatrix(vertex.jointIndices.y);
+        skinMat += vertex.jointWeights.y * jointMatrices[vertex.jointIndices.y];
     }
     if (vertex.jointIndices.z > -1) {
-        skinMat += vertex.jointWeights.z * getJointMatrix(vertex.jointIndices.z);
+        skinMat += vertex.jointWeights.z * jointMatrices[vertex.jointIndices.z];
     }
     if (vertex.jointIndices.w > -1) {
-        skinMat += vertex.jointWeights.w * getJointMatrix(vertex.jointIndices.w);
+        skinMat += vertex.jointWeights.w * jointMatrices[vertex.jointIndices.w];
     }
 
     if (skinMat == mat4(0.0)) {

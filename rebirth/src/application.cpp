@@ -38,15 +38,15 @@ Application::Application(std::string name, unsigned int width, unsigned int heig
     // load scenes
     {
         ZoneScopedN("Load scenes");
-        // if (!gltf::loadScene(scene, "assets/models/subway_station/scene.gltf")) {
-        if (!gltf::loadScene(scene, "assets/models/sponza/Sponza.gltf")) {
+        // if (!gltf::loadScene(scene, "assets/models/sponza/Sponza.gltf")) {
+        if (!gltf::loadScene(scene, "assets/models/subway_station/scene.gltf")) {
             util::logError("Failed to load scene.");
             exit(EXIT_FAILURE);
         }
     }
 
     // setup camera
-    camera.setPerspective(glm::radians(60.0f), float(width) / height, 0.1f, 300.0f);
+    camera.setPerspectiveInf(glm::radians(60.0f), float(width) / height, 0.1f);
     camera.setPosition(vec3(0, 2, 2));
     camera.type = CameraType::FirstPerson;
 
@@ -100,7 +100,9 @@ void Application::run()
 
         handleInput(deltaTime);
         update(deltaTime);
-        render();
+
+        if (!minimized)
+            render();
     }
 }
 
@@ -114,6 +116,11 @@ void Application::handleInput(float deltaTime)
 
         Input &input = g_input;
         input.processEvent(&event);
+
+        if (event.type == SDL_EVENT_WINDOW_MINIMIZED)
+            minimized = true;
+        else if (event.type == SDL_EVENT_WINDOW_RESTORED)
+            minimized = false;
 
         if (event.type == SDL_EVENT_WINDOW_RESIZED ||
             event.type == SDL_EVENT_WINDOW_ENTER_FULLSCREEN ||
@@ -220,6 +227,9 @@ void Application::render()
     renderer.drawScene(scene, scene.transform);
 
     for (auto &light : g_resourceManager.lights) {
+        if (light.type != LightType::Point)
+            continue;
+
         Transform transform(light.position);
         transform.scale(vec3(0.5f, 0.5f, 0.5f));
 

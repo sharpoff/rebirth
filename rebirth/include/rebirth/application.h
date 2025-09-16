@@ -20,6 +20,7 @@ private:
     void render();
 
     bool running = false;
+    bool minimized = false;
     std::string name = "Application";
     uint32_t width = 0;
     uint32_t height = 0;

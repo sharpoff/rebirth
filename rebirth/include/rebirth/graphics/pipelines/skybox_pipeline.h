@@ -20,7 +20,6 @@ private:
 
     struct PushConstant
     {
-        VkDeviceAddress vertexBuffer;
         int skyboxId;
     };
 

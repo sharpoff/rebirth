@@ -11,6 +11,7 @@
 #include <rebirth/types/camera.h>
 #include <rebirth/types/light.h>
 #include <rebirth/types/scene.h>
+#include <rebirth/types/draw_batch.h>
 
 using namespace vulkan;
 
@@ -30,7 +31,7 @@ public:
 
     void drawScene(Scene &scene, Transform transform);
     void drawModel(ModelID modelId, Transform transform);
-    void drawMesh(GPUMeshID gpuMeshId, Transform transform);
+    void drawMesh(MeshID meshId, Transform transform);
 
     void present(Camera &camera);
 
@@ -46,6 +47,9 @@ public:
     float getTimestampDeltaMs() { return float(timestamps[1] - timestamps[0]) * g_graphics.getDevicePropertices().limits.timestampPeriod * 1e-6; };
 
 protected:
+    void batchMeshDraws();
+    void cullDrawBatches();
+
     void createPipelines();
     void updateDynamicData(Camera &camera);
 
@@ -77,6 +81,7 @@ protected:
     ModelID cylinderModelId;
 
     std::vector<MeshDraw> meshDraws;
+    std::vector<DrawBatch> drawBatches;
 
     SDL_Window *window;
 
