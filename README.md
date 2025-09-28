@@ -4,6 +4,8 @@ C++20 Vulkan Game engine
 
 ![Sponza scene](media/sponza.png)
 
+https://github.com/user-attachments/assets/0eef975e-3f28-49e6-a540-4e46070b9bc6
+
 ## Features
 * PBR (without IBL)
 * Shadow maps
