@@ -5,7 +5,6 @@
 
 #include <rebirth/types/animation.h>
 #include <rebirth/types/camera.h>
-#include <rebirth/types/draw_batch.h>
 #include <rebirth/types/light.h>
 #include <rebirth/types/mesh_draw.h>
 #include <rebirth/types/scene.h>
@@ -13,9 +12,10 @@
 
 using namespace vulkan;
 
-static const int maxMaterialsNum = 100;
-static const int maxLightsNum = 100;
-static const uint32_t shadowMapSize = 2048;
+static const int MAX_MATERIALS = 100;
+static const int MAX_LIGHTS = 100;
+static const uint32_t SHADOW_MAP_SIZE = 2048;
+static const uint32_t MAX_INDIRECT_COMMANDS = 100000;
 
 class Renderer
 {
@@ -61,7 +61,6 @@ protected:
 
     void cullMeshDraws(mat4 viewProj);
     void sortMeshDraws(vec3 cameraPos);
-    void batchMeshDraws();
 
     std::unordered_map<std::string, VkShaderModule> loadShaderModules(std::filesystem::path directory);
 
@@ -111,13 +110,10 @@ protected:
     vulkan::Buffer sceneDataBuffer;
     vulkan::Buffer materialsBuffer;
     vulkan::Buffer lightsBuffer;
-    vulkan::Buffer debugDrawVertexBuffer;
 
     std::vector<Vertex> debugDrawVertices;
     std::vector<MeshDraw> meshDraws;
     std::vector<uint32_t> opaqueDraws;
-    std::vector<DrawBatch> drawBatches;
-    std::vector<VkDrawIndexedIndirectCommand> drawCommands;
 
     VkQueryPool queryPool;
     std::array<uint64_t, 2> timestamps;

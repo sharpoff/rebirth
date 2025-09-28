@@ -2,6 +2,7 @@
 
 #include <rebirth/math/projection.h>
 
+#include <rebirth/graphics/gltf.h>
 #include <rebirth/graphics/primitives.h>
 #include <rebirth/graphics/render_settings.h>
 #include <rebirth/graphics/vulkan/descriptor_writer.h>
@@ -10,10 +11,9 @@
 #include <rebirth/graphics/vulkan/util.h>
 #include <rebirth/types/scene_draw_data.h>
 
+#include <rebirth/math/frustum_culling.h>
 #include <rebirth/types/scene.h>
 #include <rebirth/util/logger.h>
-
-#include <rebirth/graphics/gltf.h>
 
 #include <tracy/Tracy.hpp>
 #include <tracy/TracyVulkan.hpp>
@@ -218,6 +218,8 @@ void Renderer::present(Camera &camera)
         1,
         &swapchainBarrier);
 
+    vkCmdBindIndexBuffer(cmd, g_resourceManager.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+
     //
     // Clear Pass
     //
@@ -231,7 +233,7 @@ void Renderer::present(Camera &camera)
     //
     // Shadow Pass
     //
-    if (g_renderSettings.drawShadows && !meshDraws.empty()) {
+    if (g_renderSettings.drawShadows && !opaqueDraws.empty()) {
         ZoneScopedN("Shadow Pass");
         TracyVkZone(g_graphics.getTracyContext(), cmd, "Shadow Pass");
 
@@ -241,7 +243,7 @@ void Renderer::present(Camera &camera)
     //
     // Mesh Pass
     //
-    if (g_renderSettings.drawMeshes && !meshDraws.empty()) {
+    if (g_renderSettings.drawMeshes && !opaqueDraws.empty()) {
         ZoneScopedN("Mesh Pass");
         TracyVkZone(g_graphics.getTracyContext(), cmd, "Mesh Pass");
 
@@ -314,12 +316,13 @@ void Renderer::present(Camera &camera)
     debugDrawVertices.clear();
     meshDraws.clear();
     opaqueDraws.clear();
-    drawBatches.clear();
     g_renderSettings.drawCount = 0;
 }
 
 void Renderer::cullMeshDraws(mat4 viewProj)
 {
+    ZoneScoped;
+
     for (size_t i = 0; i < meshDraws.size(); i++) {
         // if (isSphereVisible(meshDraws[i].boundingSphere, viewProj, meshDraws[i].transform)) {
         opaqueDraws.push_back(i);
@@ -329,6 +332,8 @@ void Renderer::cullMeshDraws(mat4 viewProj)
 
 void Renderer::sortMeshDraws(vec3 cameraPos)
 {
+    ZoneScoped;
+
     if (opaqueDraws.empty())
         return;
 
@@ -338,34 +343,6 @@ void Renderer::sortMeshDraws(vec3 cameraPos)
 
         return dist1 < dist2;
     });
-}
-
-void Renderer::batchMeshDraws()
-{
-    if (meshDraws.empty())
-        return;
-
-    DrawBatch firstBatch;
-    firstBatch.first = 0;
-    firstBatch.count = 1;
-    firstBatch.meshId = meshDraws[0].meshId;
-
-    drawBatches.push_back(firstBatch);
-
-    for (auto &meshDraw : meshDraws) {
-        if (drawBatches.back().meshId == meshDraw.meshId) {
-            // same batch
-            drawBatches.back().count++;
-        } else {
-            // new batch
-            DrawBatch firstBatch;
-            firstBatch.first = 0;
-            firstBatch.count = 1;
-            firstBatch.meshId = meshDraw.meshId;
-
-            drawBatches.push_back(firstBatch);
-        }
-    }
 }
 
 std::unordered_map<std::string, VkShaderModule> Renderer::loadShaderModules(std::filesystem::path directory)
@@ -502,8 +479,8 @@ void Renderer::createResources()
     // shadow map
     {
         ImageCreateInfo createInfo = {
-            .width = shadowMapSize,
-            .height = shadowMapSize,
+            .width = SHADOW_MAP_SIZE,
+            .height = SHADOW_MAP_SIZE,
             .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
             .format = VK_FORMAT_D32_SFLOAT,
             .aspect = VK_IMAGE_ASPECT_DEPTH_BIT,
@@ -551,33 +528,42 @@ void Renderer::createBuffers()
     const VkDevice device = g_graphics.getDevice();
 
     // scene data
-    BufferCreateInfo createInfo = {
-        .size = sizeof(SceneDrawData),
-        .usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-    };
+    {
+        BufferCreateInfo createInfo = {
+            .size = sizeof(SceneDrawData),
+            .usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+        };
 
-    g_graphics.createBuffer(sceneDataBuffer, createInfo);
-    vulkan::util::setDebugName(device, reinterpret_cast<uint64_t>(sceneDataBuffer.buffer), VK_OBJECT_TYPE_BUFFER, "Scene Data buffer");
+        g_graphics.createBuffer(sceneDataBuffer, createInfo);
+        vulkan::util::setDebugName(device, reinterpret_cast<uint64_t>(sceneDataBuffer.buffer), VK_OBJECT_TYPE_BUFFER, "Scene Data buffer");
+    }
 
     // materials
-    auto &materials = g_resourceManager.materials;
+    {
+        auto &materials = g_resourceManager.materials;
+        BufferCreateInfo createInfo = {
+            .size = materials.size() * sizeof(Material),
+            .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        };
 
-    createInfo.size = materials.size() * sizeof(Material);
-    createInfo.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-
-    g_graphics.createBuffer(materialsBuffer, createInfo);
-    vulkan::util::setDebugName(device, reinterpret_cast<uint64_t>(materialsBuffer.buffer), VK_OBJECT_TYPE_BUFFER, "Materials buffer");
-    memcpy(materialsBuffer.info.pMappedData, materials.data(), materialsBuffer.size);
+        g_graphics.createBuffer(materialsBuffer, createInfo);
+        vulkan::util::setDebugName(device, reinterpret_cast<uint64_t>(materialsBuffer.buffer), VK_OBJECT_TYPE_BUFFER, "Materials buffer");
+        memcpy(materialsBuffer.info.pMappedData, materials.data(), materialsBuffer.size);
+    }
 
     // lights
-    auto &lights = g_resourceManager.lights;
+    {
+        auto &lights = g_resourceManager.lights;
 
-    createInfo.size = lights.size() * sizeof(Light);
-    createInfo.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+        BufferCreateInfo createInfo = {
+            .size = lights.size() * sizeof(Light),
+            .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        };
 
-    g_graphics.createBuffer(lightsBuffer, createInfo);
-    vulkan::util::setDebugName(device, reinterpret_cast<uint64_t>(lightsBuffer.buffer), VK_OBJECT_TYPE_BUFFER, "Lights buffer");
-    memcpy(lightsBuffer.info.pMappedData, lights.data(), lightsBuffer.size);
+        g_graphics.createBuffer(lightsBuffer, createInfo);
+        vulkan::util::setDebugName(device, reinterpret_cast<uint64_t>(lightsBuffer.buffer), VK_OBJECT_TYPE_BUFFER, "Lights buffer");
+        memcpy(lightsBuffer.info.pMappedData, lights.data(), lightsBuffer.size);
+    }
 }
 
 void Renderer::updateDescriptorSet()

@@ -39,8 +39,8 @@ Application::Application(std::string name, unsigned int width, unsigned int heig
     {
         ZoneScopedN("Load scenes");
         // if (!gltf::loadScene(scene, "assets/models/sponza/Sponza.gltf")) {
-        // if (!gltf::loadScene(scene, "assets/models/subway_station/scene.gltf")) {
-        if (!gltf::loadScene(scene, "assets/models/DamagedHelmet/DamagedHelmet.gltf")) {
+        if (!gltf::loadScene(scene, "assets/models/subway_station/scene.gltf")) {
+        // if (!gltf::loadScene(scene, "assets/models/DamagedHelmet/DamagedHelmet.gltf")) {
             util::logError("Failed to load scene.");
             exit(EXIT_FAILURE);
         }
@@ -49,7 +49,7 @@ Application::Application(std::string name, unsigned int width, unsigned int heig
     // setup camera
     camera.setPerspectiveInf(glm::radians(60.0f), float(width) / height, 0.1f);
     camera.setPosition(vec3(0, 2, 2));
-    camera.type = CameraType::LookAt;
+    camera.type = CameraType::FirstPerson;
 
     renderer.addLight(
         Light{
@@ -63,6 +63,7 @@ Application::Application(std::string name, unsigned int width, unsigned int heig
     Game::initialize();
 
     // create game entites
+/*
     Transform transform(vec3(), glm::identity<quat>(), vec3(100.0f, 0.2f, 100.0f));
     Box *plane = new Box(renderer.getCubePrimitive(), transform, true);
     g_physicsSystem.setFriction(plane->getRigidBodyId(), 1.0f);
@@ -70,6 +71,7 @@ Application::Application(std::string name, unsigned int width, unsigned int heig
 
     Car *car = new Car(vec3(0, 5, 0));
     controlledCarEntityId = Game::addEntity(car);
+*/
 }
 
 Application::~Application()
@@ -149,6 +151,7 @@ void Application::handleInput(float deltaTime)
             renderer.reloadShaders();
         }
 
+/*
         std::random_device random_device;
         std::mt19937 rng(random_device());
         std::uniform_real_distribution<float> real_dist(0.0f, 360.0f);
@@ -189,6 +192,7 @@ void Application::handleInput(float deltaTime)
             g_physicsSystem.setLinearVelocity(sphere->getRigidBodyId(), vec3(0.0f, -5.0f, 0.0f));
             Game::addEntity(sphere);
         }
+        */
 
         camera.handleEvent(event, deltaTime);
 
@@ -221,6 +225,8 @@ void Application::render()
     ZoneScopedN("Render");
 
     Game::draw(renderer);
+
+    renderer.drawScene(scene, Transform());
 
     renderer.present(camera);
 }

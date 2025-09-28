@@ -10,7 +10,7 @@
 void Renderer::shadowPass(const VkCommandBuffer cmd)
 {
     const Image &shadowMap = g_resourceManager.getImage(shadowMapId);
-    const VkExtent2D shadowMapExtent = {shadowMapSize, shadowMapSize};
+    const VkExtent2D shadowMapExtent = {SHADOW_MAP_SIZE, SHADOW_MAP_SIZE};
 
     // attachments
     VkRenderingAttachmentInfo depthAttachment = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
@@ -30,24 +30,24 @@ void Renderer::shadowPass(const VkCommandBuffer cmd)
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines["shadow"]);
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayouts["shadow"], 0, 1, &g_graphics.getDescriptorManager().getSet(), 0, nullptr);
-    vkCmdBindIndexBuffer(cmd, g_resourceManager.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 
     //
     // Draw
     //
     for (auto &light : g_resourceManager.lights) {
-        for (uint32_t i = 0; i < opaqueDraws.size(); i++) {
-            MeshDraw &meshDraw = meshDraws[opaqueDraws[i]];
+        for (uint32_t &opaqueDraw : opaqueDraws) {
+            MeshDraw &meshDraw = meshDraws[opaqueDraw];
+            if (meshDraw.meshId == MeshID::Invalid)
+                continue;
 
             Mesh &mesh = g_resourceManager.getMesh(meshDraw.meshId);
-
             ShadowPassPC pc = {
                 .transform = light.mvp * meshDraw.transform,
             };
 
             vkCmdPushConstants(cmd, pipelineLayouts["shadow"], VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pc), &pc);
-
             vkCmdDrawIndexed(cmd, mesh.indexCount, 1, mesh.indexOffset, 0, 0);
+
             g_renderSettings.drawCount++;
         }
     }
@@ -117,19 +117,16 @@ void Renderer::meshPass(const VkCommandBuffer cmd)
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, g_renderSettings.drawWireframe ? pipelines["wireframe"] : pipelines["mesh"]);
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayouts["mesh"], 0, 1, &g_graphics.getDescriptorManager().getSet(), 0, nullptr);
-    vkCmdBindIndexBuffer(cmd, g_resourceManager.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 
     //
     // Draw
     //
-    for (uint32_t i = 0; i < opaqueDraws.size(); i++) {
-        MeshDraw &meshDraw = meshDraws[opaqueDraws[i]];
-
+    for (uint32_t &opaqueDraw : opaqueDraws) {
+        MeshDraw &meshDraw = meshDraws[opaqueDraw];
         if (meshDraw.meshId == MeshID::Invalid)
             continue;
 
         Mesh &mesh = g_resourceManager.getMesh(meshDraw.meshId);
-
         MeshPassPC pc = {
             .transform = meshDraw.transform,
             .materialId = mesh.materialId == MaterialID::Invalid ? -1 : int(mesh.materialId),
@@ -256,7 +253,6 @@ void Renderer::skyboxPass(const VkCommandBuffer cmd)
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines["skybox"]);
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayouts["skybox"], 0, 1, &g_graphics.getDescriptorManager().getSet(), 0, nullptr);
-    vkCmdBindIndexBuffer(cmd, g_resourceManager.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 
     //
     // Draw

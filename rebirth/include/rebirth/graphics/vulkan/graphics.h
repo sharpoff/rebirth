@@ -34,7 +34,6 @@ namespace vulkan
         void initialize(SDL_Window *window);
         void destroy();
 
-    public:
         void requestResize() { resizeRequested = true; }
 
         void uploadBuffer(Buffer &buffer, void *data, VkDeviceSize size);
