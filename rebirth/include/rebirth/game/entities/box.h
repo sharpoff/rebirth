@@ -1,8 +1,8 @@
 #pragma once
 
-#include <rebirth/math/aabb.h>
 #include <rebirth/types/scene.h>
 #include <rebirth/game/entity.h>
+#include <rebirth/math/bounds.h>
 
 class Renderer;
 
@@ -14,6 +14,6 @@ struct Box : Entity
 
 private:
     ModelID modelId = ModelID::Invalid;
-    AABB aabb = AABB();
+    Bounds bounds{};
     vec3 scale = vec3(1.0f);
 };

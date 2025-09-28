@@ -79,14 +79,13 @@ namespace vulkan::util
 
     void beginRendering(
         VkCommandBuffer cmd,
-        const VkRenderingAttachmentInfo *colorAttachments,
-        uint32_t colorAttachmentCount,
+        std::vector<VkRenderingAttachmentInfo> colorAttachments,
         const VkRenderingAttachmentInfo *depthAttachment,
         VkExtent2D extent)
     {
         VkRenderingInfo renderingInfo = {VK_STRUCTURE_TYPE_RENDERING_INFO};
-        renderingInfo.colorAttachmentCount = colorAttachmentCount;
-        renderingInfo.pColorAttachments = colorAttachments;
+        renderingInfo.colorAttachmentCount = colorAttachments.size();
+        renderingInfo.pColorAttachments = colorAttachments.data();
         renderingInfo.pDepthAttachment = depthAttachment;
         renderingInfo.renderArea.extent = extent;
         renderingInfo.renderArea.offset = {0};
@@ -96,31 +95,5 @@ namespace vulkan::util
     }
 
     void endRendering(VkCommandBuffer cmd) { vkCmdEndRendering(cmd); }
-
-    void imageBarrier(VkCommandBuffer cmd, VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout, VkPipelineStageFlagBits srcStageMask, VkPipelineStageFlagBits dstStageMask, VkAccessFlags srcAccess, VkAccessFlags dstAccess, VkImageSubresourceRange subresourceRange)
-    {
-        VkImageMemoryBarrier barrier = {
-            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-            .srcAccessMask = srcAccess,
-            .dstAccessMask = dstAccess,
-            .oldLayout = oldLayout,
-            .newLayout = newLayout,
-            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .image = image,
-            .subresourceRange = subresourceRange};
-
-        vkCmdPipelineBarrier(
-            cmd,
-            srcStageMask,
-            dstStageMask,
-            0,
-            0,
-            nullptr,
-            0,
-            nullptr,
-            1,
-            &barrier);
-    }
 
 } // namespace vulkan::util

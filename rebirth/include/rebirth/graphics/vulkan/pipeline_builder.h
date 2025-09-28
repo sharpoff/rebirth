@@ -24,7 +24,7 @@ public:
     );
     void setPolygonMode(VkPolygonMode polygonMode);
     void setCulling(VkCullModeFlags cullMode, VkFrontFace cullFace);
-    void setDepthTest(bool mode);
+    void setDepthTest(VkBool32 depthTestEnable, VkBool32 depthWriteEnable, VkCompareOp compareOp = VK_COMPARE_OP_GREATER);
     void setDepthBias(bool mode);
 
     void setTopology(VkPrimitiveTopology topology);
@@ -50,8 +50,6 @@ private:
     VkPipelineColorBlendStateCreateInfo colorBlendState;
     VkPipelineDynamicStateCreateInfo dynamicState;
     VkPipelineLayout pipelineLayout;
-
-    bool depthOn = false;
 };
 
 } // namespace vulkan

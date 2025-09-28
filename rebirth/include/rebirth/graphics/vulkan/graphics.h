@@ -55,7 +55,6 @@ namespace vulkan
         VkSampleCountFlagBits getSampleCount() const { return sampleCount; }
         DescriptorManager &getDescriptorManager() { return descriptorManager; }
         Image &getColorImage() { return colorImage; }
-        Image &getColorImageOneSample() { return colorImageOneSample; }
         Image &getDepthImage() { return depthImage; }
         VkPhysicalDeviceFeatures &getDeviceFeatures() { return deviceFeatures; }
         VkPhysicalDeviceProperties &getDevicePropertices() { return deviceProperties; }
@@ -163,7 +162,6 @@ namespace vulkan
         std::vector<VkSemaphore> submitSemaphores;
 
         vulkan::Image colorImage;
-        vulkan::Image colorImageOneSample;
         vulkan::Image depthImage;
 
         VkSampleCountFlagBits sampleCount = VK_SAMPLE_COUNT_1_BIT;

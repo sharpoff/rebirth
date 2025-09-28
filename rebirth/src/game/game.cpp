@@ -17,9 +17,9 @@ namespace Game
         }
     }
 
-    EntityID addEntity(Entity &entity)
+    EntityID addEntity(Entity *entity)
     {
-        entities.push_back(&entity);
+        entities.push_back(entity);
         return EntityID(entities.size() - 1);
     }
 

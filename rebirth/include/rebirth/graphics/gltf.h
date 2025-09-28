@@ -2,8 +2,6 @@
 
 #include <filesystem>
 
-#include <rebirth/math/aabb.h>
-
 #include <rebirth/types/light.h>
 #include <rebirth/types/animation.h>
 #include <rebirth/types/scene.h>

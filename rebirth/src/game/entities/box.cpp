@@ -11,9 +11,9 @@ Box::Box(ModelID modelId, Transform transform, bool isStatic)
     this->modelId = modelId;
     scale = transform.getScale();
 
-    this->aabb = calculateAABB(modelId, transform);
+    bounds = calculateBoundingBox(g_resourceManager.getModel(modelId), transform);
 
-    rigidBodyId = g_physicsSystem.createBox(transform, aabb.getHalfExtent(), isStatic);
+    rigidBodyId = g_physicsSystem.createBox(transform, bounds.extents, isStatic);
 }
 
 void Box::draw(Renderer &renderer)

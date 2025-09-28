@@ -118,7 +118,6 @@ namespace vulkan
         }
 
         destroyImage(colorImage);
-        destroyImage(colorImageOneSample);
         destroyImage(depthImage);
 
         descriptorManager.destroy(device);
@@ -487,7 +486,6 @@ namespace vulkan
         swapchain.destroy(device);
 
         destroyImage(colorImage);
-        destroyImage(colorImageOneSample);
         destroyImage(depthImage);
 
         for (unsigned int i = 0; i < FRAMES_IN_FLIGHT; i++) {
@@ -1271,7 +1269,7 @@ namespace vulkan
         ImageCreateInfo createInfo = {
             .width = extent.width,
             .height = extent.height,
-            .usage = VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+            .usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
             .format = swapchain.getSurfaceFormat().format,
             .samples = getSampleCount(),
         };
@@ -1279,15 +1277,8 @@ namespace vulkan
         createImage(colorImage, createInfo, false);
         vulkan::util::setDebugName(device, reinterpret_cast<uint64_t>(colorImage.image), VK_OBJECT_TYPE_IMAGE, "Color image multisample");
 
-        // color image one sample
-        createInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-        createInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-
-        createImage(colorImageOneSample, createInfo, false);
-        vulkan::util::setDebugName(device, reinterpret_cast<uint64_t>(colorImageOneSample.image), VK_OBJECT_TYPE_IMAGE, "Color image one sample");
-
         // depth image
-        createInfo.usage = VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+        createInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
         createInfo.format = VK_FORMAT_D32_SFLOAT;
         createInfo.aspect = VK_IMAGE_ASPECT_DEPTH_BIT;
         createInfo.samples = getSampleCount();

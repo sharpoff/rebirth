@@ -4,6 +4,7 @@
 
 #include <assert.h>
 #include <filesystem>
+#include <vector>
 #include <volk.h>
 
 #define VK_CHECK(code)                                                                             \
@@ -31,13 +32,10 @@ void setScissor(VkCommandBuffer cmd, VkExtent2D extent);
 
 void beginRendering(
     VkCommandBuffer cmd,
-    const VkRenderingAttachmentInfo *colorAttachments,
-    uint32_t colorAttachmentCount,
+    std::vector<VkRenderingAttachmentInfo> colorAttachments,
     const VkRenderingAttachmentInfo *depthAttachment,
     VkExtent2D extent
 );
 void endRendering(VkCommandBuffer cmd);
-
-void imageBarrier(VkCommandBuffer cmd, VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout, VkPipelineStageFlagBits srcStageMask, VkPipelineStageFlagBits dstStageMask, VkAccessFlags srcAccess, VkAccessFlags dstAccess, VkImageSubresourceRange subresourceRange);
 
 } // namespace vulkan

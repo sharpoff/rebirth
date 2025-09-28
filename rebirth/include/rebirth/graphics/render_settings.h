@@ -3,11 +3,11 @@
 struct RenderSettings
 {
     bool fullscreen = false;
-    bool debugShadowMap = false;
-    bool wireframe = false;
-    bool shadows = true;
-    bool skybox = true;
-    bool imgui = true;
+    bool drawWireframe = false;
+    bool drawShadows = true;
+    bool drawMeshes = true;
+    bool drawSkybox = true;
+    bool drawImGui = true;
     float timestampDeltaMs = 0.0f;
     unsigned int drawCount = 0;
 };

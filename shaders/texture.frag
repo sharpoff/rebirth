@@ -5,17 +5,20 @@
 
 #include "types.glsl"
 
-#include "scene_data.glsl"
 #include "textures.glsl"
 
 layout (location = 0) in vec2 inUV;
 layout (location = 0) out vec4 fragColor;
 
+layout (push_constant) uniform PushConstant
+{
+    int textureIndex;
+};
+
 void main()
 {
-    float depth = 0.0;
-    if (scene_data.shadowMapId > -1)
-        depth = TEX_2D(scene_data.shadowMapId, inUV).r;
-
-    fragColor = vec4(vec3(depth), 1.0);
+    if (textureIndex > -1)
+        fragColor = TEX_2D(textureIndex, inUV);
+    else
+        fragColor = vec4(1.0, 0.0, 0.0, 1.0);
 }

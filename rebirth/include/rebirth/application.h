@@ -21,6 +21,8 @@ private:
 
     bool running = false;
     bool minimized = false;
+    bool fullscreen = false;
+
     std::string name = "Application";
     uint32_t width = 0;
     uint32_t height = 0;

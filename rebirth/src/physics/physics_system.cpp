@@ -152,7 +152,7 @@ void PhysicsSystem::update(float dt)
 {
     ZoneScopedN("Physics update");
 
-    physicsSystem.Update(dt, 1, tempAllocator, jobSystem);
+    physicsSystem.Update(1.0f / 60.0f, 1, tempAllocator, jobSystem);
 }
 
 vec3 PhysicsSystem::getPosition(RigidBodyID id)

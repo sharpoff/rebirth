@@ -1,22 +1,21 @@
 #pragma once
 
-#include <rebirth/graphics/pipelines/imgui_pipeline.h>
-#include <rebirth/graphics/pipelines/mesh_pipeline.h>
-#include <rebirth/graphics/pipelines/shadow_pipeline.h>
-#include <rebirth/graphics/pipelines/skybox_pipeline.h>
-
 #include <rebirth/graphics/vulkan/graphics.h>
 #include <rebirth/resource_manager.h>
+
 #include <rebirth/types/animation.h>
 #include <rebirth/types/camera.h>
-#include <rebirth/types/light.h>
-#include <rebirth/types/scene.h>
 #include <rebirth/types/draw_batch.h>
+#include <rebirth/types/light.h>
+#include <rebirth/types/mesh_draw.h>
+#include <rebirth/types/scene.h>
+#include <rebirth/types/scene_draw_data.h>
 
 using namespace vulkan;
 
 static const int maxMaterialsNum = 100;
 static const int maxLightsNum = 100;
+static const uint32_t shadowMapSize = 2048;
 
 class Renderer
 {
@@ -47,41 +46,81 @@ public:
     float getTimestampDeltaMs() { return float(timestamps[1] - timestamps[0]) * g_graphics.getDevicePropertices().limits.timestampPeriod * 1e-6; };
 
 protected:
+    void updateDynamicData(Camera &camera);
+
+    void drawLine(vec3 p1, vec3 p2);
+    void drawPlane(vec3 p1, vec3 p2, vec3 p3, vec3 p4);
+    void drawBox(vec3 pos, vec3 halfExtent);
+    void drawSphere(vec3 pos, float radius);
+
+    void shadowPass(const VkCommandBuffer cmd);
+    void meshPass(const VkCommandBuffer cmd);
+    void imGuiPass(const VkCommandBuffer cmd);
+    void skyboxPass(const VkCommandBuffer cmd);
+    void clearPass(const VkCommandBuffer cmd);
+
+    void cullMeshDraws(mat4 viewProj);
+    void sortMeshDraws(vec3 cameraPos);
     void batchMeshDraws();
-    void cullDrawBatches();
+
+    std::unordered_map<std::string, VkShaderModule> loadShaderModules(std::filesystem::path directory);
 
     void createPipelines();
-    void updateDynamicData(Camera &camera);
+    void destroyPipelines();
 
     void createResources();
     void createBuffers();
-    void updateDescriptors();
+    void updateDescriptorSet();
 
-    MeshPipeline meshPipeline;
-    ShadowPipeline shadowPipeline;
-    SkyboxPipeline skyboxPipeline;
-    ImGuiPipeline imguiPipeline;
+    struct MeshPassPC
+    {
+        mat4 transform;
+        int materialId;
+    };
 
-    ImageID shadowMapId;
-    ImageID skyboxId;
+    struct ShadowPassPC
+    {
+        mat4 transform;
+    };
 
-    vulkan::Buffer sceneDataBuffer;
-    vulkan::Buffer materialsBuffer;
-    vulkan::Buffer lightsBuffer;
+    struct SkyboxPassPC
+    {
+        int skyboxId;
+    };
 
-    VkQueryPool queryPool;
-    std::array<uint64_t, 2> timestamps;
+    std::unordered_map<std::string, VkPipeline> pipelines;
+    std::unordered_map<std::string, VkPipelineLayout> pipelineLayouts;
 
-    ImageID defaultImageId;
-    MaterialID defaultMaterialId;
-
-    // common primitives
+    // Common
     ModelID cubeModelId;
     ModelID sphereModelId;
     ModelID cylinderModelId;
 
+    ImageID defaultImageId;
+    MaterialID defaultMaterialId;
+
+    ImageID shadowMapId;
+    ImageID skyboxId;
+
+    VkImageSubresourceRange colorSubresource = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1};
+    VkImageSubresourceRange depthSubresource = {.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1};
+
+    // Resources
+    SceneDrawData sceneData;
+
+    vulkan::Buffer sceneDataBuffer;
+    vulkan::Buffer materialsBuffer;
+    vulkan::Buffer lightsBuffer;
+    vulkan::Buffer debugDrawVertexBuffer;
+
+    std::vector<Vertex> debugDrawVertices;
     std::vector<MeshDraw> meshDraws;
+    std::vector<uint32_t> opaqueDraws;
     std::vector<DrawBatch> drawBatches;
+    std::vector<VkDrawIndexedIndirectCommand> drawCommands;
+
+    VkQueryPool queryPool;
+    std::array<uint64_t, 2> timestamps;
 
     SDL_Window *window;
 

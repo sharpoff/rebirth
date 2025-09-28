@@ -39,7 +39,8 @@ Application::Application(std::string name, unsigned int width, unsigned int heig
     {
         ZoneScopedN("Load scenes");
         // if (!gltf::loadScene(scene, "assets/models/sponza/Sponza.gltf")) {
-        if (!gltf::loadScene(scene, "assets/models/subway_station/scene.gltf")) {
+        // if (!gltf::loadScene(scene, "assets/models/subway_station/scene.gltf")) {
+        if (!gltf::loadScene(scene, "assets/models/DamagedHelmet/DamagedHelmet.gltf")) {
             util::logError("Failed to load scene.");
             exit(EXIT_FAILURE);
         }
@@ -48,7 +49,7 @@ Application::Application(std::string name, unsigned int width, unsigned int heig
     // setup camera
     camera.setPerspectiveInf(glm::radians(60.0f), float(width) / height, 0.1f);
     camera.setPosition(vec3(0, 2, 2));
-    camera.type = CameraType::FirstPerson;
+    camera.type = CameraType::LookAt;
 
     renderer.addLight(
         Light{
@@ -62,7 +63,6 @@ Application::Application(std::string name, unsigned int width, unsigned int heig
     Game::initialize();
 
     // create game entites
-#if 0
     Transform transform(vec3(), glm::identity<quat>(), vec3(100.0f, 0.2f, 100.0f));
     Box *plane = new Box(renderer.getCubePrimitive(), transform, true);
     g_physicsSystem.setFriction(plane->getRigidBodyId(), 1.0f);
@@ -70,7 +70,6 @@ Application::Application(std::string name, unsigned int width, unsigned int heig
 
     Car *car = new Car(vec3(0, 5, 0));
     controlledCarEntityId = Game::addEntity(car);
-#endif
 }
 
 Application::~Application()
@@ -122,30 +121,30 @@ void Application::handleInput(float deltaTime)
         else if (event.type == SDL_EVENT_WINDOW_RESTORED)
             minimized = false;
 
-        if (event.type == SDL_EVENT_WINDOW_RESIZED ||
-            event.type == SDL_EVENT_WINDOW_ENTER_FULLSCREEN ||
-            event.type == SDL_EVENT_WINDOW_LEAVE_FULLSCREEN) {
+        if (event.type == SDL_EVENT_WINDOW_ENTER_FULLSCREEN)
+            fullscreen = true;
+        else if (event.type == SDL_EVENT_WINDOW_LEAVE_FULLSCREEN)
+            fullscreen = false;
+
+        if (event.type == SDL_EVENT_WINDOW_RESIZED)
             renderer.requestResize();
-        }
 
         if (event.type == SDL_EVENT_QUIT || input.isKeyPressed(KeyboardKey::ESCAPE)) {
             running = false;
         }
         // enable imgui
         if (input.isKeyPressed(KeyboardKey::H)) {
-            g_renderSettings.imgui = !g_renderSettings.imgui;
+            g_renderSettings.drawImGui = !g_renderSettings.drawImGui;
         }
 
         // enable fullscreen
         if (input.isKeyPressed(KeyboardKey::F)) {
             // TODO: this is not working for some reason
-            // state.fullscreen = !state.fullscreen;
-            // SDL_SetWindowFullscreen(window, state.fullscreen);
-            // SDL_SyncWindow(window);
+            // fullscreen = !fullscreen;
+            // SDL_SetWindowFullscreen(window, fullscreen);
             // renderer.requestResize();
         }
 
-#if 0
         if (input.isKeyPressed(KeyboardKey::Q)) {
             renderer.reloadShaders();
         }
@@ -190,7 +189,6 @@ void Application::handleInput(float deltaTime)
             g_physicsSystem.setLinearVelocity(sphere->getRigidBodyId(), vec3(0.0f, -5.0f, 0.0f));
             Game::addEntity(sphere);
         }
-#endif
 
         camera.handleEvent(event, deltaTime);
 
@@ -202,9 +200,9 @@ void Application::update(float deltaTime)
 {
     ZoneScopedN("Update");
 
-    g_physicsSystem.update(deltaTime);
-
     Game::update(deltaTime);
+
+    g_physicsSystem.update(deltaTime);
 
     if (camera.type == CameraType::LookAt && controlledCarEntityId != EntityID::Invalid) {
         RigidBodyID controlledCarRB = Game::getEntityById(controlledCarEntityId)->getRigidBodyId();
@@ -223,18 +221,6 @@ void Application::render()
     ZoneScopedN("Render");
 
     Game::draw(renderer);
-
-    renderer.drawScene(scene, scene.transform);
-
-    for (auto &light : g_resourceManager.lights) {
-        if (light.type != LightType::Point)
-            continue;
-
-        Transform transform(light.position);
-        transform.scale(vec3(0.5f, 0.5f, 0.5f));
-
-        renderer.drawModel(renderer.getSpherePrimitive(), transform);
-    }
 
     renderer.present(camera);
 }

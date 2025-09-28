@@ -98,14 +98,12 @@ namespace vulkan
         rasterizationState.frontFace = cullFace;
     }
 
-    void PipelineBuilder::setDepthTest(bool mode)
+    void PipelineBuilder::setDepthTest(VkBool32 depthTestEnable, VkBool32 depthWriteEnable, VkCompareOp compareOp)
     {
-        depthOn = mode;
-
-        if (mode) {
-            depthStencilState.depthTestEnable = VK_TRUE;
-            depthStencilState.depthWriteEnable = VK_TRUE;
-            depthStencilState.depthCompareOp = VK_COMPARE_OP_GREATER;
+        depthStencilState.depthTestEnable = depthTestEnable;
+        depthStencilState.depthWriteEnable = depthWriteEnable;
+        if (depthTestEnable) {
+            depthStencilState.depthCompareOp = compareOp;
             depthStencilState.minDepthBounds = 0.0f;
             depthStencilState.maxDepthBounds = 1.0f;
         } else {
@@ -174,7 +172,7 @@ namespace vulkan
             VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR};
         renderingInfo.colorAttachmentCount = colorFormats.size();
         renderingInfo.pColorAttachmentFormats = colorFormats.data();
-        if (depthOn)
+        if (depthStencilState.depthTestEnable)
             renderingInfo.depthAttachmentFormat = depthFormat;
 
         VkGraphicsPipelineCreateInfo pipelineInfo = {VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};

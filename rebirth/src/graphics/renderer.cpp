@@ -57,15 +57,14 @@ void Renderer::shutdown()
 {
     ZoneScopedN("Renderer shutdown");
 
-    vkDeviceWaitIdle(g_graphics.getDevice());
+    const VkDevice device = g_graphics.getDevice();
+    vkDeviceWaitIdle(device);
 
     g_resourceManager.destroy();
 
-    vkDestroyQueryPool(g_graphics.getDevice(), queryPool, nullptr);
+    vkDestroyQueryPool(device, queryPool, nullptr);
 
-    shadowPipeline.destroy();
-    meshPipeline.destroy();
-    skyboxPipeline.destroy();
+    destroyPipelines();
 
     g_graphics.destroyBuffer(sceneDataBuffer);
     g_graphics.destroyBuffer(materialsBuffer);
@@ -86,8 +85,7 @@ void Renderer::drawScene(Scene &scene, Transform transform)
                 MeshDraw{
                     .meshId = meshId,
                     .transform = transform.getModelMatrix() * scene.getNodeWorldMatrix(&node),
-                    .boundingSphere = SphereBounding(),
-                });
+                    .boundingSphere = calculateBoundingSphere(g_resourceManager.getMesh(meshId))});
         }
 
         for (auto &child : node.children) {
@@ -111,8 +109,7 @@ void Renderer::drawModel(ModelID modelId, Transform transform)
             MeshDraw{
                 .meshId = meshId,
                 .transform = transform.getModelMatrix(),
-                .boundingSphere = SphereBounding(),
-            });
+                .boundingSphere = calculateBoundingSphere(g_resourceManager.getMesh(meshId))});
     }
 }
 
@@ -124,8 +121,35 @@ void Renderer::drawMesh(MeshID meshId, Transform transform)
         MeshDraw{
             .meshId = meshId,
             .transform = transform.getModelMatrix(),
-            .boundingSphere = SphereBounding(),
-        });
+            .boundingSphere = calculateBoundingSphere(g_resourceManager.getMesh(meshId))});
+}
+
+void Renderer::updateDynamicData(Camera &camera)
+{
+    ZoneScoped;
+
+    auto &lights = g_resourceManager.lights;
+    for (auto &light : lights) {
+        if (light.type == LightType::Point) {
+            mat4 projection = math::perspective(glm::radians(45.0f), 1.0f, 1.0f, 100.0f);
+            mat4 view = glm::lookAt(light.position, vec3(0.0f), vec3(0.0f, 1.0f, 0.0f));
+            mat4 mvp = projection * view;
+            light.mvp = mvp;
+        } else if (light.type == LightType::Directional) {
+            // mat4 projection = glm::ortho(0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 100.0f);
+            mat4 projection = math::perspectiveInf(glm::radians(45.0f), 1.0f, 1.0f);
+            mat4 view = glm::lookAt(vec3(-4, 100, -4), vec3(0.0f), vec3(0.0f, 1.0f, 0.0f));
+            mat4 mvp = projection * view;
+            light.mvp = mvp;
+        }
+    }
+    memcpy(lightsBuffer.info.pMappedData, lights.data(), lightsBuffer.size);
+
+    sceneData.projection = camera.projection;
+    sceneData.view = camera.view;
+    sceneData.cameraPosAndLightNum = vec4(camera.position, lights.size());
+    sceneData.shadowMapId = shadowMapId;
+    memcpy(sceneDataBuffer.info.pMappedData, &sceneData, sizeof(sceneData));
 }
 
 void Renderer::present(Camera &camera)
@@ -140,20 +164,23 @@ void Renderer::present(Camera &camera)
     // TODO: create and update global joints buffer
     updateDynamicData(camera);
 
-    // batchMeshDraws();
-    // cullDrawBatches();
+    opaqueDraws.reserve(meshDraws.size());
+
+    cullMeshDraws(camera.view * camera.projection);
+    sortMeshDraws(camera.position);
 
     //
     // Create and begin command buffer
     //
     const VkCommandBuffer cmd = g_graphics.beginCommandBuffer();
-
     if (cmd == VK_NULL_HANDLE) {
         // Don't present - recreating swapchain
         return;
     }
 
-    if (g_graphics.supportTimestamps()) {
+    bool supportTimestamps = g_graphics.supportTimestamps();
+
+    if (supportTimestamps) {
         g_graphics.resetQueryPool(cmd, queryPool, 0, timestamps.size());
 
         // write start timestamp
@@ -162,114 +189,155 @@ void Renderer::present(Camera &camera)
 
     vulkan::Swapchain &swapchain = g_graphics.getSwapchain();
     const VkImage &swapchainImage = swapchain.getImage();
-    const Image &colorImage = g_graphics.getColorImage();
-    const Image &colorImageOneSample = g_graphics.getColorImageOneSample();
-    const Image &depthImage = g_graphics.getDepthImage();
-    const Image &shadowMap = g_resourceManager.getImage(shadowMapId);
-
-    VkImageSubresourceRange colorSubresource = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1};
-    VkImageSubresourceRange depthSubresource = colorSubresource;
-    depthSubresource.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-
-    // transfer one sample color image to color attachment
-    vulkan::util::imageBarrier(cmd, colorImageOneSample.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, colorSubresource);
-
-    // transfer multisampled image to color attachment
-    vulkan::util::imageBarrier(cmd, colorImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, colorSubresource);
-
-    // transfer swapchain image to color attachment
-    vulkan::util::imageBarrier(cmd, swapchainImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, colorSubresource);
-
-    // transfer to depth attachment
-    vulkan::util::imageBarrier(cmd, depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, 0, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, depthSubresource);
 
     //
     // Render passes start
     //
 
-    Frustum frustum(camera);
+    // transfer swapchain image to color attachment
+    VkImageMemoryBarrier swapchainBarrier = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .srcAccessMask = 0,
+        .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+        .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image = swapchainImage,
+        .subresourceRange = colorSubresource};
 
-    // Skybox Pass
+    vkCmdPipelineBarrier(
+        cmd,
+        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        0,
+        0,
+        nullptr,
+        0,
+        nullptr,
+        1,
+        &swapchainBarrier);
+
+    //
+    // Clear Pass
+    //
     {
-        ZoneScopedN("Skybox Pass");
-        TracyVkZone(g_graphics.getTracyContext(), cmd, "Skybox Pass");
+        ZoneScopedN("Clear Pass");
+        TracyVkZone(g_graphics.getTracyContext(), cmd, "Clear Pass");
 
-        skyboxPipeline.beginFrame(cmd);
-        if (g_renderSettings.skybox) {
-            skyboxPipeline.drawSkybox(cmd, skyboxId);
-        }
-        skyboxPipeline.endFrame(cmd);
+        clearPass(cmd);
     }
 
-    // transfer shadowmap to depth attachment
-    vulkan::util::imageBarrier(cmd, shadowMap.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, 0, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, depthSubresource);
-
+    //
     // Shadow Pass
-    if (!meshDraws.empty()) {
+    //
+    if (g_renderSettings.drawShadows && !meshDraws.empty()) {
         ZoneScopedN("Shadow Pass");
         TracyVkZone(g_graphics.getTracyContext(), cmd, "Shadow Pass");
 
-        shadowPipeline.beginFrame(cmd, shadowMap.view);
-
-        if (g_renderSettings.shadows) {
-            auto &lights = g_resourceManager.lights;
-            for (auto &light : lights)
-                shadowPipeline.draw(cmd, meshDraws, light.mvp);
-        }
-
-        shadowPipeline.endFrame(cmd, g_renderSettings.debugShadowMap);
+        shadowPass(cmd);
     }
 
-    // transfer shadowmap to fragment shader read
-    vulkan::util::imageBarrier(cmd, shadowMap.image, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, depthSubresource);
-
+    //
     // Mesh Pass
-    if (!g_renderSettings.debugShadowMap && !meshDraws.empty()) {
+    //
+    if (g_renderSettings.drawMeshes && !meshDraws.empty()) {
         ZoneScopedN("Mesh Pass");
         TracyVkZone(g_graphics.getTracyContext(), cmd, "Mesh Pass");
 
-        meshPipeline.beginFrame(cmd, g_renderSettings.wireframe);
-        meshPipeline.draw(cmd, frustum, meshDraws);
-        meshPipeline.endFrame(cmd);
+        meshPass(cmd);
     }
 
-    // transfer color image to fragment shader
-    vulkan::util::imageBarrier(cmd, colorImageOneSample.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, colorSubresource);
+    //
+    // Skybox Pass
+    //
+    if (g_renderSettings.drawSkybox) {
+        ZoneScopedN("Skybox Pass");
+        TracyVkZone(g_graphics.getTracyContext(), cmd, "Skybox Pass");
 
+        skyboxPass(cmd);
+    }
+
+    //
     // Imgui Pass
+    //
     {
         ZoneScopedN("ImGui Pass");
         TracyVkZone(g_graphics.getTracyContext(), cmd, "ImGui Pass");
 
-        imguiPipeline.beginFrame(cmd);
-        imguiPipeline.draw();
-        imguiPipeline.endFrame(cmd);
+        imGuiPass(cmd);
     }
 
     // transfer swapchain image to present
-    vulkan::util::imageBarrier(cmd, swapchainImage, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0, colorSubresource);
+    VkImageMemoryBarrier presentBarier = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+        .dstAccessMask = 0,
+        .oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        .newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image = swapchainImage,
+        .subresourceRange = colorSubresource};
+
+    vkCmdPipelineBarrier(
+        cmd,
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+        0,
+        0,
+        nullptr,
+        0,
+        nullptr,
+        1,
+        &presentBarier);
 
     //
     // Render passes end
     //
 
-    if (g_graphics.supportTimestamps()) {
+    if (supportTimestamps) {
         // write end timestamp
         g_graphics.writeTimestamp(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, queryPool, 1);
     }
 
     TracyVkCollect(g_graphics.getTracyContext(), cmd);
 
+    // Submit
     g_graphics.submitCommandBuffer(cmd);
 
-    if (g_graphics.supportTimestamps()) {
+    if (supportTimestamps) {
         // get timestamp result
         vkGetQueryPoolResults(g_graphics.getDevice(), queryPool, 0, timestamps.size(), timestamps.size() * sizeof(uint64_t), timestamps.data(), sizeof(uint64_t), VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
     }
 
+    debugDrawVertices.clear();
     meshDraws.clear();
+    opaqueDraws.clear();
     drawBatches.clear();
     g_renderSettings.drawCount = 0;
+}
+
+void Renderer::cullMeshDraws(mat4 viewProj)
+{
+    for (size_t i = 0; i < meshDraws.size(); i++) {
+        // if (isSphereVisible(meshDraws[i].boundingSphere, viewProj, meshDraws[i].transform)) {
+        opaqueDraws.push_back(i);
+        // }
+    }
+}
+
+void Renderer::sortMeshDraws(vec3 cameraPos)
+{
+    if (opaqueDraws.empty())
+        return;
+
+    std::sort(opaqueDraws.begin(), opaqueDraws.end(), [&](const auto &i1, const auto &i2) {
+        float dist1 = glm::length(cameraPos - math::getPosition(meshDraws[i1].transform));
+        float dist2 = glm::length(cameraPos - math::getPosition(meshDraws[i2].transform));
+
+        return dist1 < dist2;
+    });
 }
 
 void Renderer::batchMeshDraws()
@@ -300,47 +368,131 @@ void Renderer::batchMeshDraws()
     }
 }
 
-void Renderer::cullDrawBatches()
+std::unordered_map<std::string, VkShaderModule> Renderer::loadShaderModules(std::filesystem::path directory)
 {
-    // todo: add compute shader culling
+    ZoneScoped;
+
+    std::unordered_map<std::string, VkShaderModule> shaders;
+
+    const VkDevice device = g_graphics.getDevice();
+    for (auto &entry : std::filesystem::recursive_directory_iterator(directory)) {
+        if (entry.is_regular_file()) {
+            shaders[entry.path().filename()] = vulkan::util::loadShaderModule(device, entry.path());
+        }
+    }
+
+    return shaders;
 }
 
 void Renderer::createPipelines()
 {
     ZoneScoped;
 
-    meshPipeline.initialize();
-    shadowPipeline.initialize();
-    skyboxPipeline.initialize(cubeModelId);
+    const VkDevice device = g_graphics.getDevice();
+    DescriptorManager &descriptorManager = g_graphics.getDescriptorManager();
+    const VkFormat colorFormat = g_graphics.getSwapchain().getSurfaceFormat().format;
+
+    std::unordered_map<std::string, VkShaderModule> shaders = loadShaderModules("build/shaders");
+
+    //
+    // Create pipeline layouts
+    //
+    {
+        // shadow pipeline layout
+        VkPushConstantRange pushConstant = {VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(ShadowPassPC)};
+        pipelineLayouts["shadow"] = g_graphics.createPipelineLayout(&descriptorManager.getSetLayout(), &pushConstant);
+    }
+
+    {
+        // mesh pipeline layout
+        VkPushConstantRange pushConstant = {VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(MeshPassPC)};
+        pipelineLayouts["mesh"] = g_graphics.createPipelineLayout(&descriptorManager.getSetLayout(), &pushConstant);
+    }
+
+    {
+        // skybox pipeline layout
+        VkPushConstantRange pushConstant = {VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SkyboxPassPC)};
+        pipelineLayouts["skybox"] = g_graphics.createPipelineLayout(&descriptorManager.getSetLayout(), &pushConstant);
+    }
+
+    //
+    // Create pipelines
+    //
+    {
+        // shadow pipeline
+        PipelineBuilder builder;
+        builder.setPipelineLayout(pipelineLayouts["shadow"]);
+        builder.setShader(shaders["shadow.vert.spv"], VK_SHADER_STAGE_VERTEX_BIT); // default fragment shader
+        builder.setDepthTest(VK_TRUE, VK_TRUE);
+        builder.setCulling(VK_CULL_MODE_FRONT_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE);
+        builder.setPolygonMode(VK_POLYGON_MODE_FILL);
+        pipelines["shadow"] = builder.build(device, {});
+
+        vulkan::util::setDebugName(device, (uint64_t)pipelines["shadow"], VK_OBJECT_TYPE_PIPELINE, "Shadow pipeline");
+    }
+
+    {
+        // mesh pipeline
+        PipelineBuilder builder;
+        builder.setPipelineLayout(pipelineLayouts["mesh"]);
+        builder.setShader(shaders["mesh.vert.spv"], VK_SHADER_STAGE_VERTEX_BIT);
+        builder.setShader(shaders["mesh.frag.spv"], VK_SHADER_STAGE_FRAGMENT_BIT);
+        builder.setDepthTest(VK_TRUE, VK_TRUE);
+        builder.setCulling(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE);
+        builder.setPolygonMode(VK_POLYGON_MODE_FILL);
+        builder.setMultisampleCount(g_graphics.getSampleCount());
+        pipelines["mesh"] = builder.build(device, {colorFormat});
+
+        vulkan::util::setDebugName(device, (uint64_t)pipelines["mesh"], VK_OBJECT_TYPE_PIPELINE, "Mesh pipeline");
+    }
+
+    {
+        // wireframe pipeline
+        PipelineBuilder builder;
+        builder.setPipelineLayout(pipelineLayouts["mesh"]);
+        builder.setShader(shaders["color.vert.spv"], VK_SHADER_STAGE_VERTEX_BIT);
+        builder.setShader(shaders["color.frag.spv"], VK_SHADER_STAGE_FRAGMENT_BIT);
+        builder.setDepthTest(VK_TRUE, VK_TRUE);
+        builder.setCulling(VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE);
+        builder.setPolygonMode(VK_POLYGON_MODE_LINE);
+        builder.setMultisampleCount(g_graphics.getSampleCount());
+        pipelines["wireframe"] = builder.build(device, {colorFormat, colorFormat});
+
+        vulkan::util::setDebugName(device, (uint64_t)pipelines["wireframe"], VK_OBJECT_TYPE_PIPELINE, "Wireframe pipeline");
+    }
+
+    {
+        // skybox pipeline
+        PipelineBuilder builder;
+        builder.setPipelineLayout(pipelineLayouts["skybox"]);
+        builder.setShader(shaders["skybox.vert.spv"], VK_SHADER_STAGE_VERTEX_BIT);
+        builder.setShader(shaders["skybox.frag.spv"], VK_SHADER_STAGE_FRAGMENT_BIT);
+        builder.setCulling(VK_CULL_MODE_FRONT_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE);
+        builder.setDepthTest(VK_TRUE, VK_FALSE, VK_COMPARE_OP_EQUAL);
+        builder.setMultisampleCount(g_graphics.getSampleCount());
+        pipelines["skybox"] = builder.build(device, {colorFormat});
+
+        vulkan::util::setDebugName(device, (uint64_t)pipelines["skybox"], VK_OBJECT_TYPE_PIPELINE, "Skybox pipeline");
+    }
+
+    for (auto &[_, shader] : shaders) {
+        vkDestroyShaderModule(device, shader, nullptr);
+    }
 }
 
-void Renderer::updateDynamicData(Camera &camera)
+void Renderer::destroyPipelines()
 {
     ZoneScoped;
 
-    auto &lights = g_resourceManager.lights;
-    for (auto &light : lights) {
-        if (light.type == LightType::Point) {
-            mat4 projection = math::perspective(glm::radians(45.0f), 1.0f, 1.0f, 100.0f);
-            mat4 view = glm::lookAt(light.position, vec3(0.0f), vec3(0.0f, 1.0f, 0.0f));
-            mat4 mvp = projection * view;
-            light.mvp = mvp;
-        } else if (light.type == LightType::Directional) {
-            // mat4 projection = glm::ortho(0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 100.0f);
-            mat4 projection = math::perspectiveInf(glm::radians(45.0f), 1.0f, 1.0f);
-            mat4 view = glm::lookAt(vec3(-4, 100, -4), vec3(0.0f), vec3(0.0f, 1.0f, 0.0f));
-            mat4 mvp = projection * view;
-            light.mvp = mvp;
-        }
-    }
-    memcpy(lightsBuffer.info.pMappedData, lights.data(), lightsBuffer.size);
+    const VkDevice device = g_graphics.getDevice();
 
-    SceneDrawData sceneData = {};
-    sceneData.projection = camera.projection;
-    sceneData.view = camera.view;
-    sceneData.cameraPosAndLightNum = vec4(camera.position, lights.size());
-    sceneData.shadowMapId = shadowMapId;
-    memcpy(sceneDataBuffer.info.pMappedData, &sceneData, sizeof(sceneData));
+    for (auto &[_, pipeline] : pipelines) {
+        vkDestroyPipeline(device, pipeline, nullptr);
+    }
+
+    for (auto &[_, pipelineLayout] : pipelineLayouts) {
+        vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
+    }
 }
 
 void Renderer::createResources()
@@ -350,9 +502,9 @@ void Renderer::createResources()
     // shadow map
     {
         ImageCreateInfo createInfo = {
-            .width = shadowPipeline.getShadowMapSize(),
-            .height = shadowPipeline.getShadowMapSize(),
-            .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+            .width = shadowMapSize,
+            .height = shadowMapSize,
+            .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
             .format = VK_FORMAT_D32_SFLOAT,
             .aspect = VK_IMAGE_ASPECT_DEPTH_BIT,
         };
@@ -389,8 +541,7 @@ void Renderer::createResources()
     }
 
     createBuffers();
-
-    updateDescriptors();
+    updateDescriptorSet();
 }
 
 void Renderer::createBuffers()
@@ -429,7 +580,7 @@ void Renderer::createBuffers()
     memcpy(lightsBuffer.info.pMappedData, lights.data(), lightsBuffer.size);
 }
 
-void Renderer::updateDescriptors()
+void Renderer::updateDescriptorSet()
 {
     ZoneScoped;
 
@@ -456,5 +607,6 @@ void Renderer::reloadShaders()
     ::util::logInfo("Reloading shaders.");
 
     vkDeviceWaitIdle(g_graphics.getDevice());
+    destroyPipelines();
     createPipelines();
 }

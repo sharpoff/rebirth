@@ -11,7 +11,7 @@ Sphere::Sphere(ModelID modelId, float radius, Transform transform, bool isStatic
     this->modelId = modelId;
     scale = transform.getScale();
 
-    this->aabb = calculateAABB(modelId, transform);
+    bounds = calculateBoundingBox(g_resourceManager.getModel(modelId), transform);
 
     rigidBodyId = g_physicsSystem.createSphere(transform, radius, isStatic);
 }
