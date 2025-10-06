@@ -1,14 +1,13 @@
 #pragma once
 
 #include <rebirth/graphics/vulkan/graphics.h>
-#include <rebirth/resource_manager.h>
 
-#include <rebirth/types/animation.h>
-#include <rebirth/types/camera.h>
-#include <rebirth/types/light.h>
-#include <rebirth/types/mesh_draw.h>
-#include <rebirth/types/scene.h>
-#include <rebirth/types/scene_draw_data.h>
+#include <rebirth/core/animation.h>
+#include <rebirth/core/camera.h>
+#include <rebirth/core/light.h>
+#include <rebirth/core/mesh_draw.h>
+#include <rebirth/core/scene.h>
+#include <rebirth/core/scene_draw_data.h>
 
 using namespace vulkan;
 
@@ -26,24 +25,26 @@ public:
     void initialize(SDL_Window *window);
     void shutdown();
 
-    void addLight(Light light);
-
-    void drawScene(Scene &scene, Transform transform);
-    void drawModel(ModelID modelId, Transform transform);
-    void drawMesh(MeshID meshId, Transform transform);
+    void drawScene(Scene &scene, mat4 transform = mat4(1.0f));
+    void drawMesh(Mesh &mesh, mat4 transform = mat4(1.0f));
 
     void present(Camera &camera);
 
-    void requestResize() { g_graphics.requestResize(); }
+    void requestResize() { graphics.requestResize(); }
 
     void reloadShaders();
 
-    // common mesh primitives
-    ModelID getCubePrimitive() { return cubeModelId; };
-    ModelID getSpherePrimitive() { return sphereModelId; };
-    ModelID getCylinderPrimitive() { return cylinderModelId; };
+    float getTimestampDeltaMs() { return float(timestamps[1] - timestamps[0]) * graphics.getDevicePropertices().limits.timestampPeriod * 1e-6; };
 
-    float getTimestampDeltaMs() { return float(timestamps[1] - timestamps[0]) * g_graphics.getDevicePropertices().limits.timestampPeriod * 1e-6; };
+    Graphics &getGraphics() { return graphics; };
+
+    std::vector<vulkan::Image> images;
+    std::vector<Material> materials;
+    std::vector<Mesh> meshes;
+    std::vector<Light> lights;
+
+    std::vector<Vertex> vertices;
+    std::vector<uint32_t> indices;
 
 protected:
     void updateDynamicData(Camera &camera);
@@ -53,6 +54,7 @@ protected:
     void drawBox(vec3 pos, vec3 halfExtent);
     void drawSphere(vec3 pos, float radius);
 
+    // Passes
     void shadowPass(const VkCommandBuffer cmd);
     void meshPass(const VkCommandBuffer cmd);
     void imGuiPass(const VkCommandBuffer cmd);
@@ -74,7 +76,7 @@ protected:
     struct MeshPassPC
     {
         mat4 transform;
-        int materialId;
+        int materialIndex;
     };
 
     struct ShadowPassPC
@@ -84,25 +86,19 @@ protected:
 
     struct SkyboxPassPC
     {
-        int skyboxId;
+        int skyboxIndex;
     };
 
     std::unordered_map<std::string, VkPipeline> pipelines;
     std::unordered_map<std::string, VkPipelineLayout> pipelineLayouts;
 
     // Common
-    ModelID cubeModelId;
-    ModelID sphereModelId;
-    ModelID cylinderModelId;
+    Mesh cubeMesh;
+    Mesh sphereMesh;
+    Mesh cylinderMesh;
 
-    ImageID defaultImageId;
-    MaterialID defaultMaterialId;
-
-    ImageID shadowMapId;
-    ImageID skyboxId;
-
-    VkImageSubresourceRange colorSubresource = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1};
-    VkImageSubresourceRange depthSubresource = {.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1};
+    int shadowMapIndex;
+    int skyboxIndex;
 
     // Resources
     SceneDrawData sceneData;
@@ -110,6 +106,9 @@ protected:
     vulkan::Buffer sceneDataBuffer;
     vulkan::Buffer materialsBuffer;
     vulkan::Buffer lightsBuffer;
+    vulkan::Buffer vertexBuffer;
+    vulkan::Buffer indexBuffer;
+    vulkan::Buffer jointMatricesBuffer;
 
     std::vector<Vertex> debugDrawVertices;
     std::vector<MeshDraw> meshDraws;
@@ -119,6 +118,7 @@ protected:
     std::array<uint64_t, 2> timestamps;
 
     SDL_Window *window;
+    Graphics graphics;
 
     bool prepared = false;
 };

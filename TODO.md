@@ -2,6 +2,7 @@
 * Convert textures to ktx, add support for that
 * Integrate meshoptimizer. Also tryout it's gltfpack tool(it can also convert textures to ktx format)
 * Frustum culling
+* Make use of specialization constants to control shader flow(research uber shader approach)
 * Fix sync validation errors
 * Fix directional light shadows
 * CSM shadows

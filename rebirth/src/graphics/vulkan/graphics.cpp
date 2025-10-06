@@ -19,8 +19,6 @@
 #include <tracy/Tracy.hpp>
 #include <tracy/TracyVulkan.hpp>
 
-vulkan::Graphics g_graphics;
-
 namespace vulkan
 {
     VkBool32 VKAPI_PTR debugCallback(
@@ -205,7 +203,9 @@ namespace vulkan
     void Graphics::createSurface()
     {
         bool res = SDL_Vulkan_CreateSurface(window, instance, nullptr, &surface);
-        assert(res);
+        if (!res) {
+            assert(0 && "Failed to create vulkan surface!");
+        }
     }
 
     void Graphics::createDevice()
@@ -452,7 +452,7 @@ namespace vulkan
         submitSemaphores.resize(swapchain.getImagesCount());
         for (size_t i = 0; i < submitSemaphores.size(); i++) {
             submitSemaphores[i] = createSemaphore();
-            vulkan::util::setDebugName(
+            vulkan::setDebugName(
                 device,
                 (uint64_t)submitSemaphores[i],
                 VK_OBJECT_TYPE_SEMAPHORE,
@@ -463,12 +463,12 @@ namespace vulkan
             acquireSemaphores[i] = createSemaphore();
             finishRenderFences[i] = createFence(VK_FENCE_CREATE_SIGNALED_BIT);
 
-            vulkan::util::setDebugName(
+            vulkan::setDebugName(
                 device,
                 (uint64_t)acquireSemaphores[i],
                 VK_OBJECT_TYPE_SEMAPHORE,
                 "acquire semaphore " + std::to_string(i));
-            vulkan::util::setDebugName(
+            vulkan::setDebugName(
                 device,
                 (uint64_t)finishRenderFences[i],
                 VK_OBJECT_TYPE_FENCE,
@@ -480,7 +480,7 @@ namespace vulkan
     {
         resizeRequested = false;
 
-        ::util::logInfo("Recreating swapchain");
+        logger::logInfo("Recreating swapchain");
         vkDeviceWaitIdle(device);
 
         swapchain.destroy(device);
@@ -546,7 +546,7 @@ namespace vulkan
     void Graphics::uploadBuffer(Buffer &buffer, void *data, VkDeviceSize size)
     {
         if (size <= 0) {
-            ::util::logError("Cannot upload buffer - size is 0.");
+            logger::logError("Cannot upload buffer - size is 0.");
             return;
         }
 
@@ -584,7 +584,7 @@ namespace vulkan
             recreateSwapchain();
             return VK_NULL_HANDLE;
         } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
-            ::util::logError("Failed to acquire swapchain image.");
+            logger::logError("Failed to acquire swapchain image.");
             exit(EXIT_FAILURE);
         }
 
@@ -683,7 +683,7 @@ namespace vulkan
     {
         unsigned char *pixels = stbi_load(path.c_str(), reinterpret_cast<int *>(&createInfo.width), reinterpret_cast<int *>(&createInfo.height), reinterpret_cast<int *>(&createInfo.channels), STBI_rgb_alpha);
         if (!pixels) {
-            ::util::logError("Failed to load texture: ", path);
+            logger::logError("Failed to load texture: ", path);
             return;
         }
 
@@ -694,7 +694,7 @@ namespace vulkan
     {
         unsigned char *pixels = stbi_load_from_memory(data, size, reinterpret_cast<int *>(&createInfo.width), reinterpret_cast<int *>(&createInfo.height), reinterpret_cast<int *>(&createInfo.channels), STBI_rgb_alpha);
         if (!pixels) {
-            ::util::logError("Failed to load texture from memory");
+            logger::logError("Failed to load texture from memory");
             return;
         }
 
@@ -817,7 +817,7 @@ namespace vulkan
 
             imagePixels[i] = stbi_load(path.c_str(), reinterpret_cast<int *>(&createInfo.width), reinterpret_cast<int *>(&createInfo.height), reinterpret_cast<int *>(&createInfo.channels), STBI_rgb_alpha);
             if (!imagePixels[i]) {
-                ::util::logError("Failed to load image: ", path);
+                logger::logError("Failed to load image: ", path);
                 return;
             }
         }
@@ -1275,7 +1275,7 @@ namespace vulkan
         };
 
         createImage(colorImage, createInfo, false);
-        vulkan::util::setDebugName(device, reinterpret_cast<uint64_t>(colorImage.image), VK_OBJECT_TYPE_IMAGE, "Color image multisample");
+        vulkan::setDebugName(device, reinterpret_cast<uint64_t>(colorImage.image), VK_OBJECT_TYPE_IMAGE, "Color image multisample");
 
         // depth image
         createInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
@@ -1284,7 +1284,7 @@ namespace vulkan
         createInfo.samples = getSampleCount();
 
         createImage(depthImage, createInfo, false);
-        vulkan::util::setDebugName(getDevice(), reinterpret_cast<uint64_t>(depthImage.image), VK_OBJECT_TYPE_IMAGE, "Depth image");
+        vulkan::setDebugName(getDevice(), reinterpret_cast<uint64_t>(depthImage.image), VK_OBJECT_TYPE_IMAGE, "Depth image");
     }
 
 } // namespace vulkan

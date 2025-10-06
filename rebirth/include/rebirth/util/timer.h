@@ -4,8 +4,6 @@
 
 using namespace std::chrono;
 
-namespace util
-{
 struct Timer
 {
     inline void start() { time_ = now(); }
@@ -24,4 +22,3 @@ struct Timer
 private:
     high_resolution_clock::time_point time_;
 };
-} // namespace util

@@ -2,7 +2,8 @@
 
 #include <SDL3/SDL.h>
 #include <map>
-#include <rebirth/math/transform.h>
+
+#include <rebirth/math/math.h>
 
 enum class CameraType
 {

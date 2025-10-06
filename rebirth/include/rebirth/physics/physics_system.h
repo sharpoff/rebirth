@@ -1,3 +1,4 @@
+/*
 #pragma once
 
 #include <Jolt/Jolt.h>
@@ -12,7 +13,6 @@
 #include <Jolt/Physics/PhysicsSystem.h>
 #include <Jolt/RegisterTypes.h>
 
-#include <rebirth/math/transform.h>
 #include <rebirth/types/id_types.h>
 
 #include <rebirth/physics/physics_layers.h>
@@ -31,9 +31,9 @@ public:
 
     void update(float dt);
 
-    RigidBodyID createBox(Transform transform, vec3 halfExtent, bool isStatic = false);
-    RigidBodyID createSphere(Transform transform, float radius, bool isStatic = false);
-    RigidBodyID createShape(
+    RigidBody createBox(Transform transform, vec3 halfExtent, bool isStatic = false);
+    RigidBody createSphere(Transform transform, float radius, bool isStatic = false);
+    RigidBody createShape(
         JPH::Ref<JPH::Shape> &shape,
         JPH::BodyCreationSettings settings,
         JPH::EActivation activation,
@@ -82,5 +82,4 @@ private:
 
     std::vector<RigidBody> rigidBodies;
 };
-
-extern PhysicsSystem g_physicsSystem;
+*/

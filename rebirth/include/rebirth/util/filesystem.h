@@ -3,7 +3,7 @@
 #include <filesystem>
 #include <vector>
 
-namespace util
+namespace filesystem
 {
 
 std::filesystem::path getExecutablePath();

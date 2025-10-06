@@ -1,3 +1,4 @@
+/*
 #include <rebirth/physics/physics_system.h>
 
 #include <rebirth/physics/physics_helpers.h>
@@ -70,7 +71,7 @@ RigidBodyID PhysicsSystem::createBox(Transform transform, vec3 halfExtent, bool 
     if (result.IsValid()) {
         shape = result.Get();
     } else {
-        util::logError("Failed to create physics sphere: ", result.GetError());
+        logger::logError("Failed to create physics sphere: ", result.GetError());
         return RigidBodyID::Invalid;
     }
 
@@ -98,7 +99,7 @@ RigidBodyID PhysicsSystem::createSphere(Transform transform, float radius, bool 
     if (result.IsValid()) {
         shape = result.Get();
     } else {
-        util::logError("Failed to create physics sphere: ", result.GetError());
+        logger::logError("Failed to create physics sphere: ", result.GetError());
         return RigidBodyID::Invalid;
     }
 
@@ -183,3 +184,4 @@ void PhysicsSystem::activateBody(RigidBodyID id)
     JPH::BodyInterface &bodyInterface = physicsSystem.GetBodyInterface();
     bodyInterface.ActivateBody(getRigidBody(id).getBodyID());
 }
+    */

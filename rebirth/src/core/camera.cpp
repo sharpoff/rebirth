@@ -1,8 +1,7 @@
-#include <rebirth/types/camera.h>
+#include <rebirth/core/camera.h>
 
 #include <rebirth/graphics/render_settings.h>
 #include <rebirth/input/input.h>
-#include <rebirth/math/projection.h>
 
 #include <algorithm>
 

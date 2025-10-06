@@ -3,13 +3,15 @@
 #include <rebirth/graphics/render_settings.h>
 #include <rebirth/graphics/vulkan/util.h>
 
+#include <rebirth/util/logger.h>
+
 #include <backend/imgui_impl_sdl3.h>
 #include <backend/imgui_impl_vulkan.h>
 #include <imgui.h>
 
 void Renderer::shadowPass(const VkCommandBuffer cmd)
 {
-    const Image &shadowMap = g_resourceManager.getImage(shadowMapId);
+    const Image &shadowMap = images[shadowMapIndex];
     const VkExtent2D shadowMapExtent = {SHADOW_MAP_SIZE, SHADOW_MAP_SIZE};
 
     // attachments
@@ -21,40 +23,43 @@ void Renderer::shadowPass(const VkCommandBuffer cmd)
     depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 
     float color[4] = {0.3, 0.3, 0.3, 0.3};
-    vulkan::util::beginDebugLabel(cmd, "Shadow pass", color);
+    vulkan::beginDebugLabel(cmd, "Shadow pass", color);
 
-    vulkan::util::beginRendering(cmd, {}, &depthAttachment, shadowMapExtent);
+    vulkan::beginRendering(cmd, {}, &depthAttachment, shadowMapExtent);
 
-    vulkan::util::setViewport(cmd, 0.0f, 0.0f, shadowMapExtent.width, shadowMapExtent.height);
-    vulkan::util::setScissor(cmd, shadowMapExtent);
+    vulkan::setViewport(cmd, 0.0f, 0.0f, shadowMapExtent.width, shadowMapExtent.height);
+    vulkan::setScissor(cmd, shadowMapExtent);
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines["shadow"]);
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayouts["shadow"], 0, 1, &g_graphics.getDescriptorManager().getSet(), 0, nullptr);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayouts["shadow"], 0, 1, &graphics.getDescriptorManager().getSet(), 0, nullptr);
 
     //
     // Draw
     //
-    for (auto &light : g_resourceManager.lights) {
+    for (auto &light : lights) {
         for (uint32_t &opaqueDraw : opaqueDraws) {
             MeshDraw &meshDraw = meshDraws[opaqueDraw];
-            if (meshDraw.meshId == MeshID::Invalid)
-                continue;
+            Mesh &mesh = meshDraw.mesh;
 
-            Mesh &mesh = g_resourceManager.getMesh(meshDraw.meshId);
             ShadowPassPC pc = {
                 .transform = light.mvp * meshDraw.transform,
             };
-
             vkCmdPushConstants(cmd, pipelineLayouts["shadow"], VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pc), &pc);
-            vkCmdDrawIndexed(cmd, mesh.indexCount, 1, mesh.indexOffset, 0, 0);
+
+            for (Primitive &primitive : mesh.primitives) {
+                if (!indices.empty())
+                    vkCmdDrawIndexed(cmd, primitive.indexCount, 1, primitive.indexOffset, primitive.vertexOffset, 0);
+                else
+                    vkCmdDraw(cmd, primitive.vertexCount, 1, primitive.vertexOffset, 0);
+            }
 
             g_renderSettings.drawCount++;
         }
     }
 
     // end
-    vulkan::util::endRendering(cmd);
-    vulkan::util::endDebugLabel(cmd);
+    vulkan::endRendering(cmd);
+    vulkan::endDebugLabel(cmd);
 
     // transfer shadowmap to fragment shader read
     VkImageMemoryBarrier shadowMapReadBarrier = {
@@ -83,12 +88,12 @@ void Renderer::shadowPass(const VkCommandBuffer cmd)
 
 void Renderer::meshPass(const VkCommandBuffer cmd)
 {
-    Swapchain &swapchain = g_graphics.getSwapchain();
+    Swapchain &swapchain = graphics.getSwapchain();
 
     // TODO: make RenderInfo that would contain all information needed for a pipeline
     const VkExtent2D extent = swapchain.getExtent();
-    const Image &colorImage = g_graphics.getColorImage();
-    const Image &depthImage = g_graphics.getDepthImage();
+    const Image &colorImage = graphics.getColorImage();
+    const Image &depthImage = graphics.getDepthImage();
 
     // attachments
     VkRenderingAttachmentInfo colorAttachment;
@@ -107,48 +112,52 @@ void Renderer::meshPass(const VkCommandBuffer cmd)
     depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 
     float color[4] = {0.3, 0.3, 0.0, 0.3};
-    vulkan::util::beginDebugLabel(cmd, "Mesh pass", color);
+    vulkan::beginDebugLabel(cmd, "Mesh pass", color);
 
     std::vector<VkRenderingAttachmentInfo> colorAttachments = {colorAttachment};
-    vulkan::util::beginRendering(cmd, colorAttachments, &depthAttachment, extent);
+    vulkan::beginRendering(cmd, colorAttachments, &depthAttachment, extent);
 
-    vulkan::util::setViewport(cmd, 0.0f, 0.0f, extent.width, extent.height);
-    vulkan::util::setScissor(cmd, extent);
+    vulkan::setViewport(cmd, 0.0f, 0.0f, extent.width, extent.height);
+    vulkan::setScissor(cmd, extent);
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, g_renderSettings.drawWireframe ? pipelines["wireframe"] : pipelines["mesh"]);
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayouts["mesh"], 0, 1, &g_graphics.getDescriptorManager().getSet(), 0, nullptr);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayouts["mesh"], 0, 1, &graphics.getDescriptorManager().getSet(), 0, nullptr);
 
     //
     // Draw
     //
     for (uint32_t &opaqueDraw : opaqueDraws) {
         MeshDraw &meshDraw = meshDraws[opaqueDraw];
-        if (meshDraw.meshId == MeshID::Invalid)
-            continue;
+        Mesh &mesh = meshDraw.mesh;
 
-        Mesh &mesh = g_resourceManager.getMesh(meshDraw.meshId);
-        MeshPassPC pc = {
-            .transform = meshDraw.transform,
-            .materialId = mesh.materialId == MaterialID::Invalid ? -1 : int(mesh.materialId),
-        };
+        for (Primitive &primitive : mesh.primitives) {
+            MeshPassPC pc = {
+                .transform = meshDraw.transform,
+                .materialIndex = primitive.materialIndex,
+            };
 
-        vkCmdPushConstants(cmd, pipelineLayouts["mesh"], VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pc), &pc);
-        vkCmdDrawIndexed(cmd, mesh.indexCount, 1, mesh.indexOffset, 0, 0);
+            vkCmdPushConstants(cmd, pipelineLayouts["mesh"], VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pc), &pc);
+
+            if (!indices.empty())
+                vkCmdDrawIndexed(cmd, primitive.indexCount, 1, primitive.indexOffset, primitive.vertexOffset, 0);
+            else
+                vkCmdDraw(cmd, primitive.vertexCount, 1, primitive.vertexOffset, 0);
+        }
 
         g_renderSettings.drawCount++;
     }
 
     // end
-    vulkan::util::endRendering(cmd);
-    vulkan::util::endDebugLabel(cmd);
+    vulkan::endRendering(cmd);
+    vulkan::endDebugLabel(cmd);
 }
 
 void Renderer::imGuiPass(const VkCommandBuffer cmd)
 {
-    Swapchain &swapchain = g_graphics.getSwapchain();
+    Swapchain &swapchain = graphics.getSwapchain();
 
     const VkImageView &swapchainImageView = swapchain.getImageView();
-    const Image &colorImage = g_graphics.getColorImage();
+    const Image &colorImage = graphics.getColorImage();
     const VkExtent2D extent = swapchain.getExtent();
 
     // attachments
@@ -163,13 +172,13 @@ void Renderer::imGuiPass(const VkCommandBuffer cmd)
     colorAttachment.resolveMode = VK_RESOLVE_MODE_AVERAGE_BIT;
 
     float color[4] = {0.2, 0.2, 0.5, 0.3};
-    vulkan::util::beginDebugLabel(cmd, "ImGui pass", color);
+    vulkan::beginDebugLabel(cmd, "ImGui pass", color);
 
     std::vector<VkRenderingAttachmentInfo> colorAttachments = {colorAttachment};
-    vulkan::util::beginRendering(cmd, colorAttachments, nullptr, extent);
+    vulkan::beginRendering(cmd, colorAttachments, nullptr, extent);
 
-    vulkan::util::setViewport(cmd, 0.0f, 0.0f, extent.width, extent.height);
-    vulkan::util::setScissor(cmd, extent);
+    vulkan::setViewport(cmd, 0.0f, 0.0f, extent.width, extent.height);
+    vulkan::setScissor(cmd, extent);
 
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplSDL3_NewFrame();
@@ -201,7 +210,6 @@ void Renderer::imGuiPass(const VkCommandBuffer cmd)
         // Lights
         //
         ImGui::Begin("Lights");
-        auto &lights = g_resourceManager.lights;
         for (size_t i = 0; i < lights.size(); i++) {
             if (lights[i].type == LightType::Point && ImGui::TreeNode(std::string("Light " + std::to_string(i)).c_str())) {
                 ImGui::DragFloat3("position", &lights[i].position[0], 1.0f, -100.0f, 100.0f);
@@ -216,15 +224,15 @@ void Renderer::imGuiPass(const VkCommandBuffer cmd)
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
 
     // end
-    vulkan::util::endRendering(cmd);
-    vulkan::util::endDebugLabel(cmd);
+    vulkan::endRendering(cmd);
+    vulkan::endDebugLabel(cmd);
 }
 
 void Renderer::skyboxPass(const VkCommandBuffer cmd)
 {
-    vulkan::Swapchain &swapchain = g_graphics.getSwapchain();
-    const Image &colorImage = g_graphics.getColorImage();
-    const Image &depthImage = g_graphics.getDepthImage();
+    vulkan::Swapchain &swapchain = graphics.getSwapchain();
+    const Image &colorImage = graphics.getColorImage();
+    const Image &depthImage = graphics.getDepthImage();
     const VkExtent2D extent = swapchain.getExtent();
 
     // attachments
@@ -243,47 +251,43 @@ void Renderer::skyboxPass(const VkCommandBuffer cmd)
     depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 
     float color[4] = {0.3, 0.0, 3.0, 0.3};
-    vulkan::util::beginDebugLabel(cmd, "Skybox pass", color);
+    vulkan::beginDebugLabel(cmd, "Skybox pass", color);
 
     std::vector<VkRenderingAttachmentInfo> colorAttachments = {colorAttachment};
-    vulkan::util::beginRendering(cmd, colorAttachments, &depthAttachment, extent);
+    vulkan::beginRendering(cmd, colorAttachments, &depthAttachment, extent);
 
-    vulkan::util::setViewport(cmd, 0.0f, 0.0f, extent.width, extent.height);
-    vulkan::util::setScissor(cmd, extent);
+    vulkan::setViewport(cmd, 0.0f, 0.0f, extent.width, extent.height);
+    vulkan::setScissor(cmd, extent);
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines["skybox"]);
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayouts["skybox"], 0, 1, &g_graphics.getDescriptorManager().getSet(), 0, nullptr);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayouts["skybox"], 0, 1, &graphics.getDescriptorManager().getSet(), 0, nullptr);
 
     //
     // Draw
     //
-    if (cubeModelId != ModelID::Invalid) {
-        Model &model = g_resourceManager.getModel(cubeModelId);
-        for (MeshID meshId : model.meshes) {
-            Mesh &mesh = g_resourceManager.getMesh(meshId);
+    SkyboxPassPC pc = {
+        .skyboxIndex = skyboxIndex,
+    };
 
-            SkyboxPassPC pc = {
-                .skyboxId = skyboxId != ImageID::Invalid ? int(skyboxId) : -1,
-            };
+    vkCmdPushConstants(cmd, pipelineLayouts["skybox"], VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pc), &pc);
+    // if (!indices.empty())
+    //     vkCmdDrawIndexed(cmd, primitive.indexCount, 1, primitive.indexOffset, primitive.vertexOffset, 0);
+    // else
+    //     vkCmdDraw(cmd, primitive.vertexCount, 1, primitive.vertexOffset, 0);
 
-            vkCmdPushConstants(cmd, pipelineLayouts["skybox"], VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pc), &pc);
-            vkCmdDrawIndexed(cmd, mesh.indexCount, 1, mesh.indexOffset, 0, 0);
-
-            g_renderSettings.drawCount++;
-        }
-    }
+    g_renderSettings.drawCount++;
 
     // end
-    vulkan::util::endRendering(cmd);
-    vulkan::util::endDebugLabel(cmd);
+    vulkan::endRendering(cmd);
+    vulkan::endDebugLabel(cmd);
 }
 
 void Renderer::clearPass(const VkCommandBuffer cmd)
 {
-    const Image &colorImage = g_graphics.getColorImage();
-    const Image &depthImage = g_graphics.getDepthImage();
-    const Image &shadowMap = g_resourceManager.getImage(shadowMapId);
-    // vulkan::Swapchain &swapchain = g_graphics.getSwapchain();
+    const Image &colorImage = graphics.getColorImage();
+    const Image &depthImage = graphics.getDepthImage();
+    const Image &shadowMap = images[shadowMapIndex];
+    // vulkan::Swapchain &swapchain = graphics.getSwapchain();
     // const VkExtent2D extent = swapchain.getExtent();
 
     // transfer multisampled image to transfer dst

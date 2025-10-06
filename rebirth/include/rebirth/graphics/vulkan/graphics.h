@@ -172,5 +172,3 @@ namespace vulkan
     };
 
 } // namespace vulkan
-
-extern vulkan::Graphics g_graphics;

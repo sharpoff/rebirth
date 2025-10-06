@@ -3,14 +3,13 @@
 #include <rebirth/util/filesystem.h>
 #include <rebirth/util/logger.h>
 
-namespace vulkan::util
+namespace vulkan
 {
-
     VkShaderModule loadShaderModule(VkDevice device, std::filesystem::path path)
     {
-        std::vector<char> spirv = ::util::readFile(path);
+        std::vector<char> spirv = filesystem::readFile(path);
         if (spirv.empty()) {
-            ::util::logInfo("Failed to read spirv file: ", path);
+            logger::logInfo("Failed to read spirv file: ", path);
             return VK_NULL_HANDLE;
         }
 
@@ -96,4 +95,4 @@ namespace vulkan::util
 
     void endRendering(VkCommandBuffer cmd) { vkCmdEndRendering(cmd); }
 
-} // namespace vulkan::util
+} // namespace vulkan::

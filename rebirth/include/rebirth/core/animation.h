@@ -1,7 +1,6 @@
 #pragma once
 
 #include <rebirth/math/math.h>
-#include <rebirth/types/id_types.h>
 
 #include <vector>
 #include <string>
@@ -15,10 +14,12 @@ enum class AnimationPath
     weights // morph targets
 };
 
+struct AnimationSampler;
+
 struct AnimationChannel
 {
-    SamplerID samplerId = SamplerID::Invalid;
-    SceneNodeID nodeId = SceneNodeID::Invalid;
+    int samplerIndex = -1;
+    int nodeIndex = -1;
     AnimationPath path;
 };
 

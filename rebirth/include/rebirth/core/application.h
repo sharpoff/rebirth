@@ -1,6 +1,5 @@
 #pragma once
 
-#include <rebirth/game/game.h>
 #include <rebirth/graphics/renderer.h>
 #include <rebirth/util/timer.h>
 
@@ -27,14 +26,11 @@ private:
     uint32_t width = 0;
     uint32_t height = 0;
 
-    util::Timer timer;
+    Timer timer;
     SDL_Window *window;
 
     Renderer renderer;
     Camera camera;
-
-    // hardcoded
-    EntityID controlledCarEntityId = EntityID::Invalid;
 
     Scene scene;
 };

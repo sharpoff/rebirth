@@ -1,136 +1,86 @@
 #include <rebirth/graphics/gltf.h>
 #include <rebirth/graphics/vulkan/graphics.h>
 
-#include <rebirth/resource_manager.h>
 #include <rebirth/util/logger.h>
+#include <rebirth/graphics/renderer.h>
 
 namespace gltf
 {
-    cgltf_data *loadGltfData(std::filesystem::path file)
+    bool loadScene(Renderer &renderer, Scene &scene, std::filesystem::path file)
     {
         cgltf_options options = {};
         cgltf_data *data = NULL;
         cgltf_result result = cgltf_parse_file(&options, file.c_str(), &data);
 
         if (result != cgltf_result_success) {
-            util::logError("Failed to load gltf scene");
-            return nullptr;
+            logger::logError("Failed to load gltf scene");
+            return false;
         }
 
         if ((result = cgltf_load_buffers(&options, data, file.c_str())) !=
             cgltf_result_success) {
-            util::logError("Failed to load buffers of gltf scene");
-            return nullptr;
+            logger::logError("Failed to load buffers of gltf scene");
+            return false;
         }
 
         if ((result = cgltf_validate(data)) != cgltf_result_success) {
-            util::logError("Failed to load validate gltf scene");
-            return nullptr;
+            logger::logError("Failed to load validate gltf scene");
+            return false;
         }
 
-        return data;
-    }
-
-    bool loadScene(Scene &scene, std::filesystem::path file)
-    {
-        cgltf_data *data = loadGltfData(file);
         if (!data) {
-            util::logError("Failed to load scene - ", file);
+            logger::logError("Failed to load scene - ", file);
             return false;
         }
 
         scene.name = file.stem().c_str();
         cgltf_scene *root = data->scene;
-        loadGltfNodes(scene, root, data);
+        if (!root) {
+            logger::logError("Failed to load scene - root is NULL!");
+            return false;
+        }
 
-        loadGltfMaterials(data);
-        loadGltfTextures(file.parent_path(), data);
-        loadGltfSkins(scene, data);
-        loadGltfAnimations(scene, data);
+        scene.nodes.resize(root->nodes_count);
+        for (size_t i = 0; i < scene.nodes.size(); i++)
+            loadGltfNode(renderer, scene, scene.nodes[i], data, root->nodes[i]);
+
+        loadGltfMaterials(renderer, data);
+        loadGltfTextures(renderer, file.parent_path(), data);
+
+        // loadGltfSkins(scene, data);
+        // loadGltfAnimations(scene, data);
 
         cgltf_free(data);
         return true;
     }
 
-    bool loadModel(Model &model, std::filesystem::path file)
-    {
-        cgltf_data *data = loadGltfData(file);
-        if (!data) {
-            util::logError("Failed to load mesh - ", file);
-            return false;
-        }
-
-        std::function<void(cgltf_node)> loadNode = [&](cgltf_node gltfNode) {
-            if (gltfNode.mesh)
-                loadGltfMesh(model, data, gltfNode.mesh);
-
-            for (size_t i = 0; i < gltfNode.children_count; i++) {
-                if (gltfNode.children[i])
-                    loadNode(*gltfNode.children[i]);
-            }
-        };
-
-        for (size_t i = 0; i < data->nodes_count; i++) {
-            loadNode(data->nodes[i]);
-        }
-
-        return true;
-    }
-
-    void loadGltfNodes(Scene &scene, cgltf_scene *gltfScene, cgltf_data *data)
-    {
-        if (!gltfScene || !data)
-            return;
-
-        // recursively load nodes
-        scene.nodes.resize(gltfScene->nodes_count);
-        for (size_t i = 0; i < scene.nodes.size(); i++)
-            loadGltfNode(scene, scene.nodes[i], data, gltfScene->nodes[i]);
-    }
-
-    bool loadGltfNode(Scene &scene, SceneNode &node, cgltf_data *data, cgltf_node *gltfNode)
+    bool loadGltfNode(Renderer &renderer, Scene &scene, SceneNode &node, cgltf_data *data, cgltf_node *gltfNode)
     {
         if (!data || !gltfNode)
             return false;
 
         node.name = gltfNode->name ? gltfNode->name : "Node";
-        node.id = SceneNodeID(cgltf_node_index(data, gltfNode));
-        loadGltfTransform(node.localTransform, gltfNode, false);
-
-        mat4 worldMatrix = scene.getNodeWorldMatrix(&node);
-
-        if (gltfNode->camera) {
-            Camera camera;
-            loadGltfCamera(camera, worldMatrix, gltfNode->camera);
-
-            scene.cameras.push_back(camera);
-        }
-
-        if (gltfNode->light) {
-            Light light;
-            loadGltfLight(light, worldMatrix, gltfNode->light);
-
-            scene.lights.push_back(g_resourceManager.addLight(light));
-        }
+        node.index = cgltf_node_index(data, gltfNode);
+        loadGltfTransform(node.transform, gltfNode, false);
 
         if (gltfNode->skin) {
-            node.skinId = SkinID(cgltf_skin_index(data, gltfNode->skin));
+            node.skinIndex = cgltf_skin_index(data, gltfNode->skin);
         }
 
         if (gltfNode->mesh)
-            loadGltfMesh(node.model, data, gltfNode->mesh);
+            loadGltfMesh(renderer, scene, node.mesh, data, gltfNode->mesh);
 
         // recursively load child nodes
         node.children.resize(gltfNode->children_count);
         for (size_t i = 0; i < gltfNode->children_count; i++) {
-            loadGltfNode(scene, node.children[i], data, gltfNode->children[i]);
-            node.children[i].parentId = node.id;
+            loadGltfNode(renderer, scene, node.children[i], data, gltfNode->children[i]);
+            node.children[i].parentIndex = node.index;
         }
 
         return true;
     }
 
-    bool loadGltfMesh(Model &model, cgltf_data *data, cgltf_mesh *gltfMesh)
+    bool loadGltfMesh(Renderer &renderer, Scene &scene, Mesh &mesh, cgltf_data *data, cgltf_mesh *gltfMesh)
     {
         if (!data || !gltfMesh)
             return false;
@@ -138,33 +88,37 @@ namespace gltf
         for (size_t i = 0; i < gltfMesh->primitives_count; i++) {
             cgltf_primitive prim = gltfMesh->primitives[i];
 
-            uint32_t materialOffset = g_resourceManager.materials.size();
+            uint32_t materialOffset = renderer.materials.size();
+            uint32_t vertexOffset = renderer.vertices.size();
+            uint32_t indexOffset = renderer.indices.size();
 
-            std::vector<Vertex> vertices;
-            loadVertices(vertices, prim);
+            uint32_t vertexCount = loadVertices(renderer.vertices, prim);
 
-            std::vector<uint32_t> indices;
-            loadIndices(indices, vertices.size(), prim);
+            uint32_t indexCount = loadIndices(renderer.indices, prim);
 
-            MaterialID materialId = prim.material ? MaterialID(materialOffset + cgltf_material_index(data, prim.material)) : MaterialID::Invalid;
+            int materialIndex = prim.material ? materialOffset + cgltf_material_index(data, prim.material) : -1;
 
-            Mesh mesh(materialId, g_resourceManager.addVerticesAndIndices(vertices, indices), indices.size());
+            Primitive primitive;
+            primitive.materialIndex = materialIndex;
+            primitive.indexOffset = indexOffset;
+            primitive.indexCount = indexCount;
+            primitive.vertexCount = vertexCount;
+            primitive.vertexOffset = vertexOffset;
 
-            MeshID meshId = g_resourceManager.addMesh(mesh);
-
-            model.meshes.push_back(meshId);
+            mesh.primitives.push_back(primitive);
         }
 
         return true;
     }
 
-    void loadVertices(std::vector<Vertex> &vertices, cgltf_primitive prim)
+    // return new vertices count
+    size_t loadVertices(std::vector<Vertex> &vertices, cgltf_primitive prim)
     {
         // load vertices
-        vertices.resize(prim.attributes[0].data->count);
-
-        size_t vertexCount = vertices.size();
+        size_t vertexCount = prim.attributes[0].data->count;
         std::vector<float> temp(vertexCount * 4);
+
+        std::vector<Vertex> newVertices(vertexCount);
 
         // position
         if (const cgltf_accessor *pos =
@@ -173,9 +127,9 @@ namespace gltf
             cgltf_accessor_unpack_floats(pos, temp.data(), vertexCount * 3);
 
             for (size_t i = 0; i < vertexCount; i++) {
-                vertices[i].position.x = temp[i * 3 + 0];
-                vertices[i].position.y = temp[i * 3 + 1];
-                vertices[i].position.z = temp[i * 3 + 2];
+                newVertices[i].position.x = temp[i * 3 + 0];
+                newVertices[i].position.y = temp[i * 3 + 1];
+                newVertices[i].position.z = temp[i * 3 + 2];
             }
         }
 
@@ -186,8 +140,8 @@ namespace gltf
             cgltf_accessor_unpack_floats(uv, temp.data(), vertexCount * 2);
 
             for (size_t i = 0; i < vertexCount; i++) {
-                vertices[i].uv_x = temp[i * 2 + 0];
-                vertices[i].uv_y = temp[i * 2 + 1];
+                newVertices[i].uv_x = temp[i * 2 + 0];
+                newVertices[i].uv_y = temp[i * 2 + 1];
             }
         }
 
@@ -198,9 +152,9 @@ namespace gltf
             cgltf_accessor_unpack_floats(normal, temp.data(), vertexCount * 3);
 
             for (size_t i = 0; i < vertexCount; i++) {
-                vertices[i].normal.x = temp[i * 3 + 0];
-                vertices[i].normal.y = temp[i * 3 + 1];
-                vertices[i].normal.z = temp[i * 3 + 2];
+                newVertices[i].normal.x = temp[i * 3 + 0];
+                newVertices[i].normal.y = temp[i * 3 + 1];
+                newVertices[i].normal.z = temp[i * 3 + 2];
             }
         }
 
@@ -211,10 +165,10 @@ namespace gltf
             cgltf_accessor_unpack_floats(tangent, temp.data(), vertexCount * 4);
 
             for (size_t i = 0; i < vertexCount; i++) {
-                vertices[i].tangent.x = temp[i * 4 + 0];
-                vertices[i].tangent.y = temp[i * 4 + 1];
-                vertices[i].tangent.z = temp[i * 4 + 2];
-                vertices[i].tangent.w = temp[i * 4 + 3];
+                newVertices[i].tangent.x = temp[i * 4 + 0];
+                newVertices[i].tangent.y = temp[i * 4 + 1];
+                newVertices[i].tangent.z = temp[i * 4 + 2];
+                newVertices[i].tangent.w = temp[i * 4 + 3];
             }
         }
 
@@ -225,10 +179,10 @@ namespace gltf
             cgltf_accessor_unpack_floats(joints, temp.data(), vertexCount * 4);
 
             for (size_t i = 0; i < vertexCount; i++) {
-                vertices[i].jointIndices.x = temp[i * 4 + 0];
-                vertices[i].jointIndices.y = temp[i * 4 + 1];
-                vertices[i].jointIndices.z = temp[i * 4 + 2];
-                vertices[i].jointIndices.w = temp[i * 4 + 3];
+                newVertices[i].jointIndices.x = temp[i * 4 + 0];
+                newVertices[i].jointIndices.y = temp[i * 4 + 1];
+                newVertices[i].jointIndices.z = temp[i * 4 + 2];
+                newVertices[i].jointIndices.w = temp[i * 4 + 3];
             }
         }
 
@@ -239,29 +193,37 @@ namespace gltf
             cgltf_accessor_unpack_floats(weights, temp.data(), vertexCount * 4);
 
             for (size_t i = 0; i < vertexCount; i++) {
-                vertices[i].jointWeights.x = temp[i * 4 + 0];
-                vertices[i].jointWeights.y = temp[i * 4 + 1];
-                vertices[i].jointWeights.z = temp[i * 4 + 2];
-                vertices[i].jointWeights.w = temp[i * 4 + 3];
+                newVertices[i].jointWeights.x = temp[i * 4 + 0];
+                newVertices[i].jointWeights.y = temp[i * 4 + 1];
+                newVertices[i].jointWeights.z = temp[i * 4 + 2];
+                newVertices[i].jointWeights.w = temp[i * 4 + 3];
             }
         }
+
+        vertices.insert(vertices.end(), newVertices.begin(), newVertices.end());
+
+        return vertexCount;
     }
 
-    void loadIndices(std::vector<uint32_t> &indices, size_t verticesCount, cgltf_primitive prim)
+    // return new indices count
+    size_t loadIndices(std::vector<uint32_t> &indices, cgltf_primitive prim)
     {
+        std::vector<uint32_t> newIndices;
         if (prim.indices) {
-            indices.resize(prim.indices->count);
-            cgltf_accessor_unpack_indices(prim.indices, indices.data(), 4, indices.size());
+            newIndices.resize(prim.indices->count);
+            cgltf_accessor_unpack_indices(prim.indices, newIndices.data(), 4, newIndices.size());
         } else {
-            for (size_t i = 0; i < verticesCount; i++) {
-                indices.push_back(i);
-            }
+            logger::logWarn("Failed to loadIndices(), no indices!");
         }
+
+        indices.insert(indices.begin(), newIndices.begin(), newIndices.end());
+
+        return newIndices.size();
     }
 
-    void loadGltfMaterials(cgltf_data *data)
+    void loadGltfMaterials(Renderer &renderer, cgltf_data *data)
     {
-        size_t textureOffset = g_resourceManager.images.size();
+        size_t textureOffset = renderer.images.size();
 
         for (size_t i = 0; i < data->materials_count; i++) {
             cgltf_material gltfMaterial = data->materials[i];
@@ -304,11 +266,11 @@ namespace gltf
                 // material.emissive_factor[1], material.emissive_factor[2]);
             }
 
-            g_resourceManager.addMaterial(material);
+            renderer.materials.push_back(material);
         }
     }
 
-    void loadGltfTextures(std::filesystem::path dir, cgltf_data *data)
+    void loadGltfTextures(Renderer &renderer, std::filesystem::path dir, cgltf_data *data)
     {
         for (size_t i = 0; i < data->textures_count; i++) {
             cgltf_texture gltfTexture = data->textures[i];
@@ -319,15 +281,15 @@ namespace gltf
             if (gltfTexture.image->uri) { // load from file
                 std::filesystem::path file = dir / gltfTexture.image->uri;
 
-                g_graphics.createImageFromFile(image, createInfo, file);
-                g_resourceManager.addImage(image);
+                renderer.getGraphics().createImageFromFile(image, createInfo, file);
             } else { // load from memory
                 const uint8_t *data = cgltf_buffer_view_data(gltfTexture.image->buffer_view);
                 uint32_t size = gltfTexture.image->buffer_view->size;
 
-                g_graphics.createImageFromMemory(image, createInfo, const_cast<unsigned char *>(data), size);
-                g_resourceManager.addImage(image);
+                renderer.getGraphics().createImageFromMemory(image, createInfo, const_cast<unsigned char *>(data), size);
             }
+
+            renderer.images.push_back(image);
         }
     }
 
@@ -366,9 +328,9 @@ namespace gltf
                         break;
                 }
 
-                channel.nodeId = SceneNodeID(cgltf_node_index(data, gltfChannel.target_node));
+                channel.nodeIndex = cgltf_node_index(data, gltfChannel.target_node);
 
-                channel.samplerId = SamplerID(cgltf_animation_sampler_index(&gltfAnimation, gltfChannel.sampler));
+                channel.samplerIndex = cgltf_animation_sampler_index(&gltfAnimation, gltfChannel.sampler);
             }
 
             // samplers
@@ -431,13 +393,13 @@ namespace gltf
             skin.name = gltfSkin.name ? gltfSkin.name : "skin";
 
             // joints
-            skin.jointIds.resize(gltfSkin.joints_count);
+            skin.joints.resize(gltfSkin.joints_count);
             for (size_t j = 0; j < gltfSkin.joints_count; j++) {
-                skin.jointIds[j] = SceneNodeID(cgltf_node_index(data, gltfSkin.joints[j]));
+                skin.joints[j] = cgltf_node_index(data, gltfSkin.joints[j]);
             }
 
             if (gltfSkin.skeleton)
-                skin.skeletonId = SceneNodeID(cgltf_node_index(data, gltfSkin.skeleton));
+                skin.skeletonIndex = cgltf_node_index(data, gltfSkin.skeleton);
 
             // inverse bind matrices
             if (gltfSkin.inverse_bind_matrices) {
@@ -477,30 +439,6 @@ namespace gltf
         }
     }
 
-    bool loadGltfCamera(Camera &camera, mat4 worldMatrix, cgltf_camera *gltfCamera)
-    {
-        if (!gltfCamera)
-            return false;
-
-        // TODO: add support for orthographic
-        if (gltfCamera->type == cgltf_camera_type_perspective) {
-            cgltf_camera_perspective gltfPerspective = gltfCamera->data.perspective;
-
-            auto extent = g_graphics.getSwapchain().getExtent();
-
-            float near = 0.1f;
-            float far = 300.0f;
-            if (gltfPerspective.has_zfar) {
-                far = gltfPerspective.zfar;
-            }
-
-            camera.setPerspective(gltfPerspective.yfov, float(extent.width) / extent.height, near, far);
-            camera.setPosition(math::getPosition(worldMatrix));
-        }
-
-        return true;
-    }
-
     bool loadGltfLight(Light &light, mat4 worldMatrix, cgltf_light *gltfLight)
     {
         if (!gltfLight)
@@ -515,12 +453,10 @@ namespace gltf
         return true;
     }
 
-    bool loadGltfTransform(Transform &transform, cgltf_node *node, bool world)
+    bool loadGltfTransform(mat4 transform, cgltf_node *node, bool world)
     {
-        if (!node) {
-            transform = Transform();
+        if (!node)
             return false;
-        }
 
         glm::vec3 position = vec3(0.0);
         glm::quat rotation = glm::identity<quat>();
@@ -543,10 +479,9 @@ namespace gltf
         if (node->has_rotation)
             rotation = glm::make_quat(node->rotation);
 
-        matrix = glm::translate(mat4(1.0f), position) * mat4(rotation) *
-                 glm::scale(mat4(1.0f), scale) * matrix;
+        transform = glm::translate(mat4(1.0f), position) * mat4(rotation) *
+                    glm::scale(mat4(1.0f), scale) * matrix;
 
-        transform = Transform(matrix);
         return true;
     }
 

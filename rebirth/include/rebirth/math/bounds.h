@@ -1,12 +1,9 @@
 #pragma once
 
 #include <rebirth/math/math.h>
-#include <rebirth/types/id_types.h>
-#include <rebirth/math/transform.h>
-#include <rebirth/types/mesh.h>
 
 struct Vertex;
-struct Model;
+struct Mesh;
 
 struct Bounds
 {
@@ -15,8 +12,10 @@ struct Bounds
     vec3 extents = vec3(0.0f);
 };
 
-Bounds calculateBoundingBox(std::vector<Vertex> &vertices);
-Bounds calculateBoundingBox(Model &model, Transform transform);
+namespace math
+{
+    Bounds calculateBoundingBox(std::vector<Vertex> &vertices);
 
-Bounds calculateBoundingSphere(std::vector<Vertex> &vertices);
-Bounds calculateBoundingSphere(Mesh &mesh);
+    Bounds calculateBoundingSphere(std::vector<Vertex> &vertices);
+    Bounds calculateBoundingSphere(Mesh &mesh, std::vector<Vertex> &vertices, std::vector<uint32_t> &indices);
+} // namespace math
