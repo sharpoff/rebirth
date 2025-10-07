@@ -5,7 +5,7 @@
 
 namespace math
 {
-    Bounds calculateBoundingBox(std::vector<Vertex> &vertices)
+    Bounds calculateBoundingBox(eastl::vector<Vertex> &vertices)
     {
         if (vertices.empty())
             return Bounds{};
@@ -23,7 +23,7 @@ namespace math
         };
     }
 
-    Bounds calculateBoundingSphere(std::vector<Vertex> &vertices)
+    Bounds calculateBoundingSphere(eastl::vector<Vertex> &vertices)
     {
         vec3 min = vertices[0].position;
         vec3 max = vertices[0].position;
@@ -42,7 +42,7 @@ namespace math
         };
     }
 
-    Bounds calculateBoundingSphere(Mesh &mesh, std::vector<Vertex> &vertices, std::vector<uint32_t> &indices)
+    Bounds calculateBoundingSphere(Mesh &mesh, eastl::vector<Vertex> &vertices, eastl::vector<uint32_t> &indices)
     {
         vec3 min = vec3(std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
         vec3 max = vec3(std::numeric_limits<float>::min(), std::numeric_limits<float>::min(), std::numeric_limits<float>::min());

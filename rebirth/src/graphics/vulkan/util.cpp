@@ -7,7 +7,7 @@ namespace vulkan
 {
     VkShaderModule loadShaderModule(VkDevice device, std::filesystem::path path)
     {
-        std::vector<char> spirv = filesystem::readFile(path);
+        eastl::vector<char> spirv = filesystem::readFile(path);
         if (spirv.empty()) {
             logger::logInfo("Failed to read spirv file: ", path);
             return VK_NULL_HANDLE;
@@ -22,7 +22,7 @@ namespace vulkan
         return module;
     }
 
-    void setDebugName(VkDevice device, uint64_t objectHandle, VkObjectType objectType, std::string name)
+    void setDebugName(VkDevice device, uint64_t objectHandle, VkObjectType objectType, eastl::string name)
     {
 #ifndef NDEBUG
         VkDebugUtilsObjectNameInfoEXT objectNameInfo = {
@@ -78,7 +78,7 @@ namespace vulkan
 
     void beginRendering(
         VkCommandBuffer cmd,
-        std::vector<VkRenderingAttachmentInfo> colorAttachments,
+        eastl::vector<VkRenderingAttachmentInfo> colorAttachments,
         const VkRenderingAttachmentInfo *depthAttachment,
         VkExtent2D extent)
     {

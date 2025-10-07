@@ -11,10 +11,10 @@ struct SceneNode;
 
 struct Skin
 {
-    std::string name;
+    eastl::string name;
     int skeletonIndex = -1;
-    std::vector<int> joints;
-    std::vector<mat4> inverseBindMatrices;
+    eastl::vector<int> joints;
+    eastl::vector<mat4> inverseBindMatrices;
 
     uint32_t jointMatrixIndex;
 };
@@ -22,10 +22,10 @@ struct Skin
 struct SceneNode
 {
     int parentIndex = -1;
-    std::vector<SceneNode> children;
+    eastl::vector<SceneNode> children;
     Mesh mesh;
 
-    std::string name = "Node";
+    eastl::string name = "Node";
     mat4 transform = mat4(1.0f);
     int skinIndex = -1;
     int index = -1;
@@ -34,19 +34,19 @@ struct SceneNode
 class Scene
 {
 public:
-    std::string name;
+    eastl::string name;
     mat4 transform = mat4(1.0f);
-    std::vector<SceneNode> nodes;
+    eastl::vector<SceneNode> nodes;
 
-    std::vector<Skin> skins;
-    std::vector<Animation> animations;
+    eastl::vector<Skin> skins;
+    eastl::vector<Animation> animations;
 
     // void merge(Scene &scene);
 
-    void updateAnimation(float deltaTime, std::string name);
+    void updateAnimation(float deltaTime, eastl::string name);
 
     mat4 getNodeWorldMatrix(SceneNode *node);
-    Animation *getAnimationByName(std::string name);
+    Animation *getAnimationByName(eastl::string name);
 
 private:
     void updateJoints(SceneNode &node);

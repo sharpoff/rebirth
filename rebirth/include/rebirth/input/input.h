@@ -1,7 +1,7 @@
 #pragma once
 
 #include <SDL3/SDL_events.h>
-#include <unordered_map>
+#include <EASTL/unordered_map.h>
 
 #include <rebirth/input/keyboard.h>
 #include <rebirth/input/mouse.h>
@@ -22,7 +22,7 @@ private:
     SDL_Keycode getSDLKey(KeyboardKey key);
     KeyboardKey getKeyFromSDL(SDL_Keycode key);
 
-    std::unordered_map<SDL_Keycode, bool> keys;
+    eastl::unordered_map<SDL_Keycode, bool> keys;
     bool mouseRight = false;
     bool mouseLeft = false;
     bool mouseMiddle = false;

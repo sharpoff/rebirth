@@ -80,6 +80,6 @@ private:
 
     JPH::PhysicsSystem physicsSystem;
 
-    std::vector<RigidBody> rigidBodies;
+    eastl::vector<RigidBody> rigidBodies;
 };
 */

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <SDL3/SDL.h>
-#include <map>
+#include <EASTL/unordered_map.h>
 
 #include <rebirth/math/math.h>
 
@@ -46,5 +46,5 @@ public:
 private:
     void updateViewMatrix();
 
-    std::map<unsigned int, bool> keys;
+    eastl::unordered_map<unsigned int, bool> keys;
 };

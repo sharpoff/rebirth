@@ -1,10 +1,10 @@
 #pragma once
 
-#include <string>
+#include <EASTL/string.h>
 
 #include <assert.h>
 #include <filesystem>
-#include <vector>
+#include <EASTL/vector.h>
 #include <volk.h>
 
 #define VK_CHECK(code)                      \
@@ -26,7 +26,7 @@ namespace vulkan
         VkDevice device,
         uint64_t objectHandle,
         VkObjectType objectType,
-        std::string name);
+        eastl::string name);
     void beginDebugLabel(VkCommandBuffer cmd, const char *name, float color[4]);
     void endDebugLabel(VkCommandBuffer cmd);
 
@@ -35,7 +35,7 @@ namespace vulkan
 
     void beginRendering(
         VkCommandBuffer cmd,
-        std::vector<VkRenderingAttachmentInfo> colorAttachments,
+        eastl::vector<VkRenderingAttachmentInfo> colorAttachments,
         const VkRenderingAttachmentInfo *depthAttachment,
         VkExtent2D extent);
     void endRendering(VkCommandBuffer cmd);

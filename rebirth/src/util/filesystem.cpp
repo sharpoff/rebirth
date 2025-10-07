@@ -24,7 +24,7 @@ namespace filesystem
 
     void setCurrentPath(std::filesystem::path path) { std::filesystem::current_path(path); }
 
-    std::vector<char> readFile(std::filesystem::path path)
+    eastl::vector<char> readFile(std::filesystem::path path)
     {
         std::ifstream file(path, std::ios::ate | std::ios::binary);
 
@@ -33,7 +33,7 @@ namespace filesystem
             return {};
         }
 
-        std::vector<char> buffer;
+        eastl::vector<char> buffer;
         size_t size = file.tellg();
         buffer.resize(size);
         file.seekg(0);

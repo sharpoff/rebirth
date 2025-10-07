@@ -6,7 +6,7 @@ namespace vulkan
 
 void DescriptorManager::initialize(Graphics &graphics)
 {
-    std::vector<VkDescriptorPoolSize> poolSizes = {
+    eastl::vector<VkDescriptorPoolSize> poolSizes = {
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1}, // scene data
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_TEXTURES}, // textures
         {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 4}, // materials, lights, joints, vertices
@@ -14,7 +14,7 @@ void DescriptorManager::initialize(Graphics &graphics)
 
     pool = graphics.createDescriptorPool(poolSizes, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT);
 
-    std::vector<VkDescriptorSetLayoutBinding> bindings = {
+    eastl::vector<VkDescriptorSetLayoutBinding> bindings = {
         {
             .binding = SCENE_DATA_BINDING,
             .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,

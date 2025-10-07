@@ -1,6 +1,6 @@
 #pragma once
 
-#include <vector>
+#include <EASTL/vector.h>
 
 #include <SDL3/SDL.h>
 #include <volk.h>
@@ -32,8 +32,8 @@ private:
     VkSurfaceFormatKHR getBestSurfaceFormat(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface);
 
     VkSwapchainKHR swapchain{VK_NULL_HANDLE};
-    std::vector<VkImage> images;
-    std::vector<VkImageView> imageViews;
+    eastl::vector<VkImage> images;
+    eastl::vector<VkImageView> imageViews;
     uint32_t imageIndex = 0;
     VkExtent2D extent;
 

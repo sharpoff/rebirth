@@ -1,7 +1,7 @@
 #pragma once
 
-#include <vector>
-#include <array>
+#include <EASTL/vector.h>
+#include <EASTL/array.h>
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
@@ -93,7 +93,7 @@ namespace vulkan
         VkFence createFence(VkFenceCreateFlags flags = 0);
 
         // Descriptor
-        VkDescriptorPool createDescriptorPool(std::vector<VkDescriptorPoolSize> poolSizes, VkDescriptorPoolCreateFlags flags = 0);
+        VkDescriptorPool createDescriptorPool(eastl::vector<VkDescriptorPoolSize> poolSizes, VkDescriptorPoolCreateFlags flags = 0);
         VkDescriptorSetLayout createDescriptorSetLayout(VkDescriptorSetLayoutBinding *bindings, uint32_t bindingCount, VkDescriptorBindingFlags *bindingFlags);
         VkDescriptorSet createDescriptorSet(VkDescriptorPool pool, VkDescriptorSetLayout layout);
 
@@ -153,19 +153,19 @@ namespace vulkan
         DescriptorManager descriptorManager;
 
         VkCommandPool commandPool{VK_NULL_HANDLE};
-        std::array<VkCommandBuffer, FRAMES_IN_FLIGHT> commandBuffers;
+        eastl::array<VkCommandBuffer, FRAMES_IN_FLIGHT> commandBuffers;
 
         // Sync primitives (per swapchain image)
-        std::array<VkSemaphore, FRAMES_IN_FLIGHT> acquireSemaphores;
-        std::array<VkFence, FRAMES_IN_FLIGHT> finishRenderFences;
-        std::vector<VkSemaphore> submitSemaphores;
+        eastl::array<VkSemaphore, FRAMES_IN_FLIGHT> acquireSemaphores;
+        eastl::array<VkFence, FRAMES_IN_FLIGHT> finishRenderFences;
+        eastl::vector<VkSemaphore> submitSemaphores;
 
         vulkan::Image colorImage;
         vulkan::Image depthImage;
 
         VkSampleCountFlagBits sampleCount = VK_SAMPLE_COUNT_1_BIT;
 
-        std::array<TracyVkCtx, FRAMES_IN_FLIGHT> tracyVkCtx;
+        eastl::array<TracyVkCtx, FRAMES_IN_FLIGHT> tracyVkCtx;
 
         uint32_t currentFrame = 0;
         bool resizeRequested = false;

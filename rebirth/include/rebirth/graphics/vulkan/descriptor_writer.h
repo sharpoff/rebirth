@@ -1,6 +1,6 @@
 #pragma once
 
-#include <vector>
+#include <EASTL/vector.h>
 #include <deque>
 #include <volk.h>
 
@@ -34,7 +34,7 @@ private:
     std::deque<VkDescriptorImageInfo> imageInfos;
     std::deque<VkDescriptorBufferInfo> bufferInfos;
 
-    std::vector<VkWriteDescriptorSet> writes;
+    eastl::vector<VkWriteDescriptorSet> writes;
 };
 
 } // namespace vulkan

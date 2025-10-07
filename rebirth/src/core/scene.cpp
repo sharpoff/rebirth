@@ -1,6 +1,6 @@
 #include <rebirth/core/scene.h>
 
-void Scene::updateAnimation(float deltaTime, std::string name)
+void Scene::updateAnimation(float deltaTime, eastl::string name)
 {
     if (animations.size() < 1)
         return;
@@ -74,7 +74,7 @@ mat4 Scene::getNodeWorldMatrix(SceneNode *node)
     return worldMatrix;
 }
 
-Animation *Scene::getAnimationByName(std::string name)
+Animation *Scene::getAnimationByName(eastl::string name)
 {
     for (auto &animation : animations) {
         if (animation.name == name)
@@ -91,7 +91,7 @@ void Scene::updateJoints(SceneNode &node)
         Skin &skin = skins[node.skinIndex];
 
         size_t jointsCount = skin.joints.size();
-        std::vector<mat4> jointMatrices(jointsCount);
+        eastl::vector<mat4> jointMatrices(jointsCount);
 
         for (size_t i = 0; i < jointsCount; i++) {
             SceneNode *joint = getNodeByIndex(skin.joints[i]);

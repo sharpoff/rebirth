@@ -112,13 +112,13 @@ namespace gltf
     }
 
     // return new vertices count
-    size_t loadVertices(std::vector<Vertex> &vertices, cgltf_primitive prim)
+    size_t loadVertices(eastl::vector<Vertex> &vertices, cgltf_primitive prim)
     {
         // load vertices
         size_t vertexCount = prim.attributes[0].data->count;
-        std::vector<float> temp(vertexCount * 4);
+        eastl::vector<float> temp(vertexCount * 4);
 
-        std::vector<Vertex> newVertices(vertexCount);
+        eastl::vector<Vertex> newVertices(vertexCount);
 
         // position
         if (const cgltf_accessor *pos =
@@ -206,9 +206,9 @@ namespace gltf
     }
 
     // return new indices count
-    size_t loadIndices(std::vector<uint32_t> &indices, cgltf_primitive prim)
+    size_t loadIndices(eastl::vector<uint32_t> &indices, cgltf_primitive prim)
     {
-        std::vector<uint32_t> newIndices;
+        eastl::vector<uint32_t> newIndices;
         if (prim.indices) {
             newIndices.resize(prim.indices->count);
             cgltf_accessor_unpack_indices(prim.indices, newIndices.data(), 4, newIndices.size());
@@ -302,7 +302,7 @@ namespace gltf
 
             animation.name = gltfAnimation.name
                                  ? gltfAnimation.name
-                                 : std::string("Animation ") + std::to_string(i);
+                                 : eastl::string("Animation ") + eastl::to_string(i);
 
             // channels
             animation.channels.resize(gltfAnimation.channels_count);
@@ -342,7 +342,7 @@ namespace gltf
                 // inputs
                 if (gltfSampler.input) {
                     sampler.inputs.resize(gltfSampler.input->count);
-                    std::vector<float> inputs(sampler.inputs.size());
+                    eastl::vector<float> inputs(sampler.inputs.size());
                     cgltf_accessor_unpack_floats(gltfSampler.input, inputs.data(), inputs.size());
 
                     for (size_t k = 0; k < sampler.inputs.size(); k++) {
@@ -361,7 +361,7 @@ namespace gltf
                 if (gltfSampler.output) {
                     sampler.outputs.resize(gltfSampler.output->count);
 
-                    std::vector<float> temp(gltfSampler.output->count * 4);
+                    eastl::vector<float> temp(gltfSampler.output->count * 4);
 
                     for (size_t k = 0; k < sampler.outputs.size(); k++) {
                         if (gltfSampler.output->type == cgltf_type_vec4) {
@@ -404,7 +404,7 @@ namespace gltf
             // inverse bind matrices
             if (gltfSkin.inverse_bind_matrices) {
                 assert(gltfSkin.inverse_bind_matrices->type == cgltf_type_mat4);
-                std::vector<float> temp(gltfSkin.inverse_bind_matrices->count * 16);
+                eastl::vector<float> temp(gltfSkin.inverse_bind_matrices->count * 16);
                 cgltf_accessor_unpack_floats(gltfSkin.inverse_bind_matrices, temp.data(), temp.size());
 
                 skin.inverseBindMatrices.resize(gltfSkin.inverse_bind_matrices->count);

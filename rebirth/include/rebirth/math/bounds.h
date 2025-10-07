@@ -1,6 +1,7 @@
 #pragma once
 
 #include <rebirth/math/math.h>
+#include <EASTL/vector.h>
 
 struct Vertex;
 struct Mesh;
@@ -14,8 +15,8 @@ struct Bounds
 
 namespace math
 {
-    Bounds calculateBoundingBox(std::vector<Vertex> &vertices);
+    Bounds calculateBoundingBox(eastl::vector<Vertex> &vertices);
 
-    Bounds calculateBoundingSphere(std::vector<Vertex> &vertices);
-    Bounds calculateBoundingSphere(Mesh &mesh, std::vector<Vertex> &vertices, std::vector<uint32_t> &indices);
+    Bounds calculateBoundingSphere(eastl::vector<Vertex> &vertices);
+    Bounds calculateBoundingSphere(Mesh &mesh, eastl::vector<Vertex> &vertices, eastl::vector<uint32_t> &indices);
 } // namespace math

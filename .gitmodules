@@ -22,3 +22,6 @@
 [submodule "external/tracy"]
 	path = external/tracy
 	url = https://github.com/wolfpld/tracy
+[submodule "external/EASTL"]
+	path = external/EASTL
+	url = https://github.com/electronicarts/EASTL

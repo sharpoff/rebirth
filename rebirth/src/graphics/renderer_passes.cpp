@@ -47,7 +47,7 @@ void Renderer::shadowPass(const VkCommandBuffer cmd)
             vkCmdPushConstants(cmd, pipelineLayouts["shadow"], VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pc), &pc);
 
             for (Primitive &primitive : mesh.primitives) {
-                if (!indices.empty())
+                if (primitive.indexCount > 0)
                     vkCmdDrawIndexed(cmd, primitive.indexCount, 1, primitive.indexOffset, primitive.vertexOffset, 0);
                 else
                     vkCmdDraw(cmd, primitive.vertexCount, 1, primitive.vertexOffset, 0);
@@ -114,7 +114,7 @@ void Renderer::meshPass(const VkCommandBuffer cmd)
     float color[4] = {0.3, 0.3, 0.0, 0.3};
     vulkan::beginDebugLabel(cmd, "Mesh pass", color);
 
-    std::vector<VkRenderingAttachmentInfo> colorAttachments = {colorAttachment};
+    eastl::vector<VkRenderingAttachmentInfo> colorAttachments = {colorAttachment};
     vulkan::beginRendering(cmd, colorAttachments, &depthAttachment, extent);
 
     vulkan::setViewport(cmd, 0.0f, 0.0f, extent.width, extent.height);
@@ -138,7 +138,7 @@ void Renderer::meshPass(const VkCommandBuffer cmd)
 
             vkCmdPushConstants(cmd, pipelineLayouts["mesh"], VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pc), &pc);
 
-            if (!indices.empty())
+            if (primitive.indexCount > 0)
                 vkCmdDrawIndexed(cmd, primitive.indexCount, 1, primitive.indexOffset, primitive.vertexOffset, 0);
             else
                 vkCmdDraw(cmd, primitive.vertexCount, 1, primitive.vertexOffset, 0);
@@ -174,7 +174,7 @@ void Renderer::imGuiPass(const VkCommandBuffer cmd)
     float color[4] = {0.2, 0.2, 0.5, 0.3};
     vulkan::beginDebugLabel(cmd, "ImGui pass", color);
 
-    std::vector<VkRenderingAttachmentInfo> colorAttachments = {colorAttachment};
+    eastl::vector<VkRenderingAttachmentInfo> colorAttachments = {colorAttachment};
     vulkan::beginRendering(cmd, colorAttachments, nullptr, extent);
 
     vulkan::setViewport(cmd, 0.0f, 0.0f, extent.width, extent.height);
@@ -211,7 +211,7 @@ void Renderer::imGuiPass(const VkCommandBuffer cmd)
         //
         ImGui::Begin("Lights");
         for (size_t i = 0; i < lights.size(); i++) {
-            if (lights[i].type == LightType::Point && ImGui::TreeNode(std::string("Light " + std::to_string(i)).c_str())) {
+            if (lights[i].type == LightType::Point && ImGui::TreeNode(eastl::string("Light " + eastl::to_string(i)).c_str())) {
                 ImGui::DragFloat3("position", &lights[i].position[0], 1.0f, -100.0f, 100.0f);
 
                 ImGui::TreePop();
@@ -253,7 +253,7 @@ void Renderer::skyboxPass(const VkCommandBuffer cmd)
     float color[4] = {0.3, 0.0, 3.0, 0.3};
     vulkan::beginDebugLabel(cmd, "Skybox pass", color);
 
-    std::vector<VkRenderingAttachmentInfo> colorAttachments = {colorAttachment};
+    eastl::vector<VkRenderingAttachmentInfo> colorAttachments = {colorAttachment};
     vulkan::beginRendering(cmd, colorAttachments, &depthAttachment, extent);
 
     vulkan::setViewport(cmd, 0.0f, 0.0f, extent.width, extent.height);
@@ -270,10 +270,11 @@ void Renderer::skyboxPass(const VkCommandBuffer cmd)
     };
 
     vkCmdPushConstants(cmd, pipelineLayouts["skybox"], VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pc), &pc);
-    // if (!indices.empty())
-    //     vkCmdDrawIndexed(cmd, primitive.indexCount, 1, primitive.indexOffset, primitive.vertexOffset, 0);
-    // else
-    //     vkCmdDraw(cmd, primitive.vertexCount, 1, primitive.vertexOffset, 0);
+
+    if (cubePrimitive.indexCount > 0)
+        vkCmdDrawIndexed(cmd, cubePrimitive.indexCount, 1, cubePrimitive.indexOffset, cubePrimitive.vertexOffset, 0);
+    else
+        vkCmdDraw(cmd, cubePrimitive.vertexCount, 1, cubePrimitive.vertexOffset, 0);
 
     g_renderSettings.drawCount++;
 

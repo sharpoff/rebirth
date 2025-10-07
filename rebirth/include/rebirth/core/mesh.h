@@ -15,7 +15,7 @@ struct Primitive
 
 struct Mesh
 {
-    std::vector<Primitive> primitives;
+    eastl::vector<Primitive> primitives;
 };
 
 struct MeshDraw

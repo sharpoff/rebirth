@@ -13,7 +13,7 @@
 
 #include <tracy/Tracy.hpp>
 
-Application::Application(std::string name, unsigned int width, unsigned int height)
+Application::Application(eastl::string name, unsigned int width, unsigned int height)
     : name(name), width(width), height(height)
 {
     ZoneScopedN("Application init");

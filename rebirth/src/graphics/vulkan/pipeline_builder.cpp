@@ -143,7 +143,7 @@ namespace vulkan
         multisampleState.rasterizationSamples = samples;
     }
 
-    VkPipeline PipelineBuilder::build(VkDevice device, std::vector<VkFormat> colorFormats, VkFormat depthFormat)
+    VkPipeline PipelineBuilder::build(VkDevice device, eastl::vector<VkFormat> colorFormats, VkFormat depthFormat)
     {
         vertexInputState.vertexAttributeDescriptionCount = attributeDescriptions.size();
         vertexInputState.pVertexAttributeDescriptions = attributeDescriptions.data();
@@ -154,7 +154,7 @@ namespace vulkan
         dynamicState.pDynamicStates = dynamicStates;
         dynamicState.dynamicStateCount = sizeof(dynamicStates) / sizeof(dynamicStates[0]);
 
-        std::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments;
+        eastl::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments;
         for (size_t i = 0; i < colorFormats.size(); i++) {
             VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
             colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |

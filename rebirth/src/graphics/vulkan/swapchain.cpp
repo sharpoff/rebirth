@@ -102,7 +102,7 @@ Swapchain::getBestPresentMode(VkPhysicalDevice physicalDevice, VkSurfaceKHR surf
     VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(
         physicalDevice, surface, &presentModeCount, nullptr
     ));
-    std::vector<VkPresentModeKHR> presentModes(presentModeCount);
+    eastl::vector<VkPresentModeKHR> presentModes(presentModeCount);
     VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(
         physicalDevice, surface, &presentModeCount, presentModes.data()
     ));
@@ -123,7 +123,7 @@ Swapchain::getBestSurfaceFormat(VkPhysicalDevice physicalDevice, VkSurfaceKHR su
     VK_CHECK(
         vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &surfaceFormatCount, nullptr)
     );
-    std::vector<VkSurfaceFormatKHR> surfaceFormats(surfaceFormatCount);
+    eastl::vector<VkSurfaceFormatKHR> surfaceFormats(surfaceFormatCount);
     VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(
         physicalDevice, surface, &surfaceFormatCount, surfaceFormats.data()
     ));

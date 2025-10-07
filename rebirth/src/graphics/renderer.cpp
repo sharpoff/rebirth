@@ -13,6 +13,8 @@
 #include <rebirth/core/scene.h>
 #include <rebirth/core/scene_draw_data.h>
 
+#include <rebirth/graphics/primitives.h>
+
 #include <tracy/Tracy.hpp>
 #include <tracy/TracyVulkan.hpp>
 
@@ -29,6 +31,9 @@ void Renderer::initialize(SDL_Window *window)
     queryPool = graphics.createQueryPool(VK_QUERY_TYPE_TIMESTAMP, timestamps.size());
 
     createPipelines();
+
+    // TODO: cube primitive is broken...
+    cubePrimitive = generateCube(*this);
 }
 
 void Renderer::shutdown()
@@ -215,12 +220,12 @@ void Renderer::present(Camera &camera)
     // Skybox Pass
     //
     // TODO: draw cube
-    // if (g_renderSettings.drawSkybox) {
-    //     ZoneScopedN("Skybox Pass");
-    //     TracyVkZone(graphics.getTracyContext(), cmd, "Skybox Pass");
+    if (g_renderSettings.drawSkybox) {
+        ZoneScopedN("Skybox Pass");
+        TracyVkZone(graphics.getTracyContext(), cmd, "Skybox Pass");
 
-    //     skyboxPass(cmd);
-    // }
+        skyboxPass(cmd);
+    }
 
     //
     // Imgui Pass
@@ -307,16 +312,16 @@ void Renderer::sortMeshDraws(vec3 cameraPos)
     });
 }
 
-std::unordered_map<std::string, VkShaderModule> Renderer::loadShaderModules(std::filesystem::path directory)
+eastl::unordered_map<eastl::string, VkShaderModule> Renderer::loadShaderModules(std::filesystem::path directory)
 {
     ZoneScoped;
 
-    std::unordered_map<std::string, VkShaderModule> shaders;
+    eastl::unordered_map<eastl::string, VkShaderModule> shaders;
 
     const VkDevice device = graphics.getDevice();
     for (auto &entry : std::filesystem::recursive_directory_iterator(directory)) {
         if (entry.is_regular_file()) {
-            shaders[entry.path().filename()] = vulkan::loadShaderModule(device, entry.path());
+            shaders[entry.path().filename().c_str()] = vulkan::loadShaderModule(device, entry.path());
         }
     }
 
@@ -331,7 +336,7 @@ void Renderer::createPipelines()
     DescriptorManager &descriptorManager = graphics.getDescriptorManager();
     const VkFormat colorFormat = graphics.getSwapchain().getSurfaceFormat().format;
 
-    std::unordered_map<std::string, VkShaderModule> shaders = loadShaderModules("build/shaders");
+    eastl::unordered_map<eastl::string, VkShaderModule> shaders = loadShaderModules("build/shaders");
 
     //
     // Create pipeline layouts

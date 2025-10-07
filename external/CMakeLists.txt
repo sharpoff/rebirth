@@ -34,3 +34,7 @@ option(TRACY_ENABLE " " ON)
 option(TRACY_ON_DEMAND " " ON) # capture only when connected to profiler server
 option(TRACY_ONLY_LOCALHOST " " ON)
 add_subdirectory(tracy)
+
+# EASTL
+set(EASTL_EASTDC_VSNPRINTF ON)
+add_subdirectory(EASTL)

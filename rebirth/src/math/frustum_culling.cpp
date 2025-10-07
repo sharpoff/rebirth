@@ -3,11 +3,13 @@
 #include <rebirth/util/common.h>
 #include <rebirth/util/logger.h>
 
+#include <EASTL/array.h>
+
 namespace math
 {
     bool isSphereVisible(const Bounds &sphere, mat4 viewProj, mat4 transform)
     {
-        std::array<glm::vec3, 8> corners{
+        eastl::array<glm::vec3, 8> corners{
             glm::vec3{1, 1, 1},
             glm::vec3{1, 1, -1},
             glm::vec3{1, -1, 1},

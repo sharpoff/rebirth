@@ -38,13 +38,13 @@ public:
 
     Graphics &getGraphics() { return graphics; };
 
-    std::vector<vulkan::Image> images;
-    std::vector<Material> materials;
-    std::vector<Mesh> meshes;
-    std::vector<Light> lights;
+    eastl::vector<vulkan::Image> images;
+    eastl::vector<Material> materials;
+    eastl::vector<Mesh> meshes;
+    eastl::vector<Light> lights;
 
-    std::vector<Vertex> vertices;
-    std::vector<uint32_t> indices;
+    eastl::vector<Vertex> vertices;
+    eastl::vector<uint32_t> indices;
 
 protected:
     void updateDynamicData(Camera &camera);
@@ -64,7 +64,7 @@ protected:
     void cullMeshDraws(mat4 viewProj);
     void sortMeshDraws(vec3 cameraPos);
 
-    std::unordered_map<std::string, VkShaderModule> loadShaderModules(std::filesystem::path directory);
+    eastl::unordered_map<eastl::string, VkShaderModule> loadShaderModules(std::filesystem::path directory);
 
     void createPipelines();
     void destroyPipelines();
@@ -89,13 +89,11 @@ protected:
         int skyboxIndex;
     };
 
-    std::unordered_map<std::string, VkPipeline> pipelines;
-    std::unordered_map<std::string, VkPipelineLayout> pipelineLayouts;
+    eastl::unordered_map<eastl::string, VkPipeline> pipelines;
+    eastl::unordered_map<eastl::string, VkPipelineLayout> pipelineLayouts;
 
     // Common
-    Mesh cubeMesh;
-    Mesh sphereMesh;
-    Mesh cylinderMesh;
+    Primitive cubePrimitive;
 
     int shadowMapIndex;
     int skyboxIndex;
@@ -110,12 +108,12 @@ protected:
     vulkan::Buffer indexBuffer;
     vulkan::Buffer jointMatricesBuffer;
 
-    std::vector<Vertex> debugDrawVertices;
-    std::vector<MeshDraw> meshDraws;
-    std::vector<uint32_t> opaqueDraws;
+    eastl::vector<Vertex> debugDrawVertices;
+    eastl::vector<MeshDraw> meshDraws;
+    eastl::vector<uint32_t> opaqueDraws;
 
     VkQueryPool queryPool;
-    std::array<uint64_t, 2> timestamps;
+    eastl::array<uint64_t, 2> timestamps;
 
     SDL_Window *window;
     Graphics graphics;

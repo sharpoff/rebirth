@@ -1,6 +1,6 @@
 #pragma once
 
-#include <vector>
+#include <EASTL/vector.h>
 #include <volk.h>
 
 namespace vulkan
@@ -32,12 +32,12 @@ public:
 
     void setMultisampleCount(VkSampleCountFlagBits samples);
 
-    VkPipeline build(VkDevice device, std::vector<VkFormat> colorFormats, VkFormat depthFormat = VK_FORMAT_D32_SFLOAT);
+    VkPipeline build(VkDevice device, eastl::vector<VkFormat> colorFormats, VkFormat depthFormat = VK_FORMAT_D32_SFLOAT);
 
 private:
-    std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
-    std::vector<VkVertexInputBindingDescription> bindingDescriptions;
-    std::vector<VkVertexInputAttributeDescription> attributeDescriptions;
+    eastl::vector<VkPipelineShaderStageCreateInfo> shaderStages;
+    eastl::vector<VkVertexInputBindingDescription> bindingDescriptions;
+    eastl::vector<VkVertexInputAttributeDescription> attributeDescriptions;
 
     // states
     VkPipelineVertexInputStateCreateInfo vertexInputState;

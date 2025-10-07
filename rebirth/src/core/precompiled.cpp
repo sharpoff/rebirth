@@ -1,3 +1,24 @@
+#include <new>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
+
+namespace EA { namespace StdC {
+    int Vsnprintf(char* buf, unsigned long bufsize, const char* fmt, va_list args) {
+        return vsnprintf(buf, (size_t)bufsize, fmt, args);
+    }
+}}
+
+void* operator new[](size_t size, const char* pName, int flags, unsigned debugFlags, const char* file, int line)
+{
+	return new uint8_t[size];
+}
+
+void* operator new[](size_t size, size_t alignment, size_t alignmentOffset, const char* pName, int flags, unsigned debugFlags, const char* file, int line)
+{
+	return new uint8_t[size];
+}
+
 // vma
 #define VK_NO_PROTOTYPES
 #define VMA_IMPLEMENTATION

@@ -149,12 +149,12 @@ namespace vulkan
         const char *const *extensionNames = SDL_Vulkan_GetInstanceExtensions(&extensionCount);
         assert(extensionNames && extensionCount > 0);
 
-        std::vector<const char *> instanceExtensions(extensionNames, extensionNames + extensionCount);
+        eastl::vector<const char *> instanceExtensions(extensionNames, extensionNames + extensionCount);
 #ifndef NDEBUG
         instanceExtensions.push_back("VK_EXT_debug_utils");
 #endif
 
-        std::vector<const char *> instanceLayers;
+        eastl::vector<const char *> instanceLayers;
 #ifndef NDEBUG
         instanceLayers.push_back("VK_LAYER_KHRONOS_validation");
 #endif
@@ -214,7 +214,7 @@ namespace vulkan
         VK_CHECK(vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, nullptr));
         assert(physicalDeviceCount > 0);
 
-        std::vector<VkPhysicalDevice> physicalDevices(physicalDeviceCount);
+        eastl::vector<VkPhysicalDevice> physicalDevices(physicalDeviceCount);
         VK_CHECK(vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, physicalDevices.data()));
 
         // FIXME: picking first device
@@ -228,7 +228,7 @@ namespace vulkan
             presentQueueIndex,
             computeQueueIndex};
 
-        std::vector<VkDeviceQueueCreateInfo> deviceQueueCI;
+        eastl::vector<VkDeviceQueueCreateInfo> deviceQueueCI;
         float queuePriority = 1.0f;
         for (auto &index : uniqueQueueIndices) {
             VkDeviceQueueCreateInfo queueCI = {VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO};
@@ -279,7 +279,7 @@ namespace vulkan
     {
         uint32_t queueFamilyCount = 0;
         vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, nullptr);
-        std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+        eastl::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
         vkGetPhysicalDeviceQueueFamilyProperties(
             physicalDevice,
             &queueFamilyCount,
@@ -456,7 +456,7 @@ namespace vulkan
                 device,
                 (uint64_t)submitSemaphores[i],
                 VK_OBJECT_TYPE_SEMAPHORE,
-                "submit semaphore " + std::to_string(i));
+                "submit semaphore " + eastl::to_string(i));
         }
 
         for (unsigned int i = 0; i < FRAMES_IN_FLIGHT; i++) {
@@ -467,12 +467,12 @@ namespace vulkan
                 device,
                 (uint64_t)acquireSemaphores[i],
                 VK_OBJECT_TYPE_SEMAPHORE,
-                "acquire semaphore " + std::to_string(i));
+                "acquire semaphore " + eastl::to_string(i));
             vulkan::setDebugName(
                 device,
                 (uint64_t)finishRenderFences[i],
                 VK_OBJECT_TYPE_FENCE,
-                "finish render fence " + std::to_string(i));
+                "finish render fence " + eastl::to_string(i));
         }
     }
 
@@ -809,9 +809,9 @@ namespace vulkan
     {
         const int CUBE_FACES_COUNT = 6;
 
-        std::array<std::string, CUBE_FACES_COUNT> paths = {"right.jpg", "left.jpg", "top.jpg", "bottom.jpg", "front.jpg", "back.jpg"};
+        eastl::array<eastl::string, CUBE_FACES_COUNT> paths = {"right.jpg", "left.jpg", "top.jpg", "bottom.jpg", "front.jpg", "back.jpg"};
 
-        std::vector<unsigned char *> imagePixels(CUBE_FACES_COUNT);
+        eastl::vector<unsigned char *> imagePixels(CUBE_FACES_COUNT);
         for (uint32_t i = 0; i < CUBE_FACES_COUNT; i++) {
             auto path = dir / paths[i].c_str();
 
@@ -874,7 +874,7 @@ namespace vulkan
             &barrier0);
 
         // copy
-        std::vector<VkBufferImageCopy> copyRegions(CUBE_FACES_COUNT);
+        eastl::vector<VkBufferImageCopy> copyRegions(CUBE_FACES_COUNT);
         for (uint32_t i = 0; i < CUBE_FACES_COUNT; i++) {
             copyRegions[i].imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, i, 1};
             copyRegions[i].imageExtent = {
@@ -1188,7 +1188,7 @@ namespace vulkan
     }
 
     VkDescriptorPool Graphics::createDescriptorPool(
-        std::vector<VkDescriptorPoolSize> poolSizes,
+        eastl::vector<VkDescriptorPoolSize> poolSizes,
         VkDescriptorPoolCreateFlags flags)
     {
         VkDescriptorPoolCreateInfo createInfo = {VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};

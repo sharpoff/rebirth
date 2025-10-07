@@ -8,7 +8,7 @@
 class Application
 {
 public:
-    Application(std::string name, unsigned int width, unsigned int height);
+    Application(eastl::string name, unsigned int width, unsigned int height);
     ~Application();
 
     void run();
@@ -22,7 +22,7 @@ private:
     bool minimized = false;
     bool fullscreen = false;
 
-    std::string name = "Application";
+    eastl::string name = "Application";
     uint32_t width = 0;
     uint32_t height = 0;
 

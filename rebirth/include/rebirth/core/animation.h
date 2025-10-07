@@ -2,8 +2,8 @@
 
 #include <rebirth/math/math.h>
 
-#include <vector>
-#include <string>
+#include <EASTL/vector.h>
+#include <EASTL/string.h>
 
 enum class AnimationPath
 {
@@ -25,16 +25,16 @@ struct AnimationChannel
 
 struct AnimationSampler
 {
-    std::vector<float> inputs;
-    std::vector<vec4> outputs;
+    eastl::vector<float> inputs;
+    eastl::vector<vec4> outputs;
 };
 
 // NOTE: only linear interpolation supported
 struct Animation
 {
-    std::string name;
-    std::vector<AnimationChannel> channels;
-    std::vector<AnimationSampler> samplers;
+    eastl::string name;
+    eastl::vector<AnimationChannel> channels;
+    eastl::vector<AnimationSampler> samplers;
     float start = std::numeric_limits<float>::max();
     float end = std::numeric_limits<float>::min();
     float currentTime = 0.0f;

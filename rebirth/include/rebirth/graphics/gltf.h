@@ -17,8 +17,8 @@ namespace gltf
     bool loadGltfNode(Renderer &renderer, Scene &scene, SceneNode &node, cgltf_data *data, cgltf_node *gltfNode);
     bool loadGltfMesh(Renderer &renderer, Scene &scene, Mesh &mesh, cgltf_data *data, cgltf_mesh *gltfMesh);
 
-    size_t loadVertices(std::vector<Vertex> &vertices, cgltf_primitive prim);
-    size_t loadIndices(std::vector<uint32_t> &indices, cgltf_primitive prim);
+    size_t loadVertices(eastl::vector<Vertex> &vertices, cgltf_primitive prim);
+    size_t loadIndices(eastl::vector<uint32_t> &indices, cgltf_primitive prim);
 
     void loadGltfMaterials(Renderer &renderer, cgltf_data *data);
     void loadGltfTextures(Renderer &renderer, std::filesystem::path dir, cgltf_data *data);
