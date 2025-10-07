@@ -2,12 +2,12 @@
 #include <rebirth/input/input.h>
 
 #include <rebirth/graphics/gltf.h>
-#include <rebirth/graphics/render_settings.h>
 
 #include <rebirth/physics/physics_system.h>
 
 #include <rebirth/util/filesystem.h>
 #include <rebirth/util/logger.h>
+#include <rebirth/core/cvar_system.h>
 
 #include "backend/imgui_impl_sdl3.h"
 
@@ -120,7 +120,9 @@ void Application::handleInput(float deltaTime)
         }
         // enable imgui
         if (input.isKeyPressed(KeyboardKey::H)) {
-            g_renderSettings.drawImGui = !g_renderSettings.drawImGui;
+            auto *cvar = CVarSystem::instance()->getCVarInt("render_imgui");
+            if (CVarSystem::instance()->getCVarInt("render_imgui"))
+                *cvar = !(*cvar);
         }
 
         // TODO: this is not working for some reason
@@ -148,8 +150,6 @@ void Application::update(float deltaTime)
     // Game::update(deltaTime);
     // physicsSystem.update(deltaTime);
 
-    g_renderSettings.timestampDeltaMs = renderer.getTimestampDeltaMs();
-
     camera.update(deltaTime);
 }
 
@@ -160,6 +160,5 @@ void Application::render()
     // Game::draw(renderer);
 
     renderer.drawScene(scene);
-
     renderer.present(camera);
 }

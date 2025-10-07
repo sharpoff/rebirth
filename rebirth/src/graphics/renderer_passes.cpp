@@ -1,9 +1,9 @@
 #include <rebirth/graphics/renderer.h>
 
-#include <rebirth/graphics/render_settings.h>
 #include <rebirth/graphics/vulkan/util.h>
 
 #include <rebirth/util/logger.h>
+#include <rebirth/core/cvar_system.h>
 
 #include <backend/imgui_impl_sdl3.h>
 #include <backend/imgui_impl_vulkan.h>
@@ -53,7 +53,7 @@ void Renderer::shadowPass(const VkCommandBuffer cmd)
                     vkCmdDraw(cmd, primitive.vertexCount, 1, primitive.vertexOffset, 0);
             }
 
-            g_renderSettings.drawCount++;
+            drawCount++;
         }
     }
 
@@ -120,7 +120,7 @@ void Renderer::meshPass(const VkCommandBuffer cmd)
     vulkan::setViewport(cmd, 0.0f, 0.0f, extent.width, extent.height);
     vulkan::setScissor(cmd, extent);
 
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, g_renderSettings.drawWireframe ? pipelines["wireframe"] : pipelines["mesh"]);
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, *CVarSystem::instance()->getCVarInt("render_wireframe") ? pipelines["wireframe"] : pipelines["mesh"]);
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayouts["mesh"], 0, 1, &graphics.getDescriptorManager().getSet(), 0, nullptr);
 
     //
@@ -144,7 +144,7 @@ void Renderer::meshPass(const VkCommandBuffer cmd)
                 vkCmdDraw(cmd, primitive.vertexCount, 1, primitive.vertexOffset, 0);
         }
 
-        g_renderSettings.drawCount++;
+        drawCount++;
     }
 
     // end
@@ -187,23 +187,23 @@ void Renderer::imGuiPass(const VkCommandBuffer cmd)
     //
     // Draw
     //
-    if (g_renderSettings.drawImGui) {
+    if (*CVarSystem::instance()->getCVarInt("render_imgui")) {
         ImGui::ShowDemoWindow();
 
         //
         // Debug
         //
         ImGui::Begin("Debug");
-        ImGui::Text("Frame time: %f ms", g_renderSettings.timestampDeltaMs);
-        ImGui::Text("FPS: %d", int(1000.0f / g_renderSettings.timestampDeltaMs));
-        ImGui::Text("Draw count: %d", g_renderSettings.drawCount);
+        ImGui::Text("Frame time: %f ms", timestampDeltaMs);
+        ImGui::Text("FPS: %d", int(1000.0f / timestampDeltaMs));
+        ImGui::Text("Draw count: %d", drawCount);
 
         ImGui::Separator();
 
-        ImGui::Checkbox("Enable wireframe", &g_renderSettings.drawWireframe);
-        ImGui::Checkbox("Enable shadows", &g_renderSettings.drawShadows);
-        ImGui::Checkbox("Enable skybox", &g_renderSettings.drawSkybox);
-        ImGui::Checkbox("Enable imgui", &g_renderSettings.drawImGui);
+        ImGui::Checkbox("Enable wireframe", (bool*)CVarSystem::instance()->getCVarInt("render_wireframe"));
+        ImGui::Checkbox("Enable shadows", (bool*)CVarSystem::instance()->getCVarInt("render_shadows"));
+        ImGui::Checkbox("Enable skybox", (bool*)CVarSystem::instance()->getCVarInt("render_skybox"));
+        ImGui::Checkbox("Enable imgui", (bool*)CVarSystem::instance()->getCVarInt("render_imgui"));
         ImGui::End();
 
         //
@@ -276,7 +276,7 @@ void Renderer::skyboxPass(const VkCommandBuffer cmd)
     else
         vkCmdDraw(cmd, cubePrimitive.vertexCount, 1, cubePrimitive.vertexOffset, 0);
 
-    g_renderSettings.drawCount++;
+    drawCount++;
 
     // end
     vulkan::endRendering(cmd);

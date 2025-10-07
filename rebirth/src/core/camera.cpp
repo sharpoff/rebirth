@@ -1,9 +1,6 @@
 #include <rebirth/core/camera.h>
 
-#include <rebirth/graphics/render_settings.h>
 #include <rebirth/input/input.h>
-
-#include <algorithm>
 
 #include "imgui.h"
 
@@ -85,10 +82,17 @@ void Camera::handleEvent(SDL_Event event, float deltaTime)
 
     // mouse
     if (input.isMouseButtonPressed(MouseButton::LEFT)) {
-        yaw -= event.motion.xrel * rotationSpeed;
-        pitch -= event.motion.yrel * rotationSpeed;
+        if (!first) {
+            yaw -= event.motion.xrel * rotationSpeed;
+            pitch -= event.motion.yrel * rotationSpeed;
+        }
 
-        pitch = std::clamp(pitch, -89.9f, 89.9f);
+        yaw = glm::mod(yaw, 360.0f);
+        pitch = glm::clamp(pitch, -89.9f, 89.9f);
+
+        first = !first;
+    } else {
+        first = true;
     }
 }
 

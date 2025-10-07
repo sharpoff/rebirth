@@ -1,7 +1,6 @@
 #include <rebirth/graphics/renderer.h>
 
 #include <rebirth/graphics/gltf.h>
-#include <rebirth/graphics/render_settings.h>
 #include <rebirth/graphics/vulkan/descriptor_writer.h>
 #include <rebirth/graphics/vulkan/pipeline_builder.h>
 #include <rebirth/graphics/vulkan/swapchain.h>
@@ -12,6 +11,7 @@
 
 #include <rebirth/core/scene.h>
 #include <rebirth/core/scene_draw_data.h>
+#include <rebirth/core/cvar_system.h>
 
 #include <rebirth/graphics/primitives.h>
 
@@ -24,6 +24,12 @@ void Renderer::initialize(SDL_Window *window)
 
     assert(window);
     this->window = window;
+
+    // set cvars
+    CVarSystem::instance()->setCVarInt("render_wireframe", 0);
+    CVarSystem::instance()->setCVarInt("render_shadows", 0);
+    CVarSystem::instance()->setCVarInt("render_skybox", 1);
+    CVarSystem::instance()->setCVarInt("render_imgui", 1);
 
     graphics.initialize(window);
 
@@ -126,6 +132,8 @@ void Renderer::present(Camera &camera)
         prepared = true;
     }
 
+    timestampDeltaMs = getTimestampDeltaMs();
+
     // TODO: create and update global joints buffer
     updateDynamicData(camera);
 
@@ -199,7 +207,7 @@ void Renderer::present(Camera &camera)
     //
     // Shadow Pass
     //
-    if (g_renderSettings.drawShadows && !opaqueDraws.empty()) {
+    if (*CVarSystem::instance()->getCVarInt("render_shadows") && !opaqueDraws.empty()) {
         ZoneScopedN("Shadow Pass");
         TracyVkZone(graphics.getTracyContext(), cmd, "Shadow Pass");
 
@@ -209,7 +217,7 @@ void Renderer::present(Camera &camera)
     //
     // Mesh Pass
     //
-    if (g_renderSettings.drawMeshes && !opaqueDraws.empty()) {
+    if (!opaqueDraws.empty()) {
         ZoneScopedN("Mesh Pass");
         TracyVkZone(graphics.getTracyContext(), cmd, "Mesh Pass");
 
@@ -220,7 +228,7 @@ void Renderer::present(Camera &camera)
     // Skybox Pass
     //
     // TODO: draw cube
-    if (g_renderSettings.drawSkybox) {
+    if (*CVarSystem::instance()->getCVarInt("render_skybox")) {
         ZoneScopedN("Skybox Pass");
         TracyVkZone(graphics.getTracyContext(), cmd, "Skybox Pass");
 
@@ -283,7 +291,7 @@ void Renderer::present(Camera &camera)
     debugDrawVertices.clear();
     meshDraws.clear();
     opaqueDraws.clear();
-    g_renderSettings.drawCount = 0;
+    drawCount = 0;
 }
 
 void Renderer::cullMeshDraws(mat4 viewProj)

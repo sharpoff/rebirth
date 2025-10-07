@@ -119,4 +119,6 @@ protected:
     Graphics graphics;
 
     bool prepared = false;
+    uint32_t drawCount = 0;
+    float timestampDeltaMs = 0.0f;
 };

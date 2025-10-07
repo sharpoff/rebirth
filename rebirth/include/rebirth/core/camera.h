@@ -47,4 +47,5 @@ private:
     void updateViewMatrix();
 
     eastl::unordered_map<unsigned int, bool> keys;
+    bool first = true;
 };
