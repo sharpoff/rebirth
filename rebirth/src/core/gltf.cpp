@@ -216,7 +216,7 @@ namespace gltf
             logger::logWarn("Failed to loadIndices(), no indices!");
         }
 
-        indices.insert(indices.begin(), newIndices.begin(), newIndices.end());
+        indices.insert(indices.end(), newIndices.begin(), newIndices.end());
 
         return newIndices.size();
     }
