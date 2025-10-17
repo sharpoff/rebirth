@@ -38,3 +38,7 @@ add_subdirectory(tracy)
 # EASTL
 set(EASTL_EASTDC_VSNPRINTF ON)
 add_subdirectory(EASTL)
+
+# nlohmann json
+set(JSON_BuildTests OFF CACHE INTERNAL "")
+add_subdirectory(nlohmann_json)
