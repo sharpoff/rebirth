@@ -39,13 +39,13 @@ void Renderer::shadowPass(const VkCommandBuffer cmd)
     // Draw
     //
     for (auto &light : ResourceManager::get()->getLights()) {
-        for (uint32_t &opaqueDraw : opaqueDraws) {
-            MeshDraw &meshDraw = meshDraws[opaqueDraw];
+        for (uint32_t &draw : shadowDraws) {
+            MeshDraw &meshDraw = meshDraws[draw];
             Mesh *mesh = ResourceManager::get()->getMeshByIndex(meshDraw.meshId);
             if (!mesh) continue;
 
             ShadowPassPC pc = {
-                .transform = light.mvp * mesh->transform,
+                .transform = light.mvp * meshDraw.transform * mesh->transform,
             };
             vkCmdPushConstants(cmd, pipelineLayouts["shadow"], VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pc), &pc);
 
@@ -123,21 +123,18 @@ void Renderer::meshPass(const VkCommandBuffer cmd)
     vulkan::setViewport(cmd, 0.0f, 0.0f, extent.width, extent.height);
     vulkan::setScissor(cmd, extent);
 
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines["mesh"]);
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayouts["mesh"], 0, 1, &graphics.getDescriptorManager().getSet(), 0, nullptr);
 
     //
     // Draw
     //
-    for (uint32_t &opaqueDraw : opaqueDraws) {
-        MeshDraw &meshDraw = meshDraws[opaqueDraw];
-
+    auto drawFunc = [&](MeshDraw &meshDraw) {
         Mesh *mesh = ResourceManager::get()->getMeshByIndex(meshDraw.meshId);
-        if (!mesh) continue;
+        if (!mesh) return;
 
         for (Primitive &primitive : mesh->primitives) {
             MeshPassPC pc = {
-                .transform = mesh->transform,
+                .transform = meshDraw.transform * mesh->transform,
                 .materialIndex = primitive.materialIndex,
             };
 
@@ -150,6 +147,18 @@ void Renderer::meshPass(const VkCommandBuffer cmd)
         }
 
         drawCount++;
+    };
+
+    // Opaque draws
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines["mesh"]);
+    for (uint32_t &draw : opaqueDraws) {
+        drawFunc(meshDraws[draw]);
+    }
+
+    // Wireframe draws
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines["wireframe"]);
+    for (uint32_t &draw : wireframeDraws) {
+        drawFunc(meshDraws[draw]);
     }
 
     // end
@@ -232,8 +241,6 @@ void Renderer::imGuiPass(const VkCommandBuffer cmd)
         ImGui::Text("Frame time: %f ms", timestampDeltaMs);
         ImGui::Text("FPS: %d", int(1000.0f / timestampDeltaMs));
         ImGui::Text("Draw count: %d", drawCount);
-
-        ImGui::Separator();
 
         // ImGui::Checkbox("Enable wireframe", &render_wireframe);
         // ImGui::Checkbox("Enable shadows", &render_shadows);

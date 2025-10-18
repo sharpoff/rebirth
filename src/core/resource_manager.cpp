@@ -19,10 +19,11 @@ int32_t ResourceManager::addImage(const vulkan::Image &image, eastl::string name
     return id;
 }
 
-int32_t ResourceManager::addMaterial(const GPUMaterial &material)
+int32_t ResourceManager::addMaterial(const GPUMaterial &material, eastl::string name)
 {
     size_t id = materials.size();
     materials.push_back(material);
+    materialsMap[name] = id;
     return id;
 }
 
@@ -49,7 +50,7 @@ Mesh *ResourceManager::getMeshByName(eastl::string name)
 
 Mesh *ResourceManager::getMeshByIndex(int32_t index)
 {
-    if (index >= 0 && index < meshes.size())
+    if (index >= 0 && index < int(meshes.size()))
         return &meshes[index];
     return nullptr;
 }
@@ -62,7 +63,7 @@ int32_t ResourceManager::getMeshIndexByName(eastl::string name)
     return -1;
 }
 
-int32_t ResourceManager::getMeshIndexByMesh(Mesh *mesh)
+int32_t ResourceManager::getMeshIndex(Mesh *mesh)
 {
     return std::distance(meshes.begin(), mesh);
 }
@@ -78,7 +79,7 @@ vulkan::Image *ResourceManager::getImageByName(eastl::string name)
 
 vulkan::Image *ResourceManager::getImageByIndex(int32_t index)
 {
-    if (index >= 0 && index < images.size())
+    if (index >= 0 && index < int(images.size()))
         return &images[index];
 
     return nullptr;
@@ -92,22 +93,44 @@ int32_t ResourceManager::getImageIndexByName(eastl::string name)
     return -1;
 }
 
-int32_t ResourceManager::getImageIndexByImage(vulkan::Image *image)
+int32_t ResourceManager::getImageIndex(vulkan::Image *image)
 {
     return std::distance(images.begin(), image);
 }
 
+GPUMaterial *ResourceManager::getMaterialByName(eastl::string name)
+{
+    if (materialsMap.find(name) != materialsMap.end())
+        return &materials[materialsMap[name]];
+
+    logger::logError("Failed to get material by name ", name.c_str());
+    return nullptr;
+}
+
 GPUMaterial *ResourceManager::getMaterialByIndex(int32_t index)
 {
-    if (index >= 0 && index < materials.size())
+    if (index >= 0 && index < int(materials.size()))
         return &materials[index];
 
     return nullptr;
 }
 
+int32_t ResourceManager::getMaterialIndexByName(eastl::string name)
+{
+    if (materialsMap.find(name) != materialsMap.end())
+        return materialsMap[name];
+
+    return -1;
+}
+
+int32_t ResourceManager::getMaterialIndex(GPUMaterial *material)
+{
+    return std::distance(materials.begin(), material);
+}
+
 GPULight *ResourceManager::getLightByIndex(int32_t index)
 {
-    if (index >= 0 && index < lights.size())
+    if (index >= 0 && index < int(lights.size()))
         return &lights[index];
 
     return nullptr;

@@ -1,7 +1,9 @@
-#include <math/bounds.h>
+#include "math/bounds.h"
 
-#include <core/vertex.h>
-#include <core/mesh.h>
+#include "core/resource_manager.h"
+
+#include "core/vertex.h"
+#include "core/mesh.h"
 
 namespace math
 {
@@ -42,14 +44,21 @@ namespace math
         };
     }
 
-    Bounds calculateBoundingSphere(Mesh &mesh, eastl::vector<Vertex> &vertices, eastl::vector<uint32_t> &indices)
+    Bounds calculateBoundingSphere(int32_t meshId)
     {
         vec3 min = vec3(std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
         vec3 max = vec3(std::numeric_limits<float>::min(), std::numeric_limits<float>::min(), std::numeric_limits<float>::min());
 
-        for (Primitive &primitive : mesh.primitives) {
+        Mesh *mesh = ResourceManager::get()->getMeshByIndex(meshId);
+        if (!mesh)
+            return Bounds{};
+
+        auto &vertices = ResourceManager::get()->getVertices();
+        auto &indices = ResourceManager::get()->getIndices();
+
+        for (Primitive &primitive : mesh->primitives) {
             for (size_t i = primitive.indexOffset; i < primitive.indexCount; i++) {
-                Vertex vert = vertices[indices[i]];
+                const Vertex &vert = vertices[indices[i]];
 
                 min = glm::min(min, vert.position);
                 max = glm::max(max, vert.position);

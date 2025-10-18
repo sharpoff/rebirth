@@ -38,6 +38,8 @@ void Physics::initialize()
 
     physicsSystem.SetBodyActivationListener(&bodyActivationListener);
     physicsSystem.SetContactListener(&contactListener);
+
+    logger::logInfo("Physics initialized");
 }
 
 void Physics::shutdown()
@@ -55,6 +57,8 @@ void Physics::shutdown()
 
     delete tempAllocator;
     delete jobSystem;
+
+    logger::logInfo("Physics shutdown");
 }
 
 void Physics::update(float dt)

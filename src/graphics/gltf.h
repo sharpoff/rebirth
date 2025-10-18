@@ -2,9 +2,9 @@
 
 #include <filesystem>
 
-#include <core/animation.h>
-#include <core/light.h>
-#include <core/scene.h>
+#include "core/light.h"
+#include "core/scene.h"
+#include "core/vertex.h"
 
 #include <cgltf.h>
 

@@ -8,15 +8,7 @@
 #include "core/material.h"
 #include "core/mesh.h"
 #include "core/vertex.h"
-
-struct Vertex;
-struct Mesh;
-struct GPUMaterial;
-struct GPULight;
-
-namespace vulkan {
-    struct Image;
-}
+#include "graphics/vulkan/resources.h"
 
 class ResourceManager
 {
@@ -31,18 +23,24 @@ public:
 
     int32_t addMesh(const Mesh &mesh, eastl::string name = "");
     int32_t addImage(const vulkan::Image &image, eastl::string name = "");
-    int32_t addMaterial(const GPUMaterial &material);
+    int32_t addMaterial(const GPUMaterial &material, eastl::string name = "");
     int32_t addLight(const GPULight &light);
 
     Mesh *getMeshByName(eastl::string name);
     Mesh *getMeshByIndex(int32_t index);
     int32_t getMeshIndexByName(eastl::string name);
-    int32_t getMeshIndexByMesh(Mesh *mesh);
+    int32_t getMeshIndex(Mesh *mesh);
+
     vulkan::Image *getImageByName(eastl::string name);
     vulkan::Image *getImageByIndex(int32_t index);
     int32_t getImageIndexByName(eastl::string name);
-    int32_t getImageIndexByImage(vulkan::Image *image);
+    int32_t getImageIndex(vulkan::Image *image);
+
+    GPUMaterial *getMaterialByName(eastl::string name);
     GPUMaterial *getMaterialByIndex(int32_t index);
+    int32_t getMaterialIndexByName(eastl::string name);
+    int32_t getMaterialIndex(GPUMaterial *material);
+
     GPULight *getLightByIndex(int32_t index);
 
     eastl::vector<Mesh> &getMeshes() { return meshes; };
@@ -63,6 +61,8 @@ private:
     eastl::unordered_map<eastl::string, int32_t> imagesMap;
 
     eastl::vector<GPUMaterial> materials;
+    eastl::unordered_map<eastl::string, int32_t> materialsMap;
+
     eastl::vector<GPULight> lights;
 
     eastl::vector<Vertex> vertices;

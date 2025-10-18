@@ -1,6 +1,7 @@
 #pragma once
 
-#include "math/bounds.h"
+#include "math/math.h"
+#include "EASTL/vector.h"
 
 struct Primitive
 {
@@ -14,15 +15,7 @@ struct Primitive
 
 struct Mesh
 {
+    // int32_t materialOverrideIndex = -1; // XXX: do i need it?
     mat4 transform = mat4(1.0f);
     eastl::vector<Primitive> primitives;
-};
-
-struct MeshDraw
-{
-    int32_t meshId = -1;
-    Bounds boundingSphere{};
-
-    // TODO:
-    // uint32_t jointMatrixIndex = 0;
 };

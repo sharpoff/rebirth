@@ -1,6 +1,7 @@
 #include "core/engine.h"
 
 #include "core/globals.h"
+#include "core/mesh_draw.h"
 #include "input/input.h"
 #include "graphics/gltf.h"
 #include "util/logger.h"
@@ -33,8 +34,8 @@ void Engine::initialize()
     // load scenes
     {
         ZoneScopedN("Load scenes");
-        // if (!gltf::loadScene(renderer, scene, "assets/models/sponza/Sponza.gltf")) {
-        // if (!gltf::loadScene(renderer, scene, "assets/models/subway_station/scene.gltf")) {
+        // if (!gltf::loadScene(renderer.getGraphics(), scene, "assets/models/sponza/Sponza.gltf")) {
+        // if (!gltf::loadScene(renderer.getGraphics(), scene, "assets/models/subway_station/scene.gltf")) {
         if (!gltf::loadScene(renderer.getGraphics(), scene, "assets/models/DamagedHelmet/DamagedHelmet.gltf")) {
             logger::logError("Failed to load scene.");
             exit(EXIT_FAILURE);
@@ -54,6 +55,8 @@ void Engine::initialize()
 
     physics.initialize();
     // Game::initialize();
+
+    logger::logInfo("Engine initialized");
 }
 
 void Engine::shutdown()
@@ -66,6 +69,8 @@ void Engine::shutdown()
 
     SDL_DestroyWindow(window);
     SDL_Quit();
+
+    logger::logInfo("Engine shutdown");
 }
 
 void Engine::run()
@@ -154,8 +159,10 @@ void Engine::render()
 
     // Game::draw(renderer);
 
-    for (auto &mesh : scene.meshes) {
-        renderer.drawMesh(mesh);
+    for (int i = -4; i <= 4; i++) {
+        for (auto &mesh : scene.meshes) {
+            renderer.drawMesh(mesh, DrawMask::Opaque | DrawMask::Shadow, glm::translate(vec3(i * 10, 0, 0)));
+        }
     }
 
     renderer.present(camera);

@@ -18,5 +18,5 @@ namespace math
     Bounds calculateBoundingBox(eastl::vector<Vertex> &vertices);
 
     Bounds calculateBoundingSphere(eastl::vector<Vertex> &vertices);
-    Bounds calculateBoundingSphere(Mesh &mesh, eastl::vector<Vertex> &vertices, eastl::vector<uint32_t> &indices);
+    Bounds calculateBoundingSphere(int32_t meshId);
 } // namespace math

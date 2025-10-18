@@ -5,7 +5,7 @@
 #include "core/camera.h"
 #include "core/scene_draw_data.h"
 #include "editor/editor.h"
-#include "core/mesh.h"
+#include "core/mesh_draw.h"
 
 #include "EASTL/string.h"
 
@@ -25,7 +25,7 @@ public:
     void initialize(SDL_Window *window);
     void shutdown();
 
-    void drawMesh(int32_t meshId);
+    void drawMesh(int32_t meshId, uint32_t drawMask = DrawMask::Opaque, mat4 transform = mat4(1.0f));
 
     void present(Camera &camera);
 
@@ -88,7 +88,11 @@ protected:
     vulkan::Buffer jointMatricesBuffer;
 
     eastl::vector<MeshDraw> meshDraws;
+
     eastl::vector<uint32_t> opaqueDraws;
+    eastl::vector<uint32_t> translucentDraws;
+    eastl::vector<uint32_t> shadowDraws;
+    eastl::vector<uint32_t> wireframeDraws;
 
     Scene primitives;
 

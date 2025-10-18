@@ -8,6 +8,7 @@
 #include "graphics/vulkan/util.h"
 #include "core/scene_draw_data.h"
 
+#include "math/frustum_culling.h"
 #include "util/logger.h"
 
 #include <tracy/Tracy.hpp>
@@ -31,6 +32,8 @@ void Renderer::initialize(SDL_Window *window)
         logger::logError("Failed to load scene.");
         exit(EXIT_FAILURE);
     }
+
+    logger::logInfo("Renderer initialized");
 }
 
 void Renderer::shutdown()
@@ -56,17 +59,29 @@ void Renderer::shutdown()
     graphics.destroyBuffer(jointMatricesBuffer);
 
     graphics.destroy();
+
+    logger::logInfo("Renderer shutdown");
 }
 
-void Renderer::drawMesh(int32_t meshId)
+void Renderer::drawMesh(int32_t meshId, uint32_t drawMask, mat4 transform)
 {
     ZoneScoped;
 
     meshDraws.push_back(
         MeshDraw{
             .meshId = meshId,
-            // .boundingSphere = math::calculateBoundingSphere(mesh, vertices, indices),
+            .transform = transform,
+            .boundingSphere = math::calculateBoundingSphere(meshId),
+            .drawMask = drawMask,
         });
+    
+    // // --------- DEBUG bounding sphere!!!!!! -------------
+    // MeshDraw meshDraw;
+    // meshDraw.meshId = ResourceManager::get()->getMeshIndexByName("Sphere");
+    // meshDraw.boundingSphere = math::calculateBoundingSphere(meshId);
+    // meshDraw.drawMask = DrawMask::Wireframe;
+    // meshDraw.transform *= transform * glm::scale(vec3(meshDraw.boundingSphere.sphereRadius));
+    // meshDraws.push_back(meshDraw);
 }
 
 void Renderer::updateDynamicData(Camera &camera)
@@ -110,8 +125,6 @@ void Renderer::present(Camera &camera)
 
     // TODO: create and update global joints buffer
     updateDynamicData(camera);
-
-    opaqueDraws.reserve(meshDraws.size());
 
     cullMeshDraws(camera.projection * camera.view);
     sortMeshDraws(camera.position);
@@ -263,6 +276,10 @@ void Renderer::present(Camera &camera)
 
     meshDraws.clear();
     opaqueDraws.clear();
+    translucentDraws.clear();
+    shadowDraws.clear();
+    wireframeDraws.clear();
+
     drawCount = 0;
 }
 
@@ -271,9 +288,21 @@ void Renderer::cullMeshDraws(mat4 viewProj)
     ZoneScoped;
 
     for (size_t i = 0; i < meshDraws.size(); i++) {
-        // if (isSphereVisible(meshDraws[i].boundingSphere, viewProj, meshDraws[i].transform)) {
-        opaqueDraws.push_back(i);
-        // }
+        if (!math::isSphereVisible(meshDraws[i].boundingSphere, viewProj, meshDraws[i].transform * ResourceManager::get()->getMeshByIndex(meshDraws[i].meshId)->transform))
+            continue;
+
+        if (meshDraws[i].drawMask & DrawMask::Opaque) {
+            opaqueDraws.push_back(i);
+        }
+        if (meshDraws[i].drawMask & DrawMask::Translucent) {
+            translucentDraws.push_back(i);
+        }
+        if (meshDraws[i].drawMask & DrawMask::Shadow) {
+            shadowDraws.push_back(i);
+        }
+        if (meshDraws[i].drawMask & DrawMask::Wireframe) {
+            wireframeDraws.push_back(i);
+        }
     }
 }
 
@@ -281,10 +310,7 @@ void Renderer::sortMeshDraws(vec3 cameraPos)
 {
     ZoneScoped;
 
-    if (opaqueDraws.empty())
-        return;
-
-    std::sort(opaqueDraws.begin(), opaqueDraws.end(), [&](const auto &i1, const auto &i2) {
+    auto sortingFunc = [&](const auto &i1, const auto &i2) {
         auto *mesh1 = ResourceManager::get()->getMeshByIndex(meshDraws[i1].meshId);
         auto *mesh2 = ResourceManager::get()->getMeshByIndex(meshDraws[i2].meshId);
 
@@ -292,7 +318,11 @@ void Renderer::sortMeshDraws(vec3 cameraPos)
         float dist2 = glm::length(cameraPos - math::getPosition(mesh2->transform));
 
         return dist1 < dist2;
-    });
+    };
+
+    std::sort(opaqueDraws.begin(), opaqueDraws.end(), sortingFunc);
+    std::sort(translucentDraws.begin(), translucentDraws.end(), sortingFunc);
+    std::sort(wireframeDraws.begin(), wireframeDraws.end(), sortingFunc);
 }
 
 eastl::unordered_map<eastl::string, VkShaderModule> Renderer::loadShaderModules(std::filesystem::path directory)
@@ -383,7 +413,7 @@ void Renderer::createPipelines()
         builder.setCulling(VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE);
         builder.setPolygonMode(VK_POLYGON_MODE_LINE);
         builder.setMultisampleCount(graphics.getSampleCount());
-        pipelines["wireframe"] = builder.build(device, {colorFormat, colorFormat});
+        pipelines["wireframe"] = builder.build(device, {colorFormat});
 
         vulkan::setDebugName(device, (uint64_t)pipelines["wireframe"], VK_OBJECT_TYPE_PIPELINE, "Wireframe pipeline");
     }
