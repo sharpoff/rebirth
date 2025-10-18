@@ -1,17 +1,18 @@
 #pragma once
 
-#include <graphics/renderer.h>
-#include <physics/physics.h>
+#include "graphics/renderer.h"
+#include "physics/physics.h"
+#include "core/scene.h"
 
 #include <util/timer.h>
 
 #include <SDL3/SDL.h>
 
-class Application
+class Engine
 {
 public:
-    Application(eastl::string name, unsigned int width, unsigned int height);
-    ~Application();
+    void initialize();
+    void shutdown();
 
     void run();
 

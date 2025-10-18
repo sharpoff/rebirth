@@ -9,7 +9,7 @@ enum class LightType
     Spot,
 };
 
-struct Light
+struct GPULight
 {
     mat4 mvp = mat4(1.0f);
     vec3 position; // for point and spot lights

@@ -1,12 +1,13 @@
-#include <graphics/gltf.h>
-#include <graphics/vulkan/graphics.h>
+#include "graphics/gltf.h"
+#include "core/resource_manager.h"
+#include "graphics/vulkan/graphics.h"
 
-#include <util/logger.h>
-#include "graphics/renderer.h"
+#include "util/logger.h"
+#include "graphics/vulkan/graphics.h"
 
 namespace gltf
 {
-    bool loadScene(Renderer &renderer, Scene &scene, std::filesystem::path file)
+    bool loadScene(vulkan::Graphics &graphics, Scene &scene, std::filesystem::path file)
     {
         cgltf_options options = {};
         cgltf_data *data = NULL;
@@ -42,10 +43,10 @@ namespace gltf
 
         scene.nodes.resize(root->nodes_count);
         for (size_t i = 0; i < scene.nodes.size(); i++)
-            loadGltfNode(renderer, scene, scene.nodes[i], data, root->nodes[i]);
+            loadGltfNode(scene, scene.nodes[i], data, root->nodes[i]);
 
-        loadGltfMaterials(renderer, data);
-        loadGltfTextures(renderer, file.parent_path(), data);
+        loadGltfMaterials(data);
+        loadGltfTextures(graphics, file.parent_path(), data);
 
         // loadGltfSkins(scene, data);
         // loadGltfAnimations(scene, data);
@@ -54,47 +55,49 @@ namespace gltf
         return true;
     }
 
-    bool loadGltfNode(Renderer &renderer, Scene &scene, SceneNode &node, cgltf_data *data, cgltf_node *gltfNode)
+    bool loadGltfNode(Scene &scene, SceneNode &node, cgltf_data *data, cgltf_node *gltfNode)
     {
         if (!data || !gltfNode)
             return false;
 
         node.name = gltfNode->name ? gltfNode->name : "Node";
         node.index = cgltf_node_index(data, gltfNode);
-        loadGltfTransform(node.transform, gltfNode, false);
+        node.transform = loadGltfTransform(gltfNode, false);
 
         if (gltfNode->skin) {
             node.skinIndex = cgltf_skin_index(data, gltfNode->skin);
         }
 
-        if (gltfNode->mesh)
-            loadGltfMesh(renderer, scene, node.mesh, data, gltfNode->mesh);
+        if (gltfNode->mesh) {
+            mat4 worldTransform = loadGltfTransform(gltfNode, true);
+            loadGltfMesh(scene, worldTransform, data, gltfNode->mesh);
+        }
 
         // recursively load child nodes
         node.children.resize(gltfNode->children_count);
         for (size_t i = 0; i < gltfNode->children_count; i++) {
-            loadGltfNode(renderer, scene, node.children[i], data, gltfNode->children[i]);
+            loadGltfNode(scene, node.children[i], data, gltfNode->children[i]);
             node.children[i].parentIndex = node.index;
         }
 
         return true;
     }
 
-    bool loadGltfMesh(Renderer &renderer, Scene &scene, Mesh &mesh, cgltf_data *data, cgltf_mesh *gltfMesh)
+    void loadGltfMesh(Scene &scene, mat4 transform, cgltf_data *data, cgltf_mesh *gltfMesh)
     {
-        if (!data || !gltfMesh)
-            return false;
+        Mesh mesh;
+        mesh.transform = transform;
 
         for (size_t i = 0; i < gltfMesh->primitives_count; i++) {
             cgltf_primitive prim = gltfMesh->primitives[i];
 
-            uint32_t materialOffset = renderer.materials.size();
-            uint32_t vertexOffset = renderer.vertices.size();
-            uint32_t indexOffset = renderer.indices.size();
+            uint32_t materialOffset = ResourceManager::get()->getMaterials().size();
+            uint32_t vertexOffset = ResourceManager::get()->getVertices().size();
+            uint32_t indexOffset = ResourceManager::get()->getIndices().size();
 
-            uint32_t vertexCount = loadVertices(renderer.vertices, prim);
+            uint32_t vertexCount = loadVertices(ResourceManager::get()->getVertices(), prim);
 
-            uint32_t indexCount = loadIndices(renderer.indices, prim);
+            uint32_t indexCount = loadIndices(ResourceManager::get()->getIndices(), prim);
 
             int materialIndex = prim.material ? materialOffset + cgltf_material_index(data, prim.material) : -1;
 
@@ -108,7 +111,8 @@ namespace gltf
             mesh.primitives.push_back(primitive);
         }
 
-        return true;
+        auto meshId = ResourceManager::get()->addMesh(mesh, gltfMesh->name ? gltfMesh->name : "");
+        scene.meshes.push_back(meshId);
     }
 
     // return new vertices count
@@ -221,13 +225,13 @@ namespace gltf
         return newIndices.size();
     }
 
-    void loadGltfMaterials(Renderer &renderer, cgltf_data *data)
+    void loadGltfMaterials(cgltf_data *data)
     {
-        size_t textureOffset = renderer.images.size();
+        size_t textureOffset = ResourceManager::get()->getImages().size();
 
         for (size_t i = 0; i < data->materials_count; i++) {
             cgltf_material gltfMaterial = data->materials[i];
-            Material material;
+            GPUMaterial material;
 
             if (gltfMaterial.has_pbr_metallic_roughness) {
                 if (gltfMaterial.pbr_metallic_roughness.base_color_texture.texture)
@@ -266,11 +270,11 @@ namespace gltf
                 // material.emissive_factor[1], material.emissive_factor[2]);
             }
 
-            renderer.materials.push_back(material);
+            ResourceManager::get()->addMaterial(material);
         }
     }
 
-    void loadGltfTextures(Renderer &renderer, std::filesystem::path dir, cgltf_data *data)
+    void loadGltfTextures(vulkan::Graphics &graphics, std::filesystem::path dir, cgltf_data *data)
     {
         for (size_t i = 0; i < data->textures_count; i++) {
             cgltf_texture gltfTexture = data->textures[i];
@@ -281,15 +285,15 @@ namespace gltf
             if (gltfTexture.image->uri) { // load from file
                 std::filesystem::path file = dir / gltfTexture.image->uri;
 
-                renderer.getGraphics().createImageFromFile(image, createInfo, file);
+                graphics.createImageFromFile(image, createInfo, file);
             } else { // load from memory
                 const uint8_t *data = cgltf_buffer_view_data(gltfTexture.image->buffer_view);
                 uint32_t size = gltfTexture.image->buffer_view->size;
 
-                renderer.getGraphics().createImageFromMemory(image, createInfo, const_cast<unsigned char *>(data), size);
+                graphics.createImageFromMemory(image, createInfo, const_cast<unsigned char *>(data), size);
             }
 
-            renderer.images.push_back(image);
+            ResourceManager::get()->addImage(image, gltfTexture.name ? gltfTexture.name : "");
         }
     }
 
@@ -439,24 +443,21 @@ namespace gltf
         }
     }
 
-    bool loadGltfLight(Light &light, mat4 worldMatrix, cgltf_light *gltfLight)
+    void loadGltfLight(GPULight &light, mat4 worldMatrix, cgltf_light *gltfLight)
     {
-        if (!gltfLight)
-            return false;
+        if (!gltfLight) return;
 
         if (gltfLight->type == cgltf_light_type_directional) {
             light.type = LightType::Directional;
             light.position = math::getPosition(worldMatrix);
             light.color = glm::make_vec3(gltfLight->color);
         }
-
-        return true;
     }
 
-    bool loadGltfTransform(mat4 transform, cgltf_node *node, bool world)
+    mat4 loadGltfTransform(cgltf_node *node, bool world)
     {
         if (!node)
-            return false;
+            return mat4(1.0f);
 
         glm::vec3 position = vec3(0.0);
         glm::quat rotation = glm::identity<quat>();
@@ -468,6 +469,8 @@ namespace gltf
                 cgltf_node_transform_world(node, &matrix[0][0]);
             else
                 cgltf_node_transform_local(node, &matrix[0][0]);
+
+            return matrix;
         }
 
         if (node->has_translation)
@@ -479,10 +482,7 @@ namespace gltf
         if (node->has_rotation)
             rotation = glm::make_quat(node->rotation);
 
-        transform = glm::translate(mat4(1.0f), position) * mat4(rotation) *
-                    glm::scale(mat4(1.0f), scale) * matrix;
-
-        return true;
+        return glm::translate(position) * glm::toMat4(rotation) * glm::scale(scale);
     }
 
 } // namespace gltf

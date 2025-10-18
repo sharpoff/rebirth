@@ -1,11 +1,10 @@
 #pragma once
 
-#include <core/vertex.h>
-#include <math/bounds.h>
+#include "math/bounds.h"
 
 struct Primitive
 {
-    int materialIndex = -1;
+    int32_t materialIndex = -1;
 
     uint32_t indexOffset = 0;
     uint32_t indexCount = 0;
@@ -15,13 +14,13 @@ struct Primitive
 
 struct Mesh
 {
+    mat4 transform = mat4(1.0f);
     eastl::vector<Primitive> primitives;
 };
 
 struct MeshDraw
 {
-    Mesh &mesh;
-    mat4 transform = mat4(1.0f);
+    int32_t meshId = -1;
     Bounds boundingSphere{};
 
     // TODO:

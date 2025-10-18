@@ -1,15 +1,20 @@
 # Current tasks
-* Fix sync validation errors
+* EDITOR!!!
+	- Gizmo, object manipulation
+	- Object picking(using color on GPU?)
+	- Object adding/removing
+	- Level save/load (should create level file format)
 * Frustum culling
 * CSM shadows
 * Job system for parallel tasks execution. Speed up scene loading. Maybe add loading screen after that
 
 # Later tasks
-* ECS
+* Fix sync validation errors
 * GI
-* Draw indirect
-* Convert textures to ktx, add support for that
-* Integrate meshoptimizer. Also tryout it's gltfpack tool(it can also convert textures to ktx format)
-* Add object picking to see object's properties. Also add gizmo to transform objects
-* Chracter controller (jolt's virtual character)
+* Convert textures to ktx
+* Player controller (jolt's virtual character)
 * Depth prepass and z-sort to reduce overdraw. Z-sorting also comes in handy with transparency.
+
+# Maybe?
+* Draw indirect
+* Integrate meshoptimizer. Also tryout it's gltfpack tool(it can also convert textures to ktx format)

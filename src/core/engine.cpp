@@ -1,31 +1,33 @@
-#include "application.h"
+#include "core/engine.h"
+
+#include "core/globals.h"
 #include "input/input.h"
-
 #include "graphics/gltf.h"
-
 #include "util/logger.h"
+#include "core/resource_manager.h"
 
 #include "backend/imgui_impl_sdl3.h"
-
 #include <tracy/Tracy.hpp>
 
-Application::Application(eastl::string name, unsigned int width, unsigned int height)
-    : name(name), width(width), height(height)
+void Engine::initialize()
 {
     ZoneScopedN("Application init");
+
+    width = 1280;
+    height = 720;
+    timer.start();
 
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         logger::logError("Failed to initialize SDL", SDL_GetError());
         exit(EXIT_FAILURE);
     }
 
-    SDL_Window *window = SDL_CreateWindow(name.c_str(), width, height, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
+    SDL_Window *window = SDL_CreateWindow("Application", width, height, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
     if (!window) {
         logger::logError("Failed to create SDL window", SDL_GetError());
         exit(EXIT_FAILURE);
     }
 
-    timer.start();
     renderer.initialize(window);
 
     // load scenes
@@ -33,7 +35,7 @@ Application::Application(eastl::string name, unsigned int width, unsigned int he
         ZoneScopedN("Load scenes");
         // if (!gltf::loadScene(renderer, scene, "assets/models/sponza/Sponza.gltf")) {
         // if (!gltf::loadScene(renderer, scene, "assets/models/subway_station/scene.gltf")) {
-        if (!gltf::loadScene(renderer, scene, "assets/models/DamagedHelmet/DamagedHelmet.gltf")) {
+        if (!gltf::loadScene(renderer.getGraphics(), scene, "assets/models/DamagedHelmet/DamagedHelmet.gltf")) {
             logger::logError("Failed to load scene.");
             exit(EXIT_FAILURE);
         }
@@ -44,8 +46,8 @@ Application::Application(eastl::string name, unsigned int width, unsigned int he
     camera.setPosition(vec3(0, 2, 2));
     camera.type = CameraType::FirstPerson;
 
-    renderer.lights.push_back(
-        Light{
+    ResourceManager::get()->addLight(
+        GPULight{
             .type = LightType::Directional,
             .direction = vec3(0.0, -1.0, 0.0),
         });
@@ -54,7 +56,7 @@ Application::Application(eastl::string name, unsigned int width, unsigned int he
     // Game::initialize();
 }
 
-Application::~Application()
+void Engine::shutdown()
 {
     ZoneScopedN("Application shutdown");
 
@@ -66,7 +68,7 @@ Application::~Application()
     SDL_Quit();
 }
 
-void Application::run()
+void Engine::run()
 {
     running = true;
 
@@ -86,7 +88,7 @@ void Application::run()
     }
 }
 
-void Application::handleInput(float deltaTime)
+void Engine::handleInput(float deltaTime)
 {
     ZoneScopedN("Handle input");
 
@@ -122,7 +124,11 @@ void Application::handleInput(float deltaTime)
             // renderer.requestResize();
         }
 
-        if (input.isKeyPressed(KeyboardKey::Q)) {
+        if (input.isKeyPressed(KeyboardKey::E)) {
+            Globals::isEditorOpened = !Globals::isEditorOpened;
+        }
+
+        if (input.isKeyPressed(KeyboardKey::R)) {
             renderer.reloadShaders();
         }
 
@@ -132,7 +138,7 @@ void Application::handleInput(float deltaTime)
     }
 }
 
-void Application::update(float deltaTime)
+void Engine::update(float deltaTime)
 {
     ZoneScopedN("Update");
 
@@ -142,12 +148,15 @@ void Application::update(float deltaTime)
     camera.update(deltaTime);
 }
 
-void Application::render()
+void Engine::render()
 {
     ZoneScopedN("Render");
 
     // Game::draw(renderer);
 
-    renderer.drawScene(scene);
+    for (auto &mesh : scene.meshes) {
+        renderer.drawMesh(mesh);
+    }
+
     renderer.present(camera);
 }

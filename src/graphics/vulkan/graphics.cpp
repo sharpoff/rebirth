@@ -501,7 +501,7 @@ namespace vulkan
         ImGuiIO &io = ImGui::GetIO();
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
-        // io.ConfigFlags |= ImGuiConfigFlags_DockingEnable; // enable docking
+        io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
         VkFormat colorFormat = swapchain.getSurfaceFormat().format;
 
@@ -523,12 +523,12 @@ namespace vulkan
         initInfo.DescriptorPool = descriptorManager.getPool();
         initInfo.MinImageCount = 2;
         initInfo.ImageCount = 2;
-        initInfo.MSAASamples = getSampleCount();
+        initInfo.PipelineInfoMain.MSAASamples = getSampleCount();
         initInfo.Allocator = nullptr;
         initInfo.CheckVkResultFn = nullptr;
-        initInfo.RenderPass = nullptr;
+        initInfo.PipelineInfoMain.RenderPass = nullptr;
         initInfo.UseDynamicRendering = true;
-        initInfo.PipelineRenderingCreateInfo = pipelineRenderingCI;
+        initInfo.PipelineInfoMain.PipelineRenderingCreateInfo = pipelineRenderingCI;
 
         ImGui_ImplVulkan_Init(&initInfo);
     }

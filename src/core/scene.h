@@ -23,7 +23,7 @@ struct SceneNode
 {
     int parentIndex = -1;
     eastl::vector<SceneNode> children;
-    Mesh mesh;
+    size_t meshIndex; // index to scene's meshes vector
 
     eastl::string name = "Node";
     mat4 transform = mat4(1.0f);
@@ -36,12 +36,12 @@ class Scene
 public:
     eastl::string name;
     mat4 transform = mat4(1.0f);
+
     eastl::vector<SceneNode> nodes;
 
+    eastl::vector<int32_t> meshes;
     eastl::vector<Skin> skins;
     eastl::vector<Animation> animations;
-
-    // void merge(Scene &scene);
 
     void updateAnimation(float deltaTime, eastl::string name);
 

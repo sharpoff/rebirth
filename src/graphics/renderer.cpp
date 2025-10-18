@@ -1,17 +1,14 @@
 #include "graphics/renderer.h"
 
+#include "core/resource_manager.h"
 #include "graphics/gltf.h"
 #include "graphics/vulkan/descriptor_writer.h"
 #include "graphics/vulkan/pipeline_builder.h"
 #include "graphics/vulkan/swapchain.h"
 #include "graphics/vulkan/util.h"
-
-#include "util/logger.h"
-
-#include "core/scene.h"
 #include "core/scene_draw_data.h"
 
-#include "graphics/primitives.h"
+#include "util/logger.h"
 
 #include <tracy/Tracy.hpp>
 #include <tracy/TracyVulkan.hpp>
@@ -30,7 +27,10 @@ void Renderer::initialize(SDL_Window *window)
 
     createPipelines();
 
-    cubePrimitive = generateCube(*this);
+    if (!gltf::loadScene(graphics, primitives, "assets/models/primitives.glb")) {
+        logger::logError("Failed to load scene.");
+        exit(EXIT_FAILURE);
+    }
 }
 
 void Renderer::shutdown()
@@ -44,7 +44,7 @@ void Renderer::shutdown()
 
     destroyPipelines();
 
-    for (Image &image : images)
+    for (Image &image : ResourceManager::get()->getImages())
         graphics.destroyImage(image);
 
     graphics.destroyBuffer(sceneDataBuffer);
@@ -58,31 +58,13 @@ void Renderer::shutdown()
     graphics.destroy();
 }
 
-void Renderer::drawScene(Scene &scene, mat4 transform)
-{
-    ZoneScoped;
-
-    std::function<void(SceneNode &)> nodeDraw = [&](SceneNode &node) {
-        drawMesh(node.mesh, transform * scene.getNodeWorldMatrix(&node));
-
-        for (auto &child : node.children) {
-            nodeDraw(child);
-        }
-    };
-
-    for (auto &node : scene.nodes) {
-        nodeDraw(node);
-    }
-}
-
-void Renderer::drawMesh(Mesh &mesh, mat4 transform)
+void Renderer::drawMesh(int32_t meshId)
 {
     ZoneScoped;
 
     meshDraws.push_back(
         MeshDraw{
-            .mesh = mesh,
-            .transform = transform,
+            .meshId = meshId,
             // .boundingSphere = math::calculateBoundingSphere(mesh, vertices, indices),
         });
 }
@@ -91,6 +73,7 @@ void Renderer::updateDynamicData(Camera &camera)
 {
     ZoneScoped;
 
+    auto &lights = ResourceManager::get()->getLights();
     for (auto &light : lights) {
         if (light.type == LightType::Point) {
             mat4 projection = math::perspective(glm::radians(45.0f), 1.0f, 1.0f, 100.0f);
@@ -110,7 +93,7 @@ void Renderer::updateDynamicData(Camera &camera)
     sceneData.projection = camera.projection;
     sceneData.view = camera.view;
     sceneData.cameraPosAndLightNum = vec4(camera.position, lights.size());
-    sceneData.shadowMapIndex = shadowMapIndex;
+    sceneData.shadowMapIndex = ResourceManager::get()->getImageIndexByName("shadow_map");
     memcpy(sceneDataBuffer.info.pMappedData, &sceneData, sizeof(sceneData));
 }
 
@@ -302,8 +285,11 @@ void Renderer::sortMeshDraws(vec3 cameraPos)
         return;
 
     std::sort(opaqueDraws.begin(), opaqueDraws.end(), [&](const auto &i1, const auto &i2) {
-        float dist1 = glm::length(cameraPos - math::getPosition(meshDraws[i1].transform));
-        float dist2 = glm::length(cameraPos - math::getPosition(meshDraws[i2].transform));
+        auto *mesh1 = ResourceManager::get()->getMeshByIndex(meshDraws[i1].meshId);
+        auto *mesh2 = ResourceManager::get()->getMeshByIndex(meshDraws[i2].meshId);
+
+        float dist1 = glm::length(cameraPos - math::getPosition(mesh1->transform));
+        float dist2 = glm::length(cameraPos - math::getPosition(mesh2->transform));
 
         return dist1 < dist2;
     });
@@ -450,10 +436,10 @@ void Renderer::createResources()
             .aspect = VK_IMAGE_ASPECT_DEPTH_BIT,
         };
 
-        shadowMapIndex = images.size();
-        vulkan::Image &shadowMap = images.emplace_back();
+        vulkan::Image shadowMap;
         graphics.createImage(shadowMap, createInfo, false);
-        vulkan::setDebugName(graphics.getDevice(), reinterpret_cast<uint64_t>(shadowMap.image), VK_OBJECT_TYPE_IMAGE, "Shadowmap image");
+
+        ResourceManager::get()->addImage(shadowMap, "shadow_map");
     }
 
     // skybox
@@ -468,10 +454,9 @@ void Renderer::createResources()
         createInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
         createInfo.addressMode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
 
-        skyboxIndex = images.size();
-        vulkan::Image &skybox = images.emplace_back();
+        vulkan::Image skybox;
         graphics.createCubemapImage(skybox, createInfo, "assets/textures/skybox");
-        vulkan::setDebugName(graphics.getDevice(), reinterpret_cast<uint64_t>(skybox.image), VK_OBJECT_TYPE_IMAGE, "Skybox image");
+        ResourceManager::get()->addImage(skybox, "skybox");
     }
 
     createBuffers();
@@ -495,10 +480,15 @@ void Renderer::createBuffers()
         vulkan::setDebugName(device, reinterpret_cast<uint64_t>(sceneDataBuffer.buffer), VK_OBJECT_TYPE_BUFFER, "Scene Data buffer");
     }
 
+    auto &materials = ResourceManager::get()->getMaterials();
+    auto &lights = ResourceManager::get()->getLights();
+    auto &indices = ResourceManager::get()->getIndices();
+    auto &vertices = ResourceManager::get()->getVertices();
+
     // materials
     if (!materials.empty()) {
         BufferCreateInfo createInfo = {
-            .size = materials.size() * sizeof(Material),
+            .size = materials.size() * sizeof(GPUMaterial),
             .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
         };
 
@@ -510,7 +500,7 @@ void Renderer::createBuffers()
     // lights
     if (!lights.empty()) {
         BufferCreateInfo createInfo = {
-            .size = lights.size() * sizeof(Light),
+            .size = lights.size() * sizeof(GPULight),
             .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
         };
 
@@ -547,6 +537,7 @@ void Renderer::updateDescriptorSet()
     // Update descriptors, if necessary
     DescriptorWriter writer;
 
+    auto &images = ResourceManager::get()->getImages();
     for (size_t i = 0; i < images.size(); i++) {
         writer.write(TEXTURES_BINDING, images[i].view, images[i].sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, i);
     }

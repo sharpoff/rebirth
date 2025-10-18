@@ -1,10 +1,13 @@
 #pragma once
 
 #include "graphics/vulkan/graphics.h"
-#include "core/camera.h"
-#include "core/light.h"
 #include "core/scene.h"
+#include "core/camera.h"
 #include "core/scene_draw_data.h"
+#include "editor/editor.h"
+#include "core/mesh.h"
+
+#include "EASTL/string.h"
 
 using namespace vulkan;
 
@@ -22,8 +25,7 @@ public:
     void initialize(SDL_Window *window);
     void shutdown();
 
-    void drawScene(Scene &scene, mat4 transform = mat4(1.0f));
-    void drawMesh(Mesh &mesh, mat4 transform = mat4(1.0f));
+    void drawMesh(int32_t meshId);
 
     void present(Camera &camera);
 
@@ -33,14 +35,6 @@ public:
 
     float getTimestampDeltaMs() { return float(timestamps[1] - timestamps[0]) * graphics.getDevicePropertices().limits.timestampPeriod * 1e-6; };
     Graphics &getGraphics() { return graphics; };
-
-    eastl::vector<vulkan::Image> images;
-    eastl::vector<Material> materials;
-    eastl::vector<Mesh> meshes;
-    eastl::vector<Light> lights;
-
-    eastl::vector<Vertex> vertices;
-    eastl::vector<uint32_t> indices;
 
 protected:
     void updateDynamicData(Camera &camera);
@@ -83,12 +77,6 @@ protected:
     eastl::unordered_map<eastl::string, VkPipeline> pipelines;
     eastl::unordered_map<eastl::string, VkPipelineLayout> pipelineLayouts;
 
-    // Common
-    Primitive cubePrimitive;
-
-    int shadowMapIndex;
-    int skyboxIndex;
-
     // Resources
     SceneDrawData sceneData;
 
@@ -102,11 +90,14 @@ protected:
     eastl::vector<MeshDraw> meshDraws;
     eastl::vector<uint32_t> opaqueDraws;
 
+    Scene primitives;
+
     VkQueryPool queryPool;
     eastl::array<uint64_t, 2> timestamps;
 
     SDL_Window *window;
     Graphics graphics;
+    Editor editor;
 
     bool prepared = false;
     uint32_t drawCount = 0;

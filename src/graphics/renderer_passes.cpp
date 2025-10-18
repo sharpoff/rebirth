@@ -1,20 +1,25 @@
 #include "graphics/renderer.h"
 
+#include "core/resource_manager.h"
 #include "graphics/vulkan/util.h"
+#include "core/globals.h"
 
-#include <backend/imgui_impl_sdl3.h>
-#include <backend/imgui_impl_vulkan.h>
-#include <imgui.h>
+#include "backend/imgui_impl_sdl3.h"
+#include "backend/imgui_impl_vulkan.h"
+#include "imgui.h"
 
 void Renderer::shadowPass(const VkCommandBuffer cmd)
 {
-    const Image &shadowMap = images[shadowMapIndex];
+    const Image *shadowMap = ResourceManager::get()->getImageByName("shadow_map");
+    if (!shadowMap)
+        return;
+
     const VkExtent2D shadowMapExtent = {SHADOW_MAP_SIZE, SHADOW_MAP_SIZE};
 
     // attachments
     VkRenderingAttachmentInfo depthAttachment = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
     depthAttachment.clearValue.depthStencil = {0.0, 0};
-    depthAttachment.imageView = shadowMap.view;
+    depthAttachment.imageView = shadowMap->view;
     depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
     depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -33,17 +38,18 @@ void Renderer::shadowPass(const VkCommandBuffer cmd)
     //
     // Draw
     //
-    for (auto &light : lights) {
+    for (auto &light : ResourceManager::get()->getLights()) {
         for (uint32_t &opaqueDraw : opaqueDraws) {
             MeshDraw &meshDraw = meshDraws[opaqueDraw];
-            Mesh &mesh = meshDraw.mesh;
+            Mesh *mesh = ResourceManager::get()->getMeshByIndex(meshDraw.meshId);
+            if (!mesh) continue;
 
             ShadowPassPC pc = {
-                .transform = light.mvp * meshDraw.transform,
+                .transform = light.mvp * mesh->transform,
             };
             vkCmdPushConstants(cmd, pipelineLayouts["shadow"], VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pc), &pc);
 
-            for (Primitive &primitive : mesh.primitives) {
+            for (Primitive &primitive : mesh->primitives) {
                 if (primitive.indexCount > 0)
                     vkCmdDrawIndexed(cmd, primitive.indexCount, 1, primitive.indexOffset, primitive.vertexOffset, 0);
                 else
@@ -67,7 +73,7 @@ void Renderer::shadowPass(const VkCommandBuffer cmd)
         .newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .image = shadowMap.image,
+        .image = shadowMap->image,
         .subresourceRange = depthSubresource};
 
     vkCmdPipelineBarrier(
@@ -125,11 +131,13 @@ void Renderer::meshPass(const VkCommandBuffer cmd)
     //
     for (uint32_t &opaqueDraw : opaqueDraws) {
         MeshDraw &meshDraw = meshDraws[opaqueDraw];
-        Mesh &mesh = meshDraw.mesh;
 
-        for (Primitive &primitive : mesh.primitives) {
+        Mesh *mesh = ResourceManager::get()->getMeshByIndex(meshDraw.meshId);
+        if (!mesh) continue;
+
+        for (Primitive &primitive : mesh->primitives) {
             MeshPassPC pc = {
-                .transform = meshDraw.transform,
+                .transform = mesh->transform,
                 .materialIndex = primitive.materialIndex,
             };
 
@@ -207,15 +215,19 @@ void Renderer::imGuiPass(const VkCommandBuffer cmd)
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
 
+    ImGuiViewport* viewport = ImGui::GetMainViewport();
+    ImGuiID dockspaceId = ImGui::GetID("Dockspace");
+
+    ImGui::DockSpaceOverViewport(dockspaceId, viewport, ImGuiDockNodeFlags_PassthruCentralNode);
+
     //
     // Draw
     //
-    {
+    if (Globals::isEditorOpened) { // Editor
+        editor.update();
+    } else { // Debug
         ImGui::ShowDemoWindow();
 
-        //
-        // Debug
-        //
         ImGui::Begin("Debug");
         ImGui::Text("Frame time: %f ms", timestampDeltaMs);
         ImGui::Text("FPS: %d", int(1000.0f / timestampDeltaMs));
@@ -229,19 +241,6 @@ void Renderer::imGuiPass(const VkCommandBuffer cmd)
         // ImGui::Checkbox("Enable imgui", &render_imgui);
 
         ImGui::End();
-
-        //
-        // Lights
-        //
-        ImGui::Begin("Lights");
-        for (size_t i = 0; i < lights.size(); i++) {
-            if (lights[i].type == LightType::Point && ImGui::TreeNode(eastl::string("Light " + eastl::to_string(i)).c_str())) {
-                ImGui::DragFloat3("position", &lights[i].position[0], 1.0f, -100.0f, 100.0f);
-
-                ImGui::TreePop();
-            }
-        }
-        ImGui::End();
     }
 
     ImGui::Render();
@@ -254,6 +253,9 @@ void Renderer::imGuiPass(const VkCommandBuffer cmd)
 
 void Renderer::skyboxPass(const VkCommandBuffer cmd)
 {
+    Mesh *cubeMesh = ResourceManager::get()->getMeshByName("Cube");
+    if (!cubeMesh) return;
+
     vulkan::Swapchain &swapchain = graphics.getSwapchain();
     const Image &colorImage = graphics.getColorImage();
     const Image &depthImage = graphics.getDepthImage();
@@ -290,11 +292,17 @@ void Renderer::skyboxPass(const VkCommandBuffer cmd)
     // Draw
     //
     SkyboxPassPC pc = {
-        .skyboxIndex = skyboxIndex,
+        .skyboxIndex = ResourceManager::get()->getImageIndexByName("skybox"),
     };
 
     vkCmdPushConstants(cmd, pipelineLayouts["skybox"], VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pc), &pc);
-    vkCmdDrawIndexed(cmd, cubePrimitive.indexCount, 1, cubePrimitive.indexOffset, cubePrimitive.vertexOffset, 0);
+
+    for (Primitive &primitive : cubeMesh->primitives) {
+        if (primitive.indexCount > 0)
+            vkCmdDrawIndexed(cmd, primitive.indexCount, 1, primitive.indexOffset, primitive.vertexOffset, 0);
+        else
+            vkCmdDraw(cmd, primitive.vertexCount, 1, primitive.vertexOffset, 0);
+    }
 
     drawCount++;
 
@@ -307,7 +315,7 @@ void Renderer::clearPass(const VkCommandBuffer cmd)
 {
     const Image &colorImage = graphics.getColorImage();
     const Image &depthImage = graphics.getDepthImage();
-    const Image &shadowMap = images[shadowMapIndex];
+    const Image *shadowMap = ResourceManager::get()->getImageByName("shadow_map");
 
     // transfer multisampled image to transfer dst
     VkImageMemoryBarrier transferImageBarrier = {
@@ -358,18 +366,20 @@ void Renderer::clearPass(const VkCommandBuffer cmd)
         &depthTransferBarrier);
 
     // transfer shadowmap image to transfer
-    depthTransferBarrier.image = shadowMap.image;
-    vkCmdPipelineBarrier(
-        cmd,
-        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-        VK_PIPELINE_STAGE_TRANSFER_BIT,
-        0,
-        0,
-        nullptr,
-        0,
-        nullptr,
-        1,
-        &depthTransferBarrier);
+    if (shadowMap) {
+        depthTransferBarrier.image = shadowMap->image;
+        vkCmdPipelineBarrier(
+            cmd,
+            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            0,
+            0,
+            nullptr,
+            0,
+            nullptr,
+            1,
+            &depthTransferBarrier);
+    }
 
     VkClearDepthStencilValue clearDepthVal = {0.0, 0};
     VkClearColorValue clearColorVal = {{0.0, 0.0, 0.0, 1.0}};
@@ -394,9 +404,10 @@ void Renderer::clearPass(const VkCommandBuffer cmd)
     //
     // Clear images
     //
-    vkCmdClearDepthStencilImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clearDepthVal, 1, &depthRange);
-    vkCmdClearDepthStencilImage(cmd, shadowMap.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clearDepthVal, 1, &depthRange);
     vkCmdClearColorImage(cmd, colorImage.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clearColorVal, 1, &multisampledColorRange);
+    vkCmdClearDepthStencilImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clearDepthVal, 1, &depthRange);
+    if (shadowMap)
+        vkCmdClearDepthStencilImage(cmd, shadowMap->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clearDepthVal, 1, &depthRange);
 
     // transfer multisampled image to color output
     VkImageMemoryBarrier multisampleBarrier = {
@@ -447,18 +458,20 @@ void Renderer::clearPass(const VkCommandBuffer cmd)
         &depthBarrier);
 
     // transfer shadowmap image to depth attachment
-    depthBarrier.image = shadowMap.image;
-    vkCmdPipelineBarrier(
-        cmd,
-        VK_PIPELINE_STAGE_TRANSFER_BIT,
-        VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
-        0,
-        0,
-        nullptr,
-        0,
-        nullptr,
-        1,
-        &depthBarrier);
+    if (shadowMap) {
+        depthBarrier.image = shadowMap->image;
+        vkCmdPipelineBarrier(
+            cmd,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+            0,
+            0,
+            nullptr,
+            0,
+            nullptr,
+            1,
+            &depthBarrier);
+    }
 
     vulkan::endDebugLabel(cmd);
 }

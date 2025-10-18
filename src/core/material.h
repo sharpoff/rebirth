@@ -2,7 +2,7 @@
 
 #include <math/math.h>
 
-struct Material
+struct GPUMaterial
 {
     int baseColorId = -1;
     int metallicRoughnessId = -1;
