@@ -3,6 +3,7 @@
 #include "graphics/renderer.h"
 #include "physics/physics.h"
 #include "core/scene.h"
+#include "core/engine_stats.h"
 
 #include <util/timer.h>
 
@@ -31,6 +32,7 @@ protected:
 
     Timer timer;
     SDL_Window *window;
+    EngineStats stats;
 
     Renderer renderer;
     Physics physics;

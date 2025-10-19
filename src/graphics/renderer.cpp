@@ -1,12 +1,13 @@
 #include "graphics/renderer.h"
 
+#include "core/globals.h"
 #include "core/resource_manager.h"
+#include "core/scene_draw_data.h"
 #include "graphics/gltf.h"
 #include "graphics/vulkan/descriptor_writer.h"
 #include "graphics/vulkan/pipeline_builder.h"
 #include "graphics/vulkan/swapchain.h"
 #include "graphics/vulkan/util.h"
-#include "core/scene_draw_data.h"
 
 #include "math/frustum_culling.h"
 #include "util/logger.h"
@@ -14,12 +15,23 @@
 #include <tracy/Tracy.hpp>
 #include <tracy/TracyVulkan.hpp>
 
-void Renderer::initialize(SDL_Window *window)
+#include <dlfcn.h>
+
+void Renderer::initialize(SDL_Window *window, EngineStats *engineStats)
 {
     ZoneScopedN("Renderer initialize");
 
     assert(window);
     this->window = window;
+    this->engineStats = engineStats;
+
+    if(void *mod = dlopen("librenderdoc.so", RTLD_NOW | RTLD_NOLOAD))
+    {
+        pRENDERDOC_GetAPI RENDERDOC_GetAPI = (pRENDERDOC_GetAPI)dlsym(mod, "RENDERDOC_GetAPI");
+        int ret = RENDERDOC_GetAPI(eRENDERDOC_API_Version_1_1_2, (void **)&renderDocAPI);
+        if (ret != 1)
+            assert(ret == 1);
+    }
 
     graphics.initialize(window);
 
@@ -74,7 +86,7 @@ void Renderer::drawMesh(int32_t meshId, uint32_t drawMask, mat4 transform)
             .boundingSphere = math::calculateBoundingSphere(meshId),
             .drawMask = drawMask,
         });
-    
+
     // // --------- DEBUG bounding sphere!!!!!! -------------
     // MeshDraw meshDraw;
     // meshDraw.meshId = ResourceManager::get()->getMeshIndexByName("Sphere");
@@ -121,7 +133,7 @@ void Renderer::present(Camera &camera)
         prepared = true;
     }
 
-    timestampDeltaMs = getTimestampDeltaMs();
+    engineStats->timestampDeltaMs = getTimestampDeltaMs();
 
     // TODO: create and update global joints buffer
     updateDynamicData(camera);
@@ -138,6 +150,12 @@ void Renderer::present(Camera &camera)
         return;
     }
 
+    bool started = false;
+    if (renderDocAPI && Globals::captureRenderDoc) {
+        renderDocAPI->StartFrameCapture(NULL, NULL);
+        started = true;
+    }
+
     bool supportTimestamps = graphics.supportTimestamps();
 
     if (supportTimestamps) {
@@ -148,7 +166,7 @@ void Renderer::present(Camera &camera)
     }
 
     vulkan::Swapchain &swapchain = graphics.getSwapchain();
-    const VkImage &swapchainImage = swapchain.getImage();
+    const VkImage     &swapchainImage = swapchain.getImage();
 
     //
     // Render passes start
@@ -266,6 +284,11 @@ void Renderer::present(Camera &camera)
 
     TracyVkCollect(graphics.getTracyContext(), cmd);
 
+    if (renderDocAPI && started) {
+        renderDocAPI->EndFrameCapture(NULL, NULL);
+        Globals::captureRenderDoc = false;
+    }
+
     // Submit
     graphics.submitCommandBuffer(cmd);
 
@@ -280,7 +303,7 @@ void Renderer::present(Camera &camera)
     shadowDraws.clear();
     wireframeDraws.clear();
 
-    drawCount = 0;
+    engineStats->drawCount = 0;
 }
 
 void Renderer::cullMeshDraws(mat4 viewProj)
@@ -317,7 +340,7 @@ void Renderer::sortMeshDraws(vec3 cameraPos)
         float dist1 = glm::length(cameraPos - math::getPosition(mesh1->transform));
         float dist2 = glm::length(cameraPos - math::getPosition(mesh2->transform));
 
-        return dist1 < dist2;
+        return dist1 > dist2;
     };
 
     std::sort(opaqueDraws.begin(), opaqueDraws.end(), sortingFunc);
@@ -345,9 +368,9 @@ void Renderer::createPipelines()
 {
     ZoneScoped;
 
-    const VkDevice device = graphics.getDevice();
+    const VkDevice     device = graphics.getDevice();
     DescriptorManager &descriptorManager = graphics.getDescriptorManager();
-    const VkFormat colorFormat = graphics.getSwapchain().getSurfaceFormat().format;
+    const VkFormat     colorFormat = graphics.getSwapchain().getSurfaceFormat().format;
 
     eastl::unordered_map<eastl::string, VkShaderModule> shaders = loadShaderModules("build/shaders");
 

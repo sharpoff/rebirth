@@ -4,7 +4,7 @@
 	- Object picking(using color on GPU?)
 	- Object adding/removing
 	- Level save/load (should create level file format)
-* Frustum culling
+* Frustum culling (kinda working?)
 * CSM shadows
 * Job system for parallel tasks execution. Speed up scene loading. Maybe add loading screen after that
 

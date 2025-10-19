@@ -8,7 +8,8 @@
 
 #include <cgltf.h>
 
-namespace vulkan {
+namespace vulkan
+{
     class Graphics;
 }
 

@@ -2,7 +2,6 @@
 
 #include "core/resource_manager.h"
 #include "graphics/vulkan/util.h"
-#include "core/globals.h"
 
 #include "backend/imgui_impl_sdl3.h"
 #include "backend/imgui_impl_vulkan.h"
@@ -41,8 +40,9 @@ void Renderer::shadowPass(const VkCommandBuffer cmd)
     for (auto &light : ResourceManager::get()->getLights()) {
         for (uint32_t &draw : shadowDraws) {
             MeshDraw &meshDraw = meshDraws[draw];
-            Mesh *mesh = ResourceManager::get()->getMeshByIndex(meshDraw.meshId);
-            if (!mesh) continue;
+            Mesh     *mesh = ResourceManager::get()->getMeshByIndex(meshDraw.meshId);
+            if (!mesh)
+                continue;
 
             ShadowPassPC pc = {
                 .transform = light.mvp * meshDraw.transform * mesh->transform,
@@ -56,7 +56,7 @@ void Renderer::shadowPass(const VkCommandBuffer cmd)
                     vkCmdDraw(cmd, primitive.vertexCount, 1, primitive.vertexOffset, 0);
             }
 
-            drawCount++;
+            engineStats->drawCount++;
         }
     }
 
@@ -95,8 +95,8 @@ void Renderer::meshPass(const VkCommandBuffer cmd)
 
     // TODO: make RenderInfo that would contain all information needed for a pipeline
     const VkExtent2D extent = swapchain.getExtent();
-    const Image &colorImage = graphics.getColorImage();
-    const Image &depthImage = graphics.getDepthImage();
+    const Image     &colorImage = graphics.getColorImage();
+    const Image     &depthImage = graphics.getDepthImage();
 
     // attachments
     VkRenderingAttachmentInfo colorAttachment;
@@ -130,7 +130,8 @@ void Renderer::meshPass(const VkCommandBuffer cmd)
     //
     auto drawFunc = [&](MeshDraw &meshDraw) {
         Mesh *mesh = ResourceManager::get()->getMeshByIndex(meshDraw.meshId);
-        if (!mesh) return;
+        if (!mesh)
+            return;
 
         for (Primitive &primitive : mesh->primitives) {
             MeshPassPC pc = {
@@ -146,7 +147,7 @@ void Renderer::meshPass(const VkCommandBuffer cmd)
                 vkCmdDraw(cmd, primitive.vertexCount, 1, primitive.vertexOffset, 0);
         }
 
-        drawCount++;
+        engineStats->drawCount++;
     };
 
     // Opaque draws
@@ -171,8 +172,8 @@ void Renderer::imGuiPass(const VkCommandBuffer cmd)
     Swapchain &swapchain = graphics.getSwapchain();
 
     const VkImageView &swapchainImageView = swapchain.getImageView();
-    const Image &colorImage = graphics.getColorImage();
-    const VkExtent2D extent = swapchain.getExtent();
+    const Image       &colorImage = graphics.getColorImage();
+    const VkExtent2D   extent = swapchain.getExtent();
 
     // TODO: Fix syncronizaiton
     // transfer multisampled image to color write
@@ -199,7 +200,6 @@ void Renderer::imGuiPass(const VkCommandBuffer cmd)
     //     1,
     //     &barrier0);
 
-
     // attachments
     VkRenderingAttachmentInfo colorAttachment = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
     colorAttachment.clearValue.color = {{0.0, 0.0, 0.0, 1.0}};
@@ -224,31 +224,15 @@ void Renderer::imGuiPass(const VkCommandBuffer cmd)
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
 
-    ImGuiViewport* viewport = ImGui::GetMainViewport();
-    ImGuiID dockspaceId = ImGui::GetID("Dockspace");
+    ImGuiViewport *viewport = ImGui::GetMainViewport();
+    ImGuiID        dockspaceId = ImGui::GetID("Dockspace");
 
     ImGui::DockSpaceOverViewport(dockspaceId, viewport, ImGuiDockNodeFlags_PassthruCentralNode);
 
     //
     // Draw
     //
-    if (Globals::isEditorOpened) { // Editor
-        editor.update();
-    } else { // Debug
-        ImGui::ShowDemoWindow();
-
-        ImGui::Begin("Debug");
-        ImGui::Text("Frame time: %f ms", timestampDeltaMs);
-        ImGui::Text("FPS: %d", int(1000.0f / timestampDeltaMs));
-        ImGui::Text("Draw count: %d", drawCount);
-
-        // ImGui::Checkbox("Enable wireframe", &render_wireframe);
-        // ImGui::Checkbox("Enable shadows", &render_shadows);
-        // ImGui::Checkbox("Enable skybox", &render_skybox);
-        // ImGui::Checkbox("Enable imgui", &render_imgui);
-
-        ImGui::End();
-    }
+    editor.update(engineStats);
 
     ImGui::Render();
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
@@ -261,12 +245,13 @@ void Renderer::imGuiPass(const VkCommandBuffer cmd)
 void Renderer::skyboxPass(const VkCommandBuffer cmd)
 {
     Mesh *cubeMesh = ResourceManager::get()->getMeshByName("Cube");
-    if (!cubeMesh) return;
+    if (!cubeMesh)
+        return;
 
     vulkan::Swapchain &swapchain = graphics.getSwapchain();
-    const Image &colorImage = graphics.getColorImage();
-    const Image &depthImage = graphics.getDepthImage();
-    const VkExtent2D extent = swapchain.getExtent();
+    const Image       &colorImage = graphics.getColorImage();
+    const Image       &depthImage = graphics.getDepthImage();
+    const VkExtent2D   extent = swapchain.getExtent();
 
     // attachments
     VkRenderingAttachmentInfo colorAttachment = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
@@ -311,7 +296,7 @@ void Renderer::skyboxPass(const VkCommandBuffer cmd)
             vkCmdDraw(cmd, primitive.vertexCount, 1, primitive.vertexOffset, 0);
     }
 
-    drawCount++;
+    engineStats->drawCount++;
 
     // end
     vulkan::endRendering(cmd);
@@ -389,7 +374,7 @@ void Renderer::clearPass(const VkCommandBuffer cmd)
     }
 
     VkClearDepthStencilValue clearDepthVal = {0.0, 0};
-    VkClearColorValue clearColorVal = {{0.0, 0.0, 0.0, 1.0}};
+    VkClearColorValue        clearColorVal = {{0.0, 0.0, 0.0, 1.0}};
 
     VkImageSubresourceRange depthRange{};
     depthRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;

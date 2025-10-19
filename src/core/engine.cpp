@@ -1,7 +1,6 @@
 #include "core/engine.h"
 
 #include "core/globals.h"
-#include "core/mesh_draw.h"
 #include "input/input.h"
 #include "graphics/gltf.h"
 #include "util/logger.h"
@@ -29,14 +28,14 @@ void Engine::initialize()
         exit(EXIT_FAILURE);
     }
 
-    renderer.initialize(window);
+    renderer.initialize(window, &stats);
 
     // load scenes
     {
         ZoneScopedN("Load scenes");
         // if (!gltf::loadScene(renderer.getGraphics(), scene, "assets/models/sponza/Sponza.gltf")) {
         // if (!gltf::loadScene(renderer.getGraphics(), scene, "assets/models/subway_station/scene.gltf")) {
-        if (!gltf::loadScene(renderer.getGraphics(), scene, "assets/models/DamagedHelmet/DamagedHelmet.gltf")) {
+        if (!gltf::loadScene(renderer.getGraphics(), scene, "assets/models/DamagedHelmet.glb")) {
             logger::logError("Failed to load scene.");
             exit(EXIT_FAILURE);
         }

@@ -1,28 +1,29 @@
 #pragma once
 
-#include "graphics/vulkan/graphics.h"
-#include "core/scene.h"
 #include "core/camera.h"
+#include "core/mesh_draw.h"
+#include "core/scene.h"
 #include "core/scene_draw_data.h"
 #include "editor/editor.h"
-#include "core/mesh_draw.h"
+#include "graphics/vulkan/graphics.h"
 
 #include "EASTL/string.h"
+#include "renderdoc_app.h"
 
 using namespace vulkan;
 
-static const int MAX_MATERIALS = 100;
-static const int MAX_LIGHTS = 100;
-static const uint32_t SHADOW_MAP_SIZE = 2048;
+static const int      MAX_MATERIALS         = 100;
+static const int      MAX_LIGHTS            = 100;
+static const uint32_t SHADOW_MAP_SIZE       = 2048;
 static const uint32_t MAX_INDIRECT_COMMANDS = 100000;
 
 class Renderer
 {
 public:
-    Renderer() = default;
+    Renderer()  = default;
     ~Renderer() = default;
 
-    void initialize(SDL_Window *window);
+    void initialize(SDL_Window *window, EngineStats *engineStats);
     void shutdown();
 
     void drawMesh(int32_t meshId, uint32_t drawMask = DrawMask::Opaque, mat4 transform = mat4(1.0f));
@@ -33,7 +34,7 @@ public:
 
     void reloadShaders();
 
-    float getTimestampDeltaMs() { return float(timestamps[1] - timestamps[0]) * graphics.getDevicePropertices().limits.timestampPeriod * 1e-6; };
+    float     getTimestampDeltaMs() { return float(timestamps[1] - timestamps[0]) * graphics.getDevicePropertices().limits.timestampPeriod * 1e-6; };
     Graphics &getGraphics() { return graphics; };
 
 protected:
@@ -61,7 +62,7 @@ protected:
     struct MeshPassPC
     {
         mat4 transform;
-        int materialIndex;
+        int  materialIndex;
     };
 
     struct ShadowPassPC
@@ -74,7 +75,7 @@ protected:
         int skyboxIndex;
     };
 
-    eastl::unordered_map<eastl::string, VkPipeline> pipelines;
+    eastl::unordered_map<eastl::string, VkPipeline>       pipelines;
     eastl::unordered_map<eastl::string, VkPipelineLayout> pipelineLayouts;
 
     // Resources
@@ -96,14 +97,15 @@ protected:
 
     Scene primitives;
 
-    VkQueryPool queryPool;
+    VkQueryPool               queryPool;
     eastl::array<uint64_t, 2> timestamps;
 
     SDL_Window *window;
-    Graphics graphics;
-    Editor editor;
+    Graphics    graphics;
+    Editor      editor;
 
     bool prepared = false;
-    uint32_t drawCount = 0;
-    float timestampDeltaMs = 0.0f;
+
+    EngineStats *engineStats;
+    RENDERDOC_API_1_1_2 *renderDocAPI;
 };

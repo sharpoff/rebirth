@@ -1,7 +1,12 @@
 #pragma once
 
+#include "core/engine_stats.h"
+
 class Editor
 {
 public:
-    void update();
+    void update(EngineStats *engineStats);
+
+    bool showDemo = false;
+    bool showDebug = false;
 };

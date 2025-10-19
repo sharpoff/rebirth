@@ -14,18 +14,18 @@ namespace gltf
         cgltf_result result = cgltf_parse_file(&options, file.c_str(), &data);
 
         if (result != cgltf_result_success) {
-            logger::logError("Failed to load gltf scene");
+            logger::logError("Failed to load gltf scene ", file);
             return false;
         }
 
         if ((result = cgltf_load_buffers(&options, data, file.c_str())) !=
             cgltf_result_success) {
-            logger::logError("Failed to load buffers of gltf scene");
+            logger::logError("Failed to load buffers of gltf scene ", file);
             return false;
         }
 
         if ((result = cgltf_validate(data)) != cgltf_result_success) {
-            logger::logError("Failed to load validate gltf scene");
+            logger::logError("Failed to load validate gltf scene ", file);
             return false;
         }
 
