@@ -2,6 +2,7 @@
 
 #include <input/input.h>
 
+#include "SDL3/SDL_events.h"
 #include "imgui.h"
 
 void Camera::setPosition(vec3 position)
@@ -78,7 +79,7 @@ void Camera::handleEvent(SDL_Event event, float deltaTime)
         return;
 
     // mouse
-    if (input.isMouseButtonPressed(MouseButton::LEFT)) {
+    if (input.isMouseButtonPressed(MouseButton::LEFT) && event.type == SDL_EVENT_MOUSE_MOTION) {
         if (!first) {
             yaw -= event.motion.xrel * rotationSpeed;
             pitch -= event.motion.yrel * rotationSpeed;

@@ -1,8 +1,10 @@
 #include "core/engine.h"
 
 #include "core/globals.h"
+#include "imgui.h"
 #include "input/input.h"
 #include "graphics/gltf.h"
+#include "util/common.h"
 #include "util/logger.h"
 #include "core/resource_manager.h"
 
@@ -28,7 +30,7 @@ void Engine::initialize()
         exit(EXIT_FAILURE);
     }
 
-    renderer.initialize(window, &stats);
+    renderer.initialize(window, &stats, &physics);
     physics.initialize();
 
     // setup camera
@@ -125,6 +127,24 @@ void Engine::handleInput(float deltaTime)
         }
 
         camera.handleEvent(event, deltaTime);
+
+        // do raycast
+        if (!ImGui::GetIO().WantCaptureMouse && input.isMouseButtonPressed(MouseButton::RIGHT)) {
+            vec3 direction = -util::mouseToWorldDirection(vec2(event.motion.x, event.motion.y), vec2(width, height), camera.view, camera.projection);
+
+            float raycastRange = 100.0f;
+            direction *= raycastRange;
+
+            JPH::BodyID hitBody = physics.rayCast(camera.position, -direction);
+            if (hitBody != JPH::BodyID()) { // valid body
+                Entity *entity = world.getEntityByBodyId(hitBody.GetIndexAndSequenceNumber());
+                if (entity) { // valid entity
+                    Globals::selectedEntity = entity;
+                }
+            } else {
+                Globals::selectedEntity = nullptr;
+            }
+        }
     }
 }
 

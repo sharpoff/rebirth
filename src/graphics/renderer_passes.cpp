@@ -1,5 +1,6 @@
 #include "graphics/renderer.h"
 
+#include "core/engine_stats.h"
 #include "core/resource_manager.h"
 #include "graphics/vulkan/util.h"
 
@@ -232,7 +233,7 @@ void Renderer::imGuiPass(const VkCommandBuffer cmd)
     //
     // Draw
     //
-    editor.update(engineStats);
+    editor.update();
 
     ImGui::Render();
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);

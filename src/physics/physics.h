@@ -2,6 +2,7 @@
 
 #include "EASTL/vector.h"
 #include "math/math.h"
+
 #include <Jolt/Jolt.h>
 
 #include <Jolt/Core/Factory.h>
@@ -36,6 +37,11 @@ public:
 
     vec3 getPosition(JPH::BodyID bodyId);
     quat getRotation(JPH::BodyID bodyId);
+
+    void setPosition(JPH::BodyID bodyId, vec3 position);
+    void setRotation(JPH::BodyID bodyId, quat rotation);
+
+    JPH::BodyID rayCast(vec3 origin, vec3 direction);
 private:
     JPH::JobSystemThreadPool *jobSystem;
     JPH::TempAllocatorImpl *tempAllocator;

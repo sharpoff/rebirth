@@ -17,6 +17,7 @@ static const uint32_t SHADOW_MAP_SIZE       = 2048;
 static const uint32_t MAX_INDIRECT_COMMANDS = 100000;
 
 class Entity;
+class Physics;
 
 class Renderer
 {
@@ -24,7 +25,7 @@ public:
     Renderer()  = default;
     ~Renderer() = default;
 
-    void initialize(SDL_Window *window, EngineStats *engineStats);
+    void initialize(SDL_Window *window, EngineStats *engineStats, Physics *physics);
     void shutdown();
 
     void drawEntity(const Entity &entity, uint32_t drawMask = DrawMask::Opaque);

@@ -2,6 +2,11 @@
 
 #include "Jolt/Physics/Body/BodyID.h"
 #include "Jolt/Physics/Body/BodyInterface.h"
+#include "Jolt/Physics/Collision/BroadPhase/BroadPhaseQuery.h"
+#include "Jolt/Physics/Collision/RayCast.h"
+#include "Jolt/Physics/Collision/CastResult.h" // IWYU pragma: export
+#include "Jolt/Physics/Collision/CollisionCollectorImpl.h"
+
 #include "game/entity.h"
 #include "physics/physics_helpers.h"
 #include "util/logger.h"
@@ -122,4 +127,33 @@ quat Physics::getRotation(JPH::BodyID bodyId)
 {
     JPH::BodyInterface &bodyInterface = physicsSystem.GetBodyInterface();
     return JoltToMath(bodyInterface.GetRotation(bodyId));
+}
+
+void Physics::setPosition(JPH::BodyID bodyId, vec3 position)
+{
+    JPH::BodyInterface &bodyInterface = physicsSystem.GetBodyInterface();
+    bodyInterface.SetPosition(bodyId, MathToJolt(position), JPH::EActivation::Activate);
+}
+
+void Physics::setRotation(JPH::BodyID bodyId, quat rotation)
+{
+    JPH::BodyInterface &bodyInterface = physicsSystem.GetBodyInterface();
+    bodyInterface.SetRotation(bodyId, MathToJolt(rotation), JPH::EActivation::Activate);
+}
+
+JPH::BodyID Physics::rayCast(vec3 origin, vec3 direction)
+{
+    JPH::RayCast ray(MathToJolt(origin), MathToJolt(direction));
+    JPH::ClosestHitCollisionCollector<JPH::RayCastBodyCollector> collector;
+
+    physicsSystem.GetBroadPhaseQuery().CastRay(ray, collector);
+
+    if (collector.HadHit()) {
+        logger::logInfo("Ray cast HadHit()");
+        const JPH::RayCastBodyCollector::ResultType hit = collector.mHit;
+
+        return hit.mBodyID;
+    }
+
+    return JPH::BodyID();
 }

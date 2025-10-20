@@ -1,12 +1,19 @@
 #pragma once
 
-#include "core/engine_stats.h"
+class Physics;
+struct EngineStats;
 
 class Editor
 {
 public:
-    void update(EngineStats *engineStats);
+    void initialize(EngineStats *engineStats, Physics *physics);
+    void shutdown();
+
+    void update();
 
     bool showDemo = false;
     bool showDebug = false;
+
+    EngineStats *engineStats;
+    Physics *physics;
 };

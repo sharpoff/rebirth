@@ -18,6 +18,7 @@ public:
     void    addEntity(const Entity &entity, eastl::string name = "");
     Entity *getEntityByName(eastl::string name);
     Entity *getEntityByIndex(uint32_t index);
+    Entity *getEntityByBodyId(uint32_t bodyId);
 
     eastl::vector<Entity> &getEntities() { return entities; };
 

@@ -1,8 +1,21 @@
 #include "editor/editor.h"
 
+#include "core/engine_stats.h"
+#include "core/globals.h"
 #include "imgui.h"
+#include "physics/physics.h"
 
-void Editor::update(EngineStats *engineStats)
+void Editor::initialize(EngineStats *engineStats, Physics *physics)
+{
+    this->engineStats = engineStats;
+    this->physics = physics;
+}
+
+void Editor::shutdown()
+{
+}
+
+void Editor::update()
 {
     //
     // Windows
@@ -12,9 +25,20 @@ void Editor::update(EngineStats *engineStats)
 
     if (showDebug) {
         ImGui::Begin("Debug", &showDebug);
+
         ImGui::Text("Frame time: %f ms", engineStats->timestampDeltaMs);
         ImGui::Text("FPS: %d", int(1000.0f / engineStats->timestampDeltaMs));
         ImGui::Text("Draw count: %d", engineStats->drawCount);
+
+        if (Globals::selectedEntity) {
+            Entity *entity = Globals::selectedEntity;
+            ImGui::Separator();
+
+            if (ImGui::SliderFloat3("Entity position", &entity->position[0], -100.0f, 100.0f)) {
+                physics->setPosition(entity->bodyId, entity->position);
+            }
+        }
+
         ImGui::End();
     }
 

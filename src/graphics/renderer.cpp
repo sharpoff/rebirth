@@ -1,5 +1,6 @@
 #include "graphics/renderer.h"
 
+#include "core/engine_stats.h"
 #include "core/material.h"
 #include "core/resource_manager.h"
 #include "core/scene_draw_data.h"
@@ -11,12 +12,13 @@
 #include "graphics/vulkan/util.h"
 #include "game/entity.h"
 
+#include "physics/physics.h"
 #include "util/logger.h"
 
 #include <tracy/Tracy.hpp>
 #include <tracy/TracyVulkan.hpp>
 
-void Renderer::initialize(SDL_Window *window, EngineStats *engineStats)
+void Renderer::initialize(SDL_Window *window, EngineStats *engineStats, Physics *physics)
 {
     ZoneScopedN("Renderer initialize");
 
@@ -50,6 +52,8 @@ void Renderer::initialize(SDL_Window *window, EngineStats *engineStats)
     checkerboardMat.roughnessFactor = 1.0f;
     ResourceManager::get()->addMaterial(checkerboardMat, "checkerboard");
 
+    editor.initialize(engineStats, physics);
+
     logger::logInfo("Renderer initialized");
 }
 
@@ -59,6 +63,8 @@ void Renderer::shutdown()
 
     const VkDevice device = graphics.getDevice();
     vkDeviceWaitIdle(device);
+
+    editor.shutdown();
 
     vkDestroyQueryPool(device, queryPool, nullptr);
 

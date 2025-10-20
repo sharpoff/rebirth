@@ -1,10 +1,10 @@
 # Current tasks
 * EDITOR!!!
 	- Gizmo, object manipulation
-	- Object picking(using color on GPU?)
-	- Object adding/removing
+	- Object adding/removing in runtime
 	- Level save/load (should create level file format)
 * Frustum culling (kinda working?)
+* Specialization constants
 * CSM shadows
 * Job system for parallel tasks execution. Speed up scene loading. Maybe add loading screen after that
 
