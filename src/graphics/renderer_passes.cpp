@@ -136,7 +136,7 @@ void Renderer::meshPass(const VkCommandBuffer cmd)
         for (Primitive &primitive : mesh->primitives) {
             MeshPassPC pc = {
                 .transform = meshDraw.transform * mesh->transform,
-                .materialIndex = primitive.materialIndex,
+                .materialIndex = meshDraw.overrideMaterialId > -1 ? meshDraw.overrideMaterialId : primitive.materialIndex,
             };
 
             vkCmdPushConstants(cmd, pipelineLayouts["mesh"], VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pc), &pc);

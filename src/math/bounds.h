@@ -15,8 +15,6 @@ struct Bounds
 
 namespace math
 {
-    Bounds calculateBoundingBox(eastl::vector<Vertex> &vertices);
-
-    Bounds calculateBoundingSphere(eastl::vector<Vertex> &vertices);
-    Bounds calculateBoundingSphere(int32_t meshId);
+    Bounds calculateBoundingBox(Mesh mesh, mat4 transform = mat4(1.0f));
+    Bounds calculateBoundingSphere(Mesh mesh, mat4 transform = mat4(1.0f));
 } // namespace math

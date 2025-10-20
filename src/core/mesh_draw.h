@@ -13,9 +13,10 @@ enum DrawMask : uint32_t
 struct MeshDraw
 {
     int32_t meshId = -1;
+    int32_t overrideMaterialId = -1;
+    uint32_t drawMask = 0;
     mat4 transform = mat4(1.0f);
     Bounds boundingSphere{};
-    uint32_t drawMask = 0;
 
     // uint32_t jointMatrixIndex = 0; // TODO
 };

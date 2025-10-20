@@ -10,6 +10,7 @@
 
 # Later tasks
 * Fix sync validation errors
+* Add fullscreen mode
 * GI
 * Convert textures to ktx
 * Player controller (jolt's virtual character)

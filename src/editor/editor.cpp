@@ -1,5 +1,4 @@
 #include "editor/editor.h"
-#include "core/globals.h"
 
 #include "imgui.h"
 
@@ -39,10 +38,6 @@ void Editor::update(EngineStats *engineStats)
                 showDebug = !showDebug;
             }
 
-            if (ImGui::MenuItem("Capture frame")) {
-                Globals::captureRenderDoc = true;
-            }
-
             if (ImGui::MenuItem("ImGui Demo", NULL, showDemo)) {
                 showDemo = !showDemo;
             }
@@ -52,11 +47,4 @@ void Editor::update(EngineStats *engineStats)
 
         ImGui::EndMainMenuBar();
     }
-
-    // if (!ImGui::Begin("Editor", nullptr, ImGuiWindowFlags_MenuBar)) {
-    //     ImGui::End();
-    //     return;
-    // }
-
-    // ImGui::End();
 }

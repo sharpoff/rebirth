@@ -7,7 +7,10 @@ int32_t ResourceManager::addMesh(const Mesh &mesh, eastl::string name)
 {
     size_t id = meshes.size();
     meshes.push_back(mesh);
-    meshesMap[name] = id;
+
+    if (!name.empty())
+        meshesMap[name] = id;
+
     return id;
 }
 
@@ -15,7 +18,10 @@ int32_t ResourceManager::addImage(const vulkan::Image &image, eastl::string name
 {
     size_t id = images.size();
     images.push_back(image);
-    imagesMap[name] = id;
+
+    if (!name.empty())
+        imagesMap[name] = id;
+
     return id;
 }
 
@@ -23,7 +29,10 @@ int32_t ResourceManager::addMaterial(const GPUMaterial &material, eastl::string 
 {
     size_t id = materials.size();
     materials.push_back(material);
-    materialsMap[name] = id;
+
+    if (!name.empty())
+        materialsMap[name] = id;
+
     return id;
 }
 

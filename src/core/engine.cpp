@@ -29,17 +29,7 @@ void Engine::initialize()
     }
 
     renderer.initialize(window, &stats);
-
-    // load scenes
-    {
-        ZoneScopedN("Load scenes");
-        // if (!gltf::loadScene(renderer.getGraphics(), scene, "assets/models/sponza/Sponza.gltf")) {
-        // if (!gltf::loadScene(renderer.getGraphics(), scene, "assets/models/subway_station/scene.gltf")) {
-        if (!gltf::loadScene(renderer.getGraphics(), scene, "assets/models/DamagedHelmet.glb")) {
-            logger::logError("Failed to load scene.");
-            exit(EXIT_FAILURE);
-        }
-    }
+    physics.initialize();
 
     // setup camera
     camera.setPerspectiveInf(glm::radians(60.0f), float(width) / height, 0.1f);
@@ -52,17 +42,23 @@ void Engine::initialize()
             .direction = vec3(0.0, -1.0, 0.0),
         });
 
-    physics.initialize();
-    // Game::initialize();
-
     logger::logInfo("Engine initialized");
+
+    // load scenes
+    // if (!gltf::loadScene(renderer.getGraphics(), scene, "assets/models/sponza/Sponza.gltf")) {
+    if (!gltf::loadScene(renderer.getGraphics(), scene, "assets/models/DamagedHelmet.glb")) {
+        logger::logError("Failed to load scene.");
+        exit(EXIT_FAILURE);
+    }
+
+    world.initialize(physics);
 }
 
 void Engine::shutdown()
 {
     ZoneScopedN("Application shutdown");
 
-    // Game::shutdown();
+    world.shutdown();
     physics.shutdown();
     renderer.shutdown();
 
@@ -120,14 +116,6 @@ void Engine::handleInput(float deltaTime)
             running = false;
         }
 
-        // TODO: this is not working for some reason
-        // enable fullscreen
-        if (input.isKeyPressed(KeyboardKey::F)) {
-            // fullscreen = !fullscreen;
-            // SDL_SetWindowFullscreen(window, fullscreen);
-            // renderer.requestResize();
-        }
-
         if (input.isKeyPressed(KeyboardKey::E)) {
             Globals::isEditorOpened = !Globals::isEditorOpened;
         }
@@ -137,8 +125,6 @@ void Engine::handleInput(float deltaTime)
         }
 
         camera.handleEvent(event, deltaTime);
-
-        // Game::processInput();
     }
 }
 
@@ -146,9 +132,8 @@ void Engine::update(float deltaTime)
 {
     ZoneScopedN("Update");
 
-    // Game::update(deltaTime);
-    // physicsSystem.update(deltaTime);
-
+    world.update(deltaTime, physics);
+    physics.update(deltaTime);
     camera.update(deltaTime);
 }
 
@@ -156,12 +141,8 @@ void Engine::render()
 {
     ZoneScopedN("Render");
 
-    // Game::draw(renderer);
-
-    for (int i = -4; i <= 4; i++) {
-        for (auto &mesh : scene.meshes) {
-            renderer.drawMesh(mesh, DrawMask::Opaque | DrawMask::Shadow, glm::translate(vec3(i * 10, 0, 0)));
-        }
+    for (auto &entity : world.getEntities()) {
+        renderer.drawEntity(entity, DrawMask::Opaque | DrawMask::Shadow);
     }
 
     renderer.present(camera);

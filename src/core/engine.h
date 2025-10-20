@@ -1,5 +1,6 @@
 #pragma once
 
+#include "game/world.h"
 #include "graphics/renderer.h"
 #include "physics/physics.h"
 #include "core/scene.h"
@@ -34,6 +35,7 @@ protected:
     SDL_Window *window;
     EngineStats stats;
 
+    World world;
     Renderer renderer;
     Physics physics;
     Camera camera;

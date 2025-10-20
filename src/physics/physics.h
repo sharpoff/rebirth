@@ -1,5 +1,7 @@
 #pragma once
 
+#include "EASTL/vector.h"
+#include "math/math.h"
 #include <Jolt/Jolt.h>
 
 #include <Jolt/Core/Factory.h>
@@ -15,6 +17,8 @@
 #include <physics/physics_layers.h>
 #include <physics/physics_listeners.h>
 
+class Entity;
+
 class Physics
 {
 public:
@@ -26,6 +30,12 @@ public:
     void shutdown();
 
     void update(float dt);
+
+    JPH::BodyID createBox(const Entity &entity);
+    JPH::BodyID createBox(vec3 position, quat rotation, vec3 halfExtent, bool isStatic);
+
+    vec3 getPosition(JPH::BodyID bodyId);
+    quat getRotation(JPH::BodyID bodyId);
 private:
     JPH::JobSystemThreadPool *jobSystem;
     JPH::TempAllocatorImpl *tempAllocator;
@@ -54,4 +64,8 @@ private:
     ContactListener contactListener;
 
     JPH::PhysicsSystem physicsSystem;
+
+    eastl::vector<JPH::BodyID> bodies;
+
+    const float tickDelta = 1.0f / 60.0f;
 };

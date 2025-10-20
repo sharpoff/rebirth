@@ -1,21 +1,20 @@
 #include "graphics/renderer.h"
 
-#include "core/globals.h"
+#include "core/material.h"
 #include "core/resource_manager.h"
 #include "core/scene_draw_data.h"
 #include "graphics/gltf.h"
 #include "graphics/vulkan/descriptor_writer.h"
 #include "graphics/vulkan/pipeline_builder.h"
+#include "graphics/vulkan/resources.h"
 #include "graphics/vulkan/swapchain.h"
 #include "graphics/vulkan/util.h"
+#include "game/entity.h"
 
-#include "math/frustum_culling.h"
 #include "util/logger.h"
 
 #include <tracy/Tracy.hpp>
 #include <tracy/TracyVulkan.hpp>
-
-#include <dlfcn.h>
 
 void Renderer::initialize(SDL_Window *window, EngineStats *engineStats)
 {
@@ -25,14 +24,6 @@ void Renderer::initialize(SDL_Window *window, EngineStats *engineStats)
     this->window = window;
     this->engineStats = engineStats;
 
-    if(void *mod = dlopen("librenderdoc.so", RTLD_NOW | RTLD_NOLOAD))
-    {
-        pRENDERDOC_GetAPI RENDERDOC_GetAPI = (pRENDERDOC_GetAPI)dlsym(mod, "RENDERDOC_GetAPI");
-        int ret = RENDERDOC_GetAPI(eRENDERDOC_API_Version_1_1_2, (void **)&renderDocAPI);
-        if (ret != 1)
-            assert(ret == 1);
-    }
-
     graphics.initialize(window);
 
     // query
@@ -40,10 +31,24 @@ void Renderer::initialize(SDL_Window *window, EngineStats *engineStats)
 
     createPipelines();
 
+    //
+    // Load defaults
+    //
     if (!gltf::loadScene(graphics, primitives, "assets/models/primitives.glb")) {
         logger::logError("Failed to load scene.");
         exit(EXIT_FAILURE);
     }
+
+    ImageCreateInfo createInfo{};
+
+    vulkan::Image checkerboardImg;
+    GPUMaterial checkerboardMat;
+
+    graphics.createImageFromFile(checkerboardImg, createInfo, "assets/textures/checkerboard.png");
+    checkerboardMat.baseColorId = ResourceManager::get()->addImage(checkerboardImg, "checkerboard");
+    checkerboardMat.metallicFactor = 0.0f;
+    checkerboardMat.roughnessFactor = 1.0f;
+    ResourceManager::get()->addMaterial(checkerboardMat, "checkerboard");
 
     logger::logInfo("Renderer initialized");
 }
@@ -75,16 +80,33 @@ void Renderer::shutdown()
     logger::logInfo("Renderer shutdown");
 }
 
-void Renderer::drawMesh(int32_t meshId, uint32_t drawMask, mat4 transform)
+void Renderer::drawEntity(const Entity &entity, uint32_t drawMask)
+{
+    meshDraws.push_back(
+        MeshDraw{
+            .meshId = entity.meshId,
+            .overrideMaterialId = entity.overrideMaterialId,
+            .drawMask = drawMask,
+            .transform = entity.getTransform(),
+            .boundingSphere = entity.bounds,
+        });
+}
+
+void Renderer::drawMesh(int32_t meshId, uint32_t drawMask, mat4 transform, int32_t overrideMaterialId)
 {
     ZoneScoped;
+
+    Mesh *mesh = ResourceManager::get()->getMeshByIndex(meshId);
+    if (!mesh)
+        return;
 
     meshDraws.push_back(
         MeshDraw{
             .meshId = meshId,
-            .transform = transform,
-            .boundingSphere = math::calculateBoundingSphere(meshId),
+            .overrideMaterialId = overrideMaterialId,
             .drawMask = drawMask,
+            .transform = transform,
+            .boundingSphere = math::calculateBoundingSphere(*mesh),
         });
 
     // // --------- DEBUG bounding sphere!!!!!! -------------
@@ -148,12 +170,6 @@ void Renderer::present(Camera &camera)
     if (cmd == VK_NULL_HANDLE) {
         // Don't present - recreating swapchain
         return;
-    }
-
-    bool started = false;
-    if (renderDocAPI && Globals::captureRenderDoc) {
-        renderDocAPI->StartFrameCapture(NULL, NULL);
-        started = true;
     }
 
     bool supportTimestamps = graphics.supportTimestamps();
@@ -284,11 +300,6 @@ void Renderer::present(Camera &camera)
 
     TracyVkCollect(graphics.getTracyContext(), cmd);
 
-    if (renderDocAPI && started) {
-        renderDocAPI->EndFrameCapture(NULL, NULL);
-        Globals::captureRenderDoc = false;
-    }
-
     // Submit
     graphics.submitCommandBuffer(cmd);
 
@@ -311,8 +322,9 @@ void Renderer::cullMeshDraws(mat4 viewProj)
     ZoneScoped;
 
     for (size_t i = 0; i < meshDraws.size(); i++) {
-        if (!math::isSphereVisible(meshDraws[i].boundingSphere, viewProj, meshDraws[i].transform * ResourceManager::get()->getMeshByIndex(meshDraws[i].meshId)->transform))
-            continue;
+        // FIXME: not working properly
+        // if (!math::isSphereVisible(meshDraws[i].boundingSphere, viewProj, meshDraws[i].transform * ResourceManager::get()->getMeshByIndex(meshDraws[i].meshId)->transform))
+        //     continue;
 
         if (meshDraws[i].drawMask & DrawMask::Opaque) {
             opaqueDraws.push_back(i);

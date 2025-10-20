@@ -8,7 +8,6 @@
 #include "graphics/vulkan/graphics.h"
 
 #include "EASTL/string.h"
-#include "renderdoc_app.h"
 
 using namespace vulkan;
 
@@ -16,6 +15,8 @@ static const int      MAX_MATERIALS         = 100;
 static const int      MAX_LIGHTS            = 100;
 static const uint32_t SHADOW_MAP_SIZE       = 2048;
 static const uint32_t MAX_INDIRECT_COMMANDS = 100000;
+
+class Entity;
 
 class Renderer
 {
@@ -26,7 +27,8 @@ public:
     void initialize(SDL_Window *window, EngineStats *engineStats);
     void shutdown();
 
-    void drawMesh(int32_t meshId, uint32_t drawMask = DrawMask::Opaque, mat4 transform = mat4(1.0f));
+    void drawEntity(const Entity &entity, uint32_t drawMask = DrawMask::Opaque);
+    void drawMesh(int32_t meshId, uint32_t drawMask = DrawMask::Opaque, mat4 transform = mat4(1.0f), int32_t overrideMaterialId = -1);
 
     void present(Camera &camera);
 
@@ -107,5 +109,4 @@ protected:
     bool prepared = false;
 
     EngineStats *engineStats;
-    RENDERDOC_API_1_1_2 *renderDocAPI;
 };
