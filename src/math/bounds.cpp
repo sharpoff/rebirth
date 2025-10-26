@@ -7,15 +7,18 @@
 
 namespace math
 {
-    Bounds calculateBoundingBox(Mesh mesh, mat4 transform)
+    Bounds calculateBoundingBox(int32_t meshId, mat4 transform)
     {
+        Mesh *mesh = ResourceManager::get()->getMeshByIndex(meshId);
+        if (!mesh) return Bounds{};
+
         vec3 min = vec3(std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
         vec3 max = vec3(std::numeric_limits<float>::min(), std::numeric_limits<float>::min(), std::numeric_limits<float>::min());
 
         auto &vertices = ResourceManager::get()->getVertices();
         auto &indices = ResourceManager::get()->getIndices();
 
-        for (Primitive &primitive : mesh.primitives) {
+        for (Primitive &primitive : mesh->primitives) {
             for (size_t i = primitive.indexOffset; i < primitive.indexCount; i++) {
                 const Vertex &vert = vertices[indices[i]];
 
@@ -30,15 +33,18 @@ namespace math
         };
     }
 
-    Bounds calculateBoundingSphere(Mesh mesh, mat4 transform)
+    Bounds calculateBoundingSphere(int32_t meshId, mat4 transform)
     {
+        Mesh *mesh = ResourceManager::get()->getMeshByIndex(meshId);
+        if (!mesh) return Bounds{};
+
         vec3 min = vec3(std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
         vec3 max = vec3(std::numeric_limits<float>::min(), std::numeric_limits<float>::min(), std::numeric_limits<float>::min());
 
         auto &vertices = ResourceManager::get()->getVertices();
         auto &indices = ResourceManager::get()->getIndices();
 
-        for (Primitive &primitive : mesh.primitives) {
+        for (Primitive &primitive : mesh->primitives) {
             for (size_t i = primitive.indexOffset; i < primitive.indexCount; i++) {
                 const Vertex &vert = vertices[indices[i]];
 

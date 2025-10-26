@@ -138,6 +138,7 @@ void Renderer::meshPass(const VkCommandBuffer cmd)
             MeshPassPC pc = {
                 .transform = meshDraw.transform * mesh->transform,
                 .materialIndex = meshDraw.overrideMaterialId > -1 ? meshDraw.overrideMaterialId : primitive.materialIndex,
+                .drawMask = meshDraw.drawMask,
             };
 
             vkCmdPushConstants(cmd, pipelineLayouts["mesh"], VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pc), &pc);
@@ -168,8 +169,10 @@ void Renderer::meshPass(const VkCommandBuffer cmd)
     vulkan::endDebugLabel(cmd);
 }
 
-void Renderer::imGuiPass(const VkCommandBuffer cmd)
+void Renderer::imGuiPass(const VkCommandBuffer cmd, Editor *editor)
 {
+    if (!editor) return;
+
     Swapchain &swapchain = graphics.getSwapchain();
 
     const VkImageView &swapchainImageView = swapchain.getImageView();
@@ -233,7 +236,7 @@ void Renderer::imGuiPass(const VkCommandBuffer cmd)
     //
     // Draw
     //
-    editor.update();
+    editor->drawEditor();
 
     ImGui::Render();
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);

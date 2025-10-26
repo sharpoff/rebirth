@@ -28,8 +28,6 @@ namespace vulkan
     {
     public:
         Graphics() = default;
-        Graphics(Graphics const &) = delete;
-        void operator=(Graphics const &) = delete;
 
         void initialize(SDL_Window *window);
         void destroy();

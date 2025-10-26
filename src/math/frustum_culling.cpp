@@ -1,9 +1,6 @@
-#include <math/frustum_culling.h>
+#include "math/frustum_culling.h"
 
-#include <util/common.h>
-#include <util/logger.h>
-
-#include <EASTL/array.h>
+#include "EASTL/array.h"
 
 namespace math
 {

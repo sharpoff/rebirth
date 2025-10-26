@@ -29,6 +29,8 @@ using glm::vec2;
 using glm::vec3;
 using glm::vec4;
 
+#define MATH_PI 3.14159265359
+
 namespace math
 {
     inline vec3 getPosition(mat4 m)
@@ -55,6 +57,24 @@ namespace math
         glm::decompose(m, scale, rotation, position, skew, perspective);
 
         return rotation;
+    }
+
+    inline vec3 getScale(mat4 m)
+    {
+        vec3 scale;
+        quat rotation;
+        vec3 position;
+        vec3 skew;
+        vec4 perspective;
+
+        glm::decompose(m, scale, rotation, position, skew, perspective);
+
+        return scale;
+    }
+
+    inline mat4 calculateTransform(const vec3 &position, const quat &rotation, const vec3 &scale)
+    {
+        return glm::translate(position) * glm::toMat4(rotation) * glm::scale(scale);
     }
 
     inline mat4 perspective(float fov, float aspectRatio, float near, float far)

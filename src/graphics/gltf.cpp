@@ -1,4 +1,5 @@
 #include "graphics/gltf.h"
+#include "core/material_flag.h"
 #include "core/resource_manager.h"
 #include "graphics/vulkan/graphics.h"
 
@@ -91,13 +92,17 @@ namespace gltf
         for (size_t i = 0; i < gltfMesh->primitives_count; i++) {
             cgltf_primitive prim = gltfMesh->primitives[i];
 
-            uint32_t materialOffset = ResourceManager::get()->getMaterials().size();
-            uint32_t vertexOffset = ResourceManager::get()->getVertices().size();
-            uint32_t indexOffset = ResourceManager::get()->getIndices().size();
+            uint32_t materialOffset = ResourceManager::get()->getMaterialsSize();
+            uint32_t vertexOffset = 0;
+            uint32_t indexOffset = 0;
 
-            uint32_t vertexCount = loadVertices(ResourceManager::get()->getVertices(), prim);
+            uint32_t vertexCount = prim.attributes[0].data ? prim.attributes[0].data->count : 0;
+            uint32_t indexCount = prim.indices ? prim.indices->count : 0;
 
-            uint32_t indexCount = loadIndices(ResourceManager::get()->getIndices(), prim);
+            if (vertexCount > 0)
+                vertexOffset = loadVertices(prim);
+            if (indexCount > 0)
+                indexOffset = loadIndices(prim);
 
             int materialIndex = prim.material ? materialOffset + cgltf_material_index(data, prim.material) : -1;
 
@@ -115,14 +120,13 @@ namespace gltf
         scene.meshes.push_back(meshId);
     }
 
-    // return new vertices count
-    size_t loadVertices(eastl::vector<Vertex> &vertices, cgltf_primitive prim)
+    size_t loadVertices(cgltf_primitive prim)
     {
         // load vertices
         size_t vertexCount = prim.attributes[0].data->count;
         eastl::vector<float> temp(vertexCount * 4);
 
-        eastl::vector<Vertex> newVertices(vertexCount);
+        eastl::vector<Vertex> vertices(vertexCount);
 
         // position
         if (const cgltf_accessor *pos =
@@ -131,9 +135,9 @@ namespace gltf
             cgltf_accessor_unpack_floats(pos, temp.data(), vertexCount * 3);
 
             for (size_t i = 0; i < vertexCount; i++) {
-                newVertices[i].position.x = temp[i * 3 + 0];
-                newVertices[i].position.y = temp[i * 3 + 1];
-                newVertices[i].position.z = temp[i * 3 + 2];
+                vertices[i].position.x = temp[i * 3 + 0];
+                vertices[i].position.y = temp[i * 3 + 1];
+                vertices[i].position.z = temp[i * 3 + 2];
             }
         }
 
@@ -144,8 +148,8 @@ namespace gltf
             cgltf_accessor_unpack_floats(uv, temp.data(), vertexCount * 2);
 
             for (size_t i = 0; i < vertexCount; i++) {
-                newVertices[i].uv_x = temp[i * 2 + 0];
-                newVertices[i].uv_y = temp[i * 2 + 1];
+                vertices[i].uv_x = temp[i * 2 + 0];
+                vertices[i].uv_y = temp[i * 2 + 1];
             }
         }
 
@@ -156,9 +160,9 @@ namespace gltf
             cgltf_accessor_unpack_floats(normal, temp.data(), vertexCount * 3);
 
             for (size_t i = 0; i < vertexCount; i++) {
-                newVertices[i].normal.x = temp[i * 3 + 0];
-                newVertices[i].normal.y = temp[i * 3 + 1];
-                newVertices[i].normal.z = temp[i * 3 + 2];
+                vertices[i].normal.x = temp[i * 3 + 0];
+                vertices[i].normal.y = temp[i * 3 + 1];
+                vertices[i].normal.z = temp[i * 3 + 2];
             }
         }
 
@@ -169,10 +173,10 @@ namespace gltf
             cgltf_accessor_unpack_floats(tangent, temp.data(), vertexCount * 4);
 
             for (size_t i = 0; i < vertexCount; i++) {
-                newVertices[i].tangent.x = temp[i * 4 + 0];
-                newVertices[i].tangent.y = temp[i * 4 + 1];
-                newVertices[i].tangent.z = temp[i * 4 + 2];
-                newVertices[i].tangent.w = temp[i * 4 + 3];
+                vertices[i].tangent.x = temp[i * 4 + 0];
+                vertices[i].tangent.y = temp[i * 4 + 1];
+                vertices[i].tangent.z = temp[i * 4 + 2];
+                vertices[i].tangent.w = temp[i * 4 + 3];
             }
         }
 
@@ -183,10 +187,10 @@ namespace gltf
             cgltf_accessor_unpack_floats(joints, temp.data(), vertexCount * 4);
 
             for (size_t i = 0; i < vertexCount; i++) {
-                newVertices[i].jointIndices.x = temp[i * 4 + 0];
-                newVertices[i].jointIndices.y = temp[i * 4 + 1];
-                newVertices[i].jointIndices.z = temp[i * 4 + 2];
-                newVertices[i].jointIndices.w = temp[i * 4 + 3];
+                vertices[i].jointIndices.x = temp[i * 4 + 0];
+                vertices[i].jointIndices.y = temp[i * 4 + 1];
+                vertices[i].jointIndices.z = temp[i * 4 + 2];
+                vertices[i].jointIndices.w = temp[i * 4 + 3];
             }
         }
 
@@ -197,32 +201,23 @@ namespace gltf
             cgltf_accessor_unpack_floats(weights, temp.data(), vertexCount * 4);
 
             for (size_t i = 0; i < vertexCount; i++) {
-                newVertices[i].jointWeights.x = temp[i * 4 + 0];
-                newVertices[i].jointWeights.y = temp[i * 4 + 1];
-                newVertices[i].jointWeights.z = temp[i * 4 + 2];
-                newVertices[i].jointWeights.w = temp[i * 4 + 3];
+                vertices[i].jointWeights.x = temp[i * 4 + 0];
+                vertices[i].jointWeights.y = temp[i * 4 + 1];
+                vertices[i].jointWeights.z = temp[i * 4 + 2];
+                vertices[i].jointWeights.w = temp[i * 4 + 3];
             }
         }
 
-        vertices.insert(vertices.end(), newVertices.begin(), newVertices.end());
-
-        return vertexCount;
+        return ResourceManager::get()->addVertices(vertices);
     }
 
-    // return new indices count
-    size_t loadIndices(eastl::vector<uint32_t> &indices, cgltf_primitive prim)
+    size_t loadIndices(cgltf_primitive prim)
     {
-        eastl::vector<uint32_t> newIndices;
-        if (prim.indices) {
-            newIndices.resize(prim.indices->count);
-            cgltf_accessor_unpack_indices(prim.indices, newIndices.data(), 4, newIndices.size());
-        } else {
-            logger::logWarn("Failed to loadIndices(), no indices!");
-        }
+        eastl::vector<uint32_t> indices;
+        indices.resize(prim.indices->count);
+        cgltf_accessor_unpack_indices(prim.indices, indices.data(), 4, indices.size());
 
-        indices.insert(indices.end(), newIndices.begin(), newIndices.end());
-
-        return newIndices.size();
+        return ResourceManager::get()->addIndices(indices);
     }
 
     void loadGltfMaterials(cgltf_data *data)
@@ -231,44 +226,39 @@ namespace gltf
 
         for (size_t i = 0; i < data->materials_count; i++) {
             cgltf_material gltfMaterial = data->materials[i];
-            GPUMaterial material;
+            GPUMaterial material{};
+            material.materialFlags |= (unsigned int)(MaterialFlags::All);
 
+            // clang-format off
             if (gltfMaterial.has_pbr_metallic_roughness) {
-                if (gltfMaterial.pbr_metallic_roughness.base_color_texture.texture)
-                    material.baseColorId =
-                        textureOffset +
-                        cgltf_texture_index(
-                            data,
-                            gltfMaterial.pbr_metallic_roughness.base_color_texture.texture);
+                if (gltfMaterial.pbr_metallic_roughness.base_color_texture.texture) {
+                    material.diffuseId = textureOffset + cgltf_texture_index(data, gltfMaterial.pbr_metallic_roughness.base_color_texture.texture);
+                    material.diffuseFactor = vec4(gltfMaterial.pbr_metallic_roughness.base_color_factor[0], gltfMaterial.pbr_metallic_roughness.base_color_factor[1], gltfMaterial.pbr_metallic_roughness.base_color_factor[2], gltfMaterial.pbr_metallic_roughness.base_color_factor[3]);
 
-                material.baseColorFactor =
-                    vec4(gltfMaterial.pbr_metallic_roughness.base_color_factor[0], gltfMaterial.pbr_metallic_roughness.base_color_factor[1], gltfMaterial.pbr_metallic_roughness.base_color_factor[2], gltfMaterial.pbr_metallic_roughness.base_color_factor[3]);
+                    // material.materialFlags |= (unsigned int)(MaterialFlags::Diffuse);
+                }
 
-                if (gltfMaterial.pbr_metallic_roughness.metallic_roughness_texture
-                        .texture) {
-                    material.metallicRoughnessId =
-                        textureOffset +
-                        cgltf_texture_index(data, gltfMaterial.pbr_metallic_roughness.metallic_roughness_texture.texture);
+                if (gltfMaterial.pbr_metallic_roughness.metallic_roughness_texture.texture) {
+                    material.metallicRoughnessId = textureOffset + cgltf_texture_index(data, gltfMaterial.pbr_metallic_roughness.metallic_roughness_texture.texture);
 
-                    material.metallicFactor =
-                        gltfMaterial.pbr_metallic_roughness.metallic_factor;
+                    material.metallicFactor = gltfMaterial.pbr_metallic_roughness.metallic_factor;
+                    material.materialFlags |= (unsigned int)(MaterialFlags::MetallicRoughness);
                 }
             }
 
             if (gltfMaterial.normal_texture.texture) {
-                material.normalId =
-                    textureOffset +
-                    cgltf_texture_index(data, gltfMaterial.normal_texture.texture);
+                material.normalId = textureOffset + cgltf_texture_index(data, gltfMaterial.normal_texture.texture);
+                // material.materialFlags |= (unsigned int)(MaterialFlags::Normal);
             }
 
             if (gltfMaterial.emissive_texture.texture) {
-                material.emissiveId =
-                    textureOffset +
-                    cgltf_texture_index(data, gltfMaterial.emissive_texture.texture);
+                material.emissiveId = textureOffset + cgltf_texture_index(data, gltfMaterial.emissive_texture.texture);
+                // material.materialFlags |= (unsigned int)(MaterialFlags::Emissive);
 
                 // m.emissiveFactor = vec3(material.emissive_factor[0],
                 // material.emissive_factor[1], material.emissive_factor[2]);
             }
+            // clang-format on
 
             ResourceManager::get()->addMaterial(material);
         }

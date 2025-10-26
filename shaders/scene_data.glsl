@@ -1,6 +1,9 @@
 #ifndef SCENE_DATA_GLSL
 #define SCENE_DATA_GLSL
 
+#include "material.glsl"
+#include "light.glsl"
+
 layout (binding = 0) uniform SceneData
 {
     mat4 projection;

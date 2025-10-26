@@ -11,10 +11,13 @@ struct Bounds
     vec3 origin = vec3(0.0f);
     float sphereRadius = 0.0f;
     vec3 extents = vec3(0.0f);
+
+    vec3 getMin() { return origin - extents; }
+    vec3 getMax() { return origin + extents; }
 };
 
 namespace math
 {
-    Bounds calculateBoundingBox(Mesh mesh, mat4 transform = mat4(1.0f));
-    Bounds calculateBoundingSphere(Mesh mesh, mat4 transform = mat4(1.0f));
+    Bounds calculateBoundingBox(int32_t meshId, mat4 transform = mat4(1.0f));
+    Bounds calculateBoundingSphere(int32_t meshId, mat4 transform = mat4(1.0f));
 } // namespace math

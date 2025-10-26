@@ -18,8 +18,6 @@
 #include <physics/physics_layers.h>
 #include <physics/physics_listeners.h>
 
-class Entity;
-
 class Physics
 {
 public:
@@ -32,7 +30,6 @@ public:
 
     void update(float dt);
 
-    JPH::BodyID createBox(const Entity &entity);
     JPH::BodyID createBox(vec3 position, quat rotation, vec3 halfExtent, bool isStatic);
 
     vec3 getPosition(JPH::BodyID bodyId);

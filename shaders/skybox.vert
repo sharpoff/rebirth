@@ -2,10 +2,8 @@
 
 #extension GL_GOOGLE_include_directive : require
 
-#include "types.glsl"
-
+#include "vertex.glsl"
 #include "scene_data.glsl"
-#include "vertices.glsl"
 
 layout (location = 0) out vec3 outUVW;
 

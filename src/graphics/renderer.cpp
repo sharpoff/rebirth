@@ -2,6 +2,7 @@
 
 #include "core/engine_stats.h"
 #include "core/material.h"
+#include "core/material_flag.h"
 #include "core/resource_manager.h"
 #include "core/scene_draw_data.h"
 #include "graphics/gltf.h"
@@ -15,8 +16,8 @@
 #include "physics/physics.h"
 #include "util/logger.h"
 
-#include <tracy/Tracy.hpp>
-#include <tracy/TracyVulkan.hpp>
+#include "tracy/Tracy.hpp"
+#include "tracy/TracyVulkan.hpp"
 
 void Renderer::initialize(SDL_Window *window, EngineStats *engineStats, Physics *physics)
 {
@@ -33,28 +34,7 @@ void Renderer::initialize(SDL_Window *window, EngineStats *engineStats, Physics 
 
     createPipelines();
 
-    //
-    // Load defaults
-    //
-    if (!gltf::loadScene(graphics, primitives, "assets/models/primitives.glb")) {
-        logger::logError("Failed to load scene.");
-        exit(EXIT_FAILURE);
-    }
-
-    ImageCreateInfo createInfo{};
-
-    vulkan::Image checkerboardImg;
-    GPUMaterial checkerboardMat;
-
-    graphics.createImageFromFile(checkerboardImg, createInfo, "assets/textures/checkerboard.png");
-    checkerboardMat.baseColorId = ResourceManager::get()->addImage(checkerboardImg, "checkerboard");
-    checkerboardMat.metallicFactor = 0.0f;
-    checkerboardMat.roughnessFactor = 1.0f;
-    ResourceManager::get()->addMaterial(checkerboardMat, "checkerboard");
-
-    editor.initialize(engineStats, physics);
-
-    logger::logInfo("Renderer initialized");
+    loadDefaultResources();
 }
 
 void Renderer::shutdown()
@@ -63,8 +43,6 @@ void Renderer::shutdown()
 
     const VkDevice device = graphics.getDevice();
     vkDeviceWaitIdle(device);
-
-    editor.shutdown();
 
     vkDestroyQueryPool(device, queryPool, nullptr);
 
@@ -86,25 +64,23 @@ void Renderer::shutdown()
     logger::logInfo("Renderer shutdown");
 }
 
-void Renderer::drawEntity(const Entity &entity, uint32_t drawMask)
+void Renderer::drawEntity(const Entity &entity, const uint32_t &drawMask)
 {
     meshDraws.push_back(
         MeshDraw{
-            .meshId = entity.meshId,
-            .overrideMaterialId = entity.overrideMaterialId,
+            .meshId = entity.getMeshID(),
+            .overrideMaterialId = entity.getOverrideMaterialId(),
             .drawMask = drawMask,
             .transform = entity.getTransform(),
-            .boundingSphere = entity.bounds,
+            .boundingSphere = entity.getBounds(),
         });
 }
 
-void Renderer::drawMesh(int32_t meshId, uint32_t drawMask, mat4 transform, int32_t overrideMaterialId)
+void Renderer::drawMesh(const int32_t &meshId, const uint32_t &drawMask, const mat4 &transform, const int32_t &overrideMaterialId)
 {
     ZoneScoped;
 
-    Mesh *mesh = ResourceManager::get()->getMeshByIndex(meshId);
-    if (!mesh)
-        return;
+    if (meshId < 0) return;
 
     meshDraws.push_back(
         MeshDraw{
@@ -112,7 +88,7 @@ void Renderer::drawMesh(int32_t meshId, uint32_t drawMask, mat4 transform, int32
             .overrideMaterialId = overrideMaterialId,
             .drawMask = drawMask,
             .transform = transform,
-            .boundingSphere = math::calculateBoundingSphere(*mesh),
+            .boundingSphere = math::calculateBoundingSphere(meshId),
         });
 
     // // --------- DEBUG bounding sphere!!!!!! -------------
@@ -124,7 +100,12 @@ void Renderer::drawMesh(int32_t meshId, uint32_t drawMask, mat4 transform, int32
     // meshDraws.push_back(meshDraw);
 }
 
-void Renderer::updateDynamicData(Camera &camera)
+void Renderer::addMeshDraw(const MeshDraw &meshDraw)
+{
+    meshDraws.push_back(meshDraw);
+}
+
+void Renderer::updateDynamicData()
 {
     ZoneScoped;
 
@@ -145,29 +126,27 @@ void Renderer::updateDynamicData(Camera &camera)
     }
     memcpy(lightsBuffer.info.pMappedData, lights.data(), lightsBuffer.size);
 
-    sceneData.projection = camera.projection;
-    sceneData.view = camera.view;
-    sceneData.cameraPosAndLightNum = vec4(camera.position, lights.size());
+    sceneData.projection = camera->getProjection();
+    sceneData.view = camera->getView();
+    sceneData.cameraPosAndLightNum = vec4(camera->getPosition(), lights.size());
     sceneData.shadowMapIndex = ResourceManager::get()->getImageIndexByName("shadow_map");
     memcpy(sceneDataBuffer.info.pMappedData, &sceneData, sizeof(sceneData));
 }
 
-void Renderer::present(Camera &camera)
+void Renderer::present(Editor *editor)
 {
-    ZoneScoped;
+    assert(editor);
 
-    if (!prepared) {
-        createResources();
-        prepared = true;
-    }
+    ZoneScoped;
 
     engineStats->timestampDeltaMs = getTimestampDeltaMs();
 
     // TODO: create and update global joints buffer
-    updateDynamicData(camera);
+    updateDynamicData();
 
-    cullMeshDraws(camera.projection * camera.view);
-    sortMeshDraws(camera.position);
+    cullAndIndexMeshDraws();
+    sortMeshDraws(opaqueDraws);
+    sortMeshDraws(translucentDraws);
 
     //
     // Create and begin command buffer
@@ -234,7 +213,7 @@ void Renderer::present(Camera &camera)
     //
     // Shadow Pass
     //
-    if (!opaqueDraws.empty()) {
+    if (ResourceManager::get()->getLightsSize() > 0 && shadowDraws.size() > 0) {
         ZoneScopedN("Shadow Pass");
         TracyVkZone(graphics.getTracyContext(), cmd, "Shadow Pass");
 
@@ -244,7 +223,7 @@ void Renderer::present(Camera &camera)
     //
     // Mesh Pass
     //
-    if (!opaqueDraws.empty()) {
+    if (opaqueDraws.size() > 0 || translucentDraws.size() > 0 || wireframeDraws.size() > 0) {
         ZoneScopedN("Mesh Pass");
         TracyVkZone(graphics.getTracyContext(), cmd, "Mesh Pass");
 
@@ -268,7 +247,7 @@ void Renderer::present(Camera &camera)
         ZoneScopedN("ImGui Pass");
         TracyVkZone(graphics.getTracyContext(), cmd, "ImGui Pass");
 
-        imGuiPass(cmd);
+        imGuiPass(cmd, editor);
     }
 
     // transfer swapchain image to present
@@ -323,9 +302,12 @@ void Renderer::present(Camera &camera)
     engineStats->drawCount = 0;
 }
 
-void Renderer::cullMeshDraws(mat4 viewProj)
+void Renderer::cullAndIndexMeshDraws()
 {
     ZoneScoped;
+    assert(camera);
+
+    // const mat4 &viewProj = camera->getProjection() * camera->getView();
 
     for (size_t i = 0; i < meshDraws.size(); i++) {
         // FIXME: not working properly
@@ -347,23 +329,20 @@ void Renderer::cullMeshDraws(mat4 viewProj)
     }
 }
 
-void Renderer::sortMeshDraws(vec3 cameraPos)
+void Renderer::sortMeshDraws(eastl::vector<uint32_t> &draws)
 {
     ZoneScoped;
+    assert(camera);
 
-    auto sortingFunc = [&](const auto &i1, const auto &i2) {
+    std::sort(draws.begin(), draws.end(), [&](const auto &i1, const auto &i2) {
         auto *mesh1 = ResourceManager::get()->getMeshByIndex(meshDraws[i1].meshId);
         auto *mesh2 = ResourceManager::get()->getMeshByIndex(meshDraws[i2].meshId);
 
-        float dist1 = glm::length(cameraPos - math::getPosition(mesh1->transform));
-        float dist2 = glm::length(cameraPos - math::getPosition(mesh2->transform));
+        float dist1 = glm::length(camera->getPosition() - math::getPosition(mesh1->transform));
+        float dist2 = glm::length(camera->getPosition() - math::getPosition(mesh2->transform));
 
         return dist1 > dist2;
-    };
-
-    std::sort(opaqueDraws.begin(), opaqueDraws.end(), sortingFunc);
-    std::sort(translucentDraws.begin(), translucentDraws.end(), sortingFunc);
-    std::sort(wireframeDraws.begin(), wireframeDraws.end(), sortingFunc);
+    });
 }
 
 eastl::unordered_map<eastl::string, VkShaderModule> Renderer::loadShaderModules(std::filesystem::path directory)
@@ -448,8 +427,8 @@ void Renderer::createPipelines()
         // wireframe pipeline
         PipelineBuilder builder;
         builder.setPipelineLayout(pipelineLayouts["mesh"]);
-        builder.setShader(shaders["color.vert.spv"], VK_SHADER_STAGE_VERTEX_BIT);
-        builder.setShader(shaders["color.frag.spv"], VK_SHADER_STAGE_FRAGMENT_BIT);
+        builder.setShader(shaders["mesh.vert.spv"], VK_SHADER_STAGE_VERTEX_BIT);
+        builder.setShader(shaders["mesh.frag.spv"], VK_SHADER_STAGE_FRAGMENT_BIT);
         builder.setDepthTest(VK_TRUE, VK_TRUE);
         builder.setCulling(VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE);
         builder.setPolygonMode(VK_POLYGON_MODE_LINE);
@@ -630,4 +609,55 @@ void Renderer::reloadShaders()
     vkDeviceWaitIdle(graphics.getDevice());
     destroyPipelines();
     createPipelines();
+}
+
+void Renderer::loadDefaultResources()
+{
+    //
+    // Meshes/scenes
+    //
+
+    Scene primitives;
+    if (!gltf::loadScene(graphics, primitives, "assets/models/primitives.glb"))
+        exit(EXIT_FAILURE);
+
+    Scene gizmo;
+    if (!gltf::loadScene(graphics, gizmo, "assets/models/gizmo.glb"))
+        exit(EXIT_FAILURE);
+
+    //
+    // Materials
+    //
+
+    // checkerboard
+    {
+        vulkan::Image &image = ResourceManager::get()->createNewImage("checkerboard");
+        ImageCreateInfo imageCI{};
+        graphics.createImageFromFile(image, imageCI, "assets/textures/checkerboard.png");
+
+        GPUMaterial &material = ResourceManager::get()->createNewMaterial("checkerboard");
+        material.diffuseId = ResourceManager::get()->getImageIndex(&image);
+        material.metallicFactor = 0.0f;
+        material.roughnessFactor = 1.0f;
+    }
+
+    // colors
+    {
+        GPUMaterial &red = ResourceManager::get()->createNewMaterial("red");
+        red.color = vec4(1, 0, 0, 1);
+        red.materialFlags |= (unsigned int)MaterialFlags::Color;
+        red.ambient = 1.0f;
+
+        GPUMaterial &green = ResourceManager::get()->createNewMaterial("green");
+        green.color = vec4(0, 1, 0, 1);
+        green.materialFlags |= (unsigned int)MaterialFlags::Color;
+        green.ambient = 1.0f;
+
+        GPUMaterial &blue = ResourceManager::get()->createNewMaterial("blue");
+        blue.color = vec4(0, 0, 1, 1);
+        blue.materialFlags |= (unsigned int)MaterialFlags::Color;
+        blue.ambient = 1.0f;
+    }
+
+    logger::logInfo("Renderer initialized");
 }

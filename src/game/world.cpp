@@ -8,30 +8,33 @@
 
 #include <Jolt/Physics/Body/BodyID.h>
 
-void World::initialize(Physics &physics)
+void World::initialize(Physics *physics)
 {
-    int32_t cubeMeshId = ResourceManager::get()->getMeshIndexByName("Cube");
-    Mesh   *cubeMesh = ResourceManager::get()->getMeshByIndex(cubeMeshId);
+    assert(physics);
 
-    if (cubeMesh) {
-        Entity floor{};
-        floor.scale = vec3(10.0f, 0.5f, 10.0f);
-        floor.bounds = math::calculateBoundingBox(*cubeMesh, floor.getTransform());
-        floor.meshId = cubeMeshId;
-        floor.isStatic = true;
-        floor.bodyId = physics.createBox(floor);
-        floor.overrideMaterialId = ResourceManager::get()->getMaterialIndexByName("checkerboard");
-        addEntity(floor, "Floor");
+    int32_t cubeMeshId = ResourceManager::get()->getMeshIndexByName("Cube");
+
+    if (cubeMeshId > -1) {
+        Entity floor(physics);
+        floor.setName("Floor");
+        floor.setScale(vec3(10.0f, 0.1f, 10.0f));
+        floor.setBounds(math::calculateBoundingBox(cubeMeshId, floor.getTransform()));
+        floor.setMesh(cubeMeshId);
+        floor.setStatic(true);
+        floor.setBody(physics->createBox(floor.getPosition(), floor.getRotation(), floor.getBounds().extents, floor.isStatic()));
+        floor.setOverrideMaterial(ResourceManager::get()->getMaterialIndexByName("green"));
+        entities.push_back(floor);
 
         for (int i = -2; i <= 2; i++) {
-            Entity box{};
-            box.position = vec3(i * 2.3f, 20.0f, 0.0f);
-            box.bounds = math::calculateBoundingBox(*cubeMesh, box.getTransform());
-            box.meshId = cubeMeshId;
-            box.isStatic = false;
-            box.bodyId = physics.createBox(box);
-            box.overrideMaterialId = ResourceManager::get()->getMaterialIndexByName("checkerboard");
-            addEntity(box, "Box " + eastl::to_string(i));
+            Entity box(physics);
+            box.setName("Box " + eastl::to_string(i));
+            box.setPosition(vec3(i * 2.3f, 20.0f, 0.0f));
+            box.setBounds(math::calculateBoundingBox(cubeMeshId, box.getTransform()));
+            box.setMesh(cubeMeshId);
+            box.setStatic(false);
+            box.setBody(physics->createBox(box.getPosition(), box.getRotation(), box.getBounds().extents, box.isStatic()));
+            box.setOverrideMaterial(ResourceManager::get()->getMaterialIndexByName("red"));
+            entities.push_back(box);
         }
     }
 
@@ -43,36 +46,29 @@ void World::shutdown()
     logger::logInfo("World shutdown");
 }
 
-void World::update(float deltaTime, Physics &physics)
+void World::update(float deltaTime)
 {
     // Update entities transforms
     for (auto &entity : entities) {
-        entity.position = physics.getPosition(entity.bodyId);
-        entity.rotation = physics.getRotation(entity.bodyId);
-    }
-}
-
-void World::addEntity(const Entity &entity, eastl::string name)
-{
-    entities.push_back(entity);
-
-    if (!name.empty()) {
-        entitiesMap[name] = &entities.back();
+        entity.update(deltaTime);
     }
 }
 
 Entity *World::getEntityByName(eastl::string name)
 {
-    if (!name.empty() && entitiesMap.find(name) != entitiesMap.end()) {
-        return entitiesMap[name];
+    // XXX: not optimized
+    for (auto &entity : entities) {
+        if (entity.getName() == name) {
+            return &entity;
+        }
     }
 
     return nullptr;
 }
 
-Entity *World::getEntityByIndex(uint32_t index)
+Entity *World::getEntityByIndex(size_t index)
 {
-    if (index >= 0 && index < uint32_t(entities.size())) {
+    if (index >= 0 && index < entities.size()) {
         return &entities[index];
     }
 
@@ -82,9 +78,8 @@ Entity *World::getEntityByIndex(uint32_t index)
 Entity *World::getEntityByBodyId(uint32_t bodyId)
 {
     // XXX: not optimized
-    JPH::BodyID id = JPH::BodyID(bodyId);
     for (auto &entity : entities) {
-        if (entity.bodyId == id) {
+        if (entity.getBodyID() == JPH::BodyID(bodyId)) {
             return &entity;
         }
     }

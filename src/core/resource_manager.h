@@ -22,9 +22,23 @@ public:
     }
 
     int32_t addMesh(const Mesh &mesh, eastl::string name = "");
+    int32_t addMesh(const eastl::vector<Vertex> &vertices, const eastl::vector<uint32_t> &indices, mat4 transform = mat4(1.0f), int32_t materialId = -1, eastl::string name = "");
+    Mesh &createNewMesh(eastl::string name);
+
     int32_t addImage(const vulkan::Image &image, eastl::string name = "");
+    vulkan::Image &createNewImage(eastl::string name);
+
     int32_t addMaterial(const GPUMaterial &material, eastl::string name = "");
+    GPUMaterial &createNewMaterial(eastl::string name);
+
     int32_t addLight(const GPULight &light);
+    GPULight &createNewLight();
+
+    // return offset
+    size_t addVertices(const eastl::vector<Vertex> &vertices);
+
+    // return offset
+    size_t addIndices(const eastl::vector<uint32_t> &indices);
 
     Mesh *getMeshByName(eastl::string name);
     Mesh *getMeshByIndex(int32_t index);
@@ -43,28 +57,35 @@ public:
 
     GPULight *getLightByIndex(int32_t index);
 
-    eastl::vector<Mesh> &getMeshes() { return meshes; };
-    eastl::vector<vulkan::Image> &getImages() { return images; };
-    eastl::vector<GPUMaterial> &getMaterials() { return materials; };
-    eastl::vector<GPULight> &getLights() { return lights; };
-    eastl::vector<Vertex> &getVertices() { return vertices; };
-    eastl::vector<uint32_t> &getIndices() { return indices; };
+    eastl::vector<Mesh> &getMeshes() { return m_meshes; };
+    eastl::vector<vulkan::Image> &getImages() { return m_images; };
+    eastl::vector<GPUMaterial> &getMaterials() { return m_materials; };
+    eastl::vector<GPULight> &getLights() { return m_lights; };
+    eastl::vector<Vertex> &getVertices() { return m_vertices; };
+    eastl::vector<uint32_t> &getIndices() { return m_indices; };
+
+    size_t getMeshesSize() const { return m_meshes.size(); }
+    size_t getImagesSize() const { return m_images.size(); }
+    size_t getMaterialsSize() const { return m_materials.size(); }
+    size_t getLightsSize() const { return m_lights.size(); }
+    size_t getVerticesSize() const { return m_vertices.size(); }
+    size_t getIndicesSize() const { return m_indices.size(); }
 
 private:
     ResourceManager() {};
     ~ResourceManager() {};
 
-    eastl::vector<Mesh> meshes;
-    eastl::unordered_map<eastl::string, int32_t> meshesMap;
+    eastl::vector<Mesh> m_meshes;
+    eastl::unordered_map<eastl::string, int32_t> m_meshesMap;
 
-    eastl::vector<vulkan::Image> images;
-    eastl::unordered_map<eastl::string, int32_t> imagesMap;
+    eastl::vector<vulkan::Image> m_images;
+    eastl::unordered_map<eastl::string, int32_t> m_imagesMap;
 
-    eastl::vector<GPUMaterial> materials;
-    eastl::unordered_map<eastl::string, int32_t> materialsMap;
+    eastl::vector<GPUMaterial> m_materials;
+    eastl::unordered_map<eastl::string, int32_t> m_materialsMap;
 
-    eastl::vector<GPULight> lights;
+    eastl::vector<GPULight> m_lights;
 
-    eastl::vector<Vertex> vertices;
-    eastl::vector<uint32_t> indices;
+    eastl::vector<Vertex> m_vertices;
+    eastl::vector<uint32_t> m_indices;
 };

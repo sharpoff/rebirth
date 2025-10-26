@@ -2,7 +2,7 @@
 
 #include <math/math.h>
 
-enum class LightType
+enum class LightType : unsigned int
 {
     Directional = 0,
     Point,

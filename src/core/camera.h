@@ -11,17 +11,27 @@ enum class CameraType
     LookAt,
 };
 
+class Input;
+
 class Camera
 {
 public:
+    void initialize(Input *input);
+
     void update(float deltaTime);
-    void handleEvent(SDL_Event event, float deltaTime);
+    void processEvent(const SDL_Event &event);
 
     void setPosition(vec3 position);
     void setPerspective(float fov, float aspectRatio, float near, float far);
     void setPerspectiveInf(float fov, float aspectRatio, float near);
     void setOrthographic(float left, float right, float bottom, float top, float near, float far);
+    void setCameraType(CameraType type);
 
+    mat4 getProjection() const { return projection; }
+    mat4 getView() const { return view; }
+    vec3 getPosition() const { return position; }
+
+private:
     CameraType type = CameraType::FirstPerson;
 
     vec3 position = vec3();
@@ -48,4 +58,6 @@ private:
 
     eastl::unordered_map<unsigned int, bool> keys;
     bool first = true;
+
+    Input *input;
 };

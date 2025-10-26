@@ -16,7 +16,7 @@ target_include_directories(stb INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/stb")
 add_library(cgltf INTERFACE)
 target_include_directories(cgltf INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/cgltf")
 
-# Dear ImGUI
+# Dear ImGUI + ImGuizmo
 file(GLOB_RECURSE IMGUI_SRC "${CMAKE_CURRENT_SOURCE_DIR}/imgui/*.cpp")
 file(GLOB_RECURSE IMGUI_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/imgui/*.h")
 add_library(imgui STATIC "${IMGUI_SRC}" "${IMGUI_HEADERS}")

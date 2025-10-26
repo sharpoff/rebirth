@@ -1,9 +1,78 @@
-#include <core/camera.h>
+#include "core/camera.h"
 
-#include <input/input.h>
+#include "input/input.h"
 
 #include "SDL3/SDL_events.h"
 #include "imgui.h"
+
+void Camera::initialize(Input *input)
+{
+    assert(input);
+    this->input = input;
+}
+
+void Camera::update(float deltaTime)
+{
+    front.x = cos(glm::radians(pitch)) * sin(glm::radians(yaw));
+    front.y = sin(glm::radians(pitch));
+    front.z = cos(glm::radians(pitch)) * cos(glm::radians(yaw));
+    front = glm::normalize(front);
+
+    right = glm::normalize(glm::cross(front, up));
+
+    if (ImGui::GetIO().WantCaptureKeyboard)
+        return;
+
+    if (type == CameraType::FirstPerson) {
+        float moveSpeed = deltaTime * movementSpeed;
+        if (input->getKey(KeyboardKey::LSHIFT, InputAction::Pressed)) {
+            moveSpeed *= 4;
+        }
+
+        if (input->getKey(KeyboardKey::W, InputAction::Pressed))
+            position += front * moveSpeed;
+        if (input->getKey(KeyboardKey::S, InputAction::Pressed))
+            position -= front * moveSpeed;
+        if (input->getKey(KeyboardKey::A, InputAction::Pressed))
+            position -= right * moveSpeed;
+        if (input->getKey(KeyboardKey::D, InputAction::Pressed))
+            position += right * moveSpeed;
+    }
+
+    updateViewMatrix();
+}
+
+void Camera::processEvent(const SDL_Event &event)
+{
+    if (ImGui::GetIO().WantCaptureMouse)
+        return;
+
+    // mouse
+    if (input->getMouseButton(MouseButton::LEFT, InputAction::Pressed)) {
+        if (!first) {
+            yaw -= event.motion.xrel * rotationSpeed;
+            pitch -= event.motion.yrel * rotationSpeed;
+        }
+
+        yaw = glm::mod(yaw, 360.0f);
+        pitch = glm::clamp(pitch, -89.9f, 89.9f);
+
+        first = !first;
+    } else {
+        first = true;
+    }
+}
+
+void Camera::updateViewMatrix()
+{
+    if (type == CameraType::FirstPerson) {
+        view = glm::lookAt(position, position + front, up);
+    } else {
+        vec3 eye = position + (-front * 10.0f) + (up * 3.0f);
+        vec3 target = position + (front * 5.0f);
+        view = glm::lookAt(eye, target, up);
+    }
+}
 
 void Camera::setPosition(vec3 position)
 {
@@ -39,68 +108,7 @@ void Camera::setOrthographic(float left, float right, float bottom, float top, f
     this->far = far;
 }
 
-void Camera::update(float deltaTime)
+void Camera::setCameraType(CameraType type)
 {
-    Input &input = g_input;
-    front.x = cos(glm::radians(pitch)) * sin(glm::radians(yaw));
-    front.y = sin(glm::radians(pitch));
-    front.z = cos(glm::radians(pitch)) * cos(glm::radians(yaw));
-    front = glm::normalize(front);
-
-    right = glm::normalize(glm::cross(front, up));
-
-    if (ImGui::GetIO().WantCaptureKeyboard)
-        return;
-
-    if (type == CameraType::FirstPerson) {
-        float moveSpeed = deltaTime * movementSpeed;
-        if (input.isKeyPressed(KeyboardKey::LSHIFT)) {
-            moveSpeed *= 4;
-        }
-
-        if (input.isKeyPressed(KeyboardKey::W))
-            position += front * moveSpeed;
-        if (input.isKeyPressed(KeyboardKey::S))
-            position -= front * moveSpeed;
-        if (input.isKeyPressed(KeyboardKey::A))
-            position -= right * moveSpeed;
-        if (input.isKeyPressed(KeyboardKey::D))
-            position += right * moveSpeed;
-    }
-
-    updateViewMatrix();
-}
-
-void Camera::handleEvent(SDL_Event event, float deltaTime)
-{
-    Input &input = g_input;
-
-    if (ImGui::GetIO().WantCaptureMouse)
-        return;
-
-    // mouse
-    if (input.isMouseButtonPressed(MouseButton::LEFT) && event.type == SDL_EVENT_MOUSE_MOTION) {
-        if (!first) {
-            yaw -= event.motion.xrel * rotationSpeed;
-            pitch -= event.motion.yrel * rotationSpeed;
-        }
-
-        yaw = glm::mod(yaw, 360.0f);
-        pitch = glm::clamp(pitch, -89.9f, 89.9f);
-
-        first = !first;
-    } else {
-        first = true;
-    }
-}
-
-void Camera::updateViewMatrix()
-{
-    if (type == CameraType::FirstPerson) {
-        view = glm::lookAt(position, position + front, up);
-    } else {
-        vec3 eye = position + (-front * 10.0f) + (up * 3.0f);
-        vec3 target = position + (front * 5.0f);
-        view = glm::lookAt(eye, target, up);
-    }
+    this->type = type;
 }

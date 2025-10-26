@@ -1,22 +1,40 @@
 #include "editor/editor.h"
 
-#include "core/engine_stats.h"
-#include "core/globals.h"
-#include "imgui.h"
-#include "physics/physics.h"
+#include "math/math.h"
 
-void Editor::initialize(EngineStats *engineStats, Physics *physics)
+void Editor::initialize(EngineStats *engineStats)
 {
+    assert(engineStats);
+
     this->engineStats = engineStats;
-    this->physics = physics;
 }
 
-void Editor::shutdown()
+void Editor::update(Input *input, Camera *camera, const vec2 &screenDim)
 {
+    assert(input && camera);
+
+    //
+    // Gizmo
+    //
+    if (selectedEntity) {
+        mat4 transform = selectedEntity->getTransform();
+        
+        gizmo.manipulate(input, camera, screenDim, transform);
+        gizmo.selected = true;
+    } else {
+        gizmo.selected = false;
+    }
 }
 
-void Editor::update()
+const eastl::vector<MeshDraw> Editor::getGizmoMeshDraws()
 {
+    return gizmo.getMeshDraws();
+}
+
+void Editor::drawEditor()
+{
+    assert(engineStats);
+
     //
     // Windows
     //
@@ -30,14 +48,15 @@ void Editor::update()
         ImGui::Text("FPS: %d", int(1000.0f / engineStats->timestampDeltaMs));
         ImGui::Text("Draw count: %d", engineStats->drawCount);
 
-        if (Globals::selectedEntity) {
-            Entity *entity = Globals::selectedEntity;
-            ImGui::Separator();
+        // if (selectedEntity) {
+        //     ImGui::Separator();
 
-            if (ImGui::SliderFloat3("Entity position", &entity->position[0], -100.0f, 100.0f)) {
-                physics->setPosition(entity->bodyId, entity->position);
-            }
-        }
+        //     vec3 position = selectedEntity->getPosition();
+        //     if (ImGui::SliderFloat3("Entity position", glm::value_ptr(position), -100.0f, 100.0f)) {
+        //         selectedEntity->transformDirty = true;
+        //         // selectedEntity->setPosition(position);
+        //     }
+        // }
 
         ImGui::End();
     }
@@ -71,4 +90,9 @@ void Editor::update()
 
         ImGui::EndMainMenuBar();
     }
+}
+
+void Editor::selectEntity(Entity *entity)
+{
+    selectedEntity = entity;
 }

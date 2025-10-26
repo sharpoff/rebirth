@@ -15,7 +15,6 @@ struct Primitive
 
 struct Mesh
 {
-    // int32_t materialOverrideIndex = -1; // XXX: do i need it?
     mat4 transform = mat4(1.0f);
     eastl::vector<Primitive> primitives;
 };

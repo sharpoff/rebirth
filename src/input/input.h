@@ -1,31 +1,41 @@
 #pragma once
 
-#include <SDL3/SDL_events.h>
-#include <EASTL/unordered_map.h>
+#include "input/keyboard.h"
+#include "input/mouse.h"
 
-#include <input/keyboard.h>
-#include <input/mouse.h>
+#include "EASTL/unordered_map.h"
+#include "SDL3/SDL_events.h"
+#include "SDL3/SDL_mouse.h"
+#include "math/math.h"
+
+enum class InputAction
+{
+    Pressed,
+    Released,
+    JustPressed,
+    JustReleased,
+};
 
 // handles key and mouse button presses
 class Input
 {
 public:
-    void processEvent(SDL_Event *event);
-    bool isKeyPressed(KeyboardKey key);
-    bool isMouseButtonPressed(MouseButton button);
-
-    Input() = default;
-    Input(Input const &) = delete;
-    void operator=(Input const &) = delete;
+    void processEvent(const SDL_Event &event);
+    bool getKey(KeyboardKey key, InputAction action);
+    bool getMouseButton(MouseButton button, InputAction action);
+    vec2 getMousePosition();
+    vec2 getMouseRelativePosition();
 
 private:
     SDL_Keycode getSDLKey(KeyboardKey key);
     KeyboardKey getKeyFromSDL(SDL_Keycode key);
+    SDL_MouseButtonFlags getSDLMouseButton(MouseButton button);
 
-    eastl::unordered_map<SDL_Keycode, bool> keys;
-    bool mouseRight = false;
-    bool mouseLeft = false;
-    bool mouseMiddle = false;
+    eastl::unordered_map<SDL_Keycode, bool> previousKeys;
+    eastl::unordered_map<SDL_Keycode, bool> currentKeys;
+
+    eastl::unordered_map<SDL_MouseButtonFlags, bool> previousMouseButtons;
+    eastl::unordered_map<SDL_MouseButtonFlags, bool> currentMouseButtons;
+    vec2 mousePosition = vec2(0.f, 0.f);
+    vec2 mouseRelativePosition = vec2(0.f, 0.f);
 };
-
-extern Input g_input;

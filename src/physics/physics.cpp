@@ -7,7 +7,6 @@
 #include "Jolt/Physics/Collision/CastResult.h" // IWYU pragma: export
 #include "Jolt/Physics/Collision/CollisionCollectorImpl.h"
 
-#include "game/entity.h"
 #include "physics/physics_helpers.h"
 #include "util/logger.h"
 
@@ -76,11 +75,6 @@ void Physics::update(float dt)
     physicsSystem.Update(tickDelta, 1, tempAllocator, jobSystem);
 }
 
-JPH::BodyID Physics::createBox(const Entity &entity)
-{
-    return createBox(entity.position, entity.rotation, entity.bounds.extents, entity.isStatic);
-}
-
 JPH::BodyID Physics::createBox(vec3 position, quat rotation, vec3 halfExtent, bool isStatic)
 {
     JPH::BoxShapeSettings settings(MathToJolt(halfExtent));
@@ -91,7 +85,7 @@ JPH::BodyID Physics::createBox(vec3 position, quat rotation, vec3 halfExtent, bo
     if (result.IsValid()) {
         shape = result.Get();
     } else {
-        logger::logError("Failed to create physics sphere: ", result.GetError());
+        logger::logError("Failed to create physics box: ", result.GetError());
         return JPH::BodyID(); // invalid
     }
 
@@ -119,24 +113,32 @@ JPH::BodyID Physics::createBox(vec3 position, quat rotation, vec3 halfExtent, bo
 
 vec3 Physics::getPosition(JPH::BodyID bodyId)
 {
+    assert(bodyId != JPH::BodyID());
+
     JPH::BodyInterface &bodyInterface = physicsSystem.GetBodyInterface();
     return JoltToMath(bodyInterface.GetPosition(bodyId));
 }
 
 quat Physics::getRotation(JPH::BodyID bodyId)
 {
+    assert(bodyId != JPH::BodyID());
+
     JPH::BodyInterface &bodyInterface = physicsSystem.GetBodyInterface();
     return JoltToMath(bodyInterface.GetRotation(bodyId));
 }
 
 void Physics::setPosition(JPH::BodyID bodyId, vec3 position)
 {
+    assert(bodyId != JPH::BodyID());
+
     JPH::BodyInterface &bodyInterface = physicsSystem.GetBodyInterface();
     bodyInterface.SetPosition(bodyId, MathToJolt(position), JPH::EActivation::Activate);
 }
 
 void Physics::setRotation(JPH::BodyID bodyId, quat rotation)
 {
+    assert(bodyId != JPH::BodyID());
+
     JPH::BodyInterface &bodyInterface = physicsSystem.GetBodyInterface();
     bodyInterface.SetRotation(bodyId, MathToJolt(rotation), JPH::EActivation::Activate);
 }

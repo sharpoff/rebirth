@@ -3,11 +3,9 @@
 #extension GL_EXT_buffer_reference : require
 #extension GL_GOOGLE_include_directive : require
 
-#include "types.glsl" // should be included before everything
-
+#include "vertex.glsl"
 #include "scene_data.glsl"
 #include "mesh_pc.glsl"
-#include "vertices.glsl"
 #include "joints.glsl"
 
 layout (location = 0) out vec3 outWorldPos;
@@ -15,6 +13,8 @@ layout (location = 1) out vec3 outNormal;
 layout (location = 2) out vec2 outUV;
 layout (location = 3) out vec4 outTangent;
 layout (location = 4) out mat3 outTBN;
+
+layout (constant_id = 0) const int DRAW_MASK = 0;
 
 void main()
 {

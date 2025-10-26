@@ -1,50 +1,69 @@
-#include <input/input.h>
+#include "input/input.h"
+#include "SDL3/SDL_events.h"
 
-Input g_input;
+// FIXME: JustReleased is buggy, probably something wrong with processEvent
 
-void Input::processEvent(SDL_Event *event)
+void Input::processEvent(const SDL_Event &event)
 {
-    if (!event)
-        return;
+    bool        keyPressed = event.type != SDL_EVENT_KEY_UP;
+    SDL_Keycode key = event.key.key;
+    previousKeys[key] = currentKeys[key];
+    currentKeys[key] = keyPressed;
 
-    bool pressed = event->type != SDL_EVENT_KEY_UP;
-    SDL_Keycode key = event->key.key;
+    bool                 mousePressed = event.button.type != SDL_EVENT_MOUSE_BUTTON_UP;
+    SDL_MouseButtonFlags mouseButton = event.button.button;
+    previousMouseButtons[mouseButton] = currentMouseButtons[mouseButton];
+    currentMouseButtons[mouseButton] = mousePressed;
 
-    keys[key] = pressed;
+    if (event.type == SDL_EVENT_MOUSE_MOTION) {
+        mousePosition = vec2(event.motion.x, event.motion.y);
+        mouseRelativePosition = vec2(event.motion.xrel, event.motion.yrel);
+    }
 
-    bool mousePressed = event->button.type != SDL_EVENT_MOUSE_BUTTON_UP;
-    if (event->button.button == SDL_BUTTON_LEFT) {
-        mouseLeft = mousePressed;
-    }
-    if (event->button.button == SDL_BUTTON_RIGHT) {
-        mouseRight = mousePressed;
-    }
-    if (event->button.button == SDL_BUTTON_MIDDLE) {
-        mouseMiddle = mousePressed;
-    }
 }
 
-bool Input::isKeyPressed(KeyboardKey key)
+bool Input::getKey(KeyboardKey key, InputAction action)
 {
     SDL_Keycode sdlKey = getSDLKey(key);
-    if (keys.find(sdlKey) != keys.end())
-        return keys[sdlKey];
+    switch (action) {
+        case InputAction::Pressed:
+            return currentKeys[sdlKey];
+        case InputAction::Released:
+            return !currentKeys[sdlKey];
+        case InputAction::JustPressed:
+            return currentKeys[sdlKey] && !previousKeys[sdlKey];
+        case InputAction::JustReleased:
+            return !currentKeys[sdlKey] && previousKeys[sdlKey];
+    }
 
     return false;
 }
 
-bool Input::isMouseButtonPressed(MouseButton button)
+bool Input::getMouseButton(MouseButton button, InputAction action)
 {
-    switch (button) {
-        case MouseButton::RIGHT:
-            return mouseRight;
-        case MouseButton::LEFT:
-            return mouseLeft;
-        case MouseButton::MIDDLE:
-            return mouseMiddle;
+    SDL_MouseButtonFlags sdlButton = getSDLMouseButton(button);
+    switch (action) {
+        case InputAction::Pressed:
+            return currentMouseButtons[sdlButton];
+        case InputAction::Released:
+            return !currentMouseButtons[sdlButton];
+        case InputAction::JustPressed:
+            return currentMouseButtons[sdlButton] && !previousMouseButtons[sdlButton];
+        case InputAction::JustReleased:
+            return !currentMouseButtons[sdlButton] && previousMouseButtons[sdlButton];
     }
 
     return false;
+}
+
+vec2 Input::getMousePosition()
+{
+    return mousePosition;
+}
+
+vec2 Input::getMouseRelativePosition()
+{
+    return mouseRelativePosition;
 }
 
 SDL_Keycode Input::getSDLKey(KeyboardKey key)
@@ -273,228 +292,14 @@ SDL_Keycode Input::getSDLKey(KeyboardKey key)
     return SDLK_UNKNOWN;
 }
 
-KeyboardKey Input::getKeyFromSDL(SDL_Keycode key)
+SDL_MouseButtonFlags Input::getSDLMouseButton(MouseButton button)
 {
-    switch (key) {
-        case SDLK_A:
-            return KeyboardKey::A;
-        case SDLK_B:
-            return KeyboardKey::B;
-        case SDLK_C:
-            return KeyboardKey::C;
-        case SDLK_D:
-            return KeyboardKey::D;
-        case SDLK_E:
-            return KeyboardKey::E;
-        case SDLK_F:
-            return KeyboardKey::F;
-        case SDLK_G:
-            return KeyboardKey::G;
-        case SDLK_H:
-            return KeyboardKey::H;
-        case SDLK_I:
-            return KeyboardKey::I;
-        case SDLK_J:
-            return KeyboardKey::J;
-        case SDLK_K:
-            return KeyboardKey::K;
-        case SDLK_L:
-            return KeyboardKey::L;
-        case SDLK_M:
-            return KeyboardKey::M;
-        case SDLK_N:
-            return KeyboardKey::N;
-        case SDLK_O:
-            return KeyboardKey::O;
-        case SDLK_P:
-            return KeyboardKey::P;
-        case SDLK_Q:
-            return KeyboardKey::Q;
-        case SDLK_R:
-            return KeyboardKey::R;
-        case SDLK_S:
-            return KeyboardKey::S;
-        case SDLK_T:
-            return KeyboardKey::T;
-        case SDLK_U:
-            return KeyboardKey::U;
-        case SDLK_V:
-            return KeyboardKey::V;
-        case SDLK_W:
-            return KeyboardKey::W;
-        case SDLK_X:
-            return KeyboardKey::X;
-        case SDLK_Y:
-            return KeyboardKey::Y;
-        case SDLK_Z:
-            return KeyboardKey::Z;
-
-        case SDLK_0:
-            return KeyboardKey::NUM0;
-        case SDLK_1:
-            return KeyboardKey::NUM1;
-        case SDLK_2:
-            return KeyboardKey::NUM2;
-        case SDLK_3:
-            return KeyboardKey::NUM3;
-        case SDLK_4:
-            return KeyboardKey::NUM4;
-        case SDLK_5:
-            return KeyboardKey::NUM5;
-        case SDLK_6:
-            return KeyboardKey::NUM6;
-        case SDLK_7:
-            return KeyboardKey::NUM7;
-        case SDLK_8:
-            return KeyboardKey::NUM8;
-        case SDLK_9:
-            return KeyboardKey::NUM9;
-
-        case SDLK_F1:
-            return KeyboardKey::F1;
-        case SDLK_F2:
-            return KeyboardKey::F2;
-        case SDLK_F3:
-            return KeyboardKey::F3;
-        case SDLK_F4:
-            return KeyboardKey::F4;
-        case SDLK_F5:
-            return KeyboardKey::F5;
-        case SDLK_F6:
-            return KeyboardKey::F6;
-        case SDLK_F7:
-            return KeyboardKey::F7;
-        case SDLK_F8:
-            return KeyboardKey::F8;
-        case SDLK_F9:
-            return KeyboardKey::F9;
-        case SDLK_F10:
-            return KeyboardKey::F10;
-        case SDLK_F11:
-            return KeyboardKey::F11;
-        case SDLK_F12:
-            return KeyboardKey::F12;
-
-        case SDLK_LCTRL:
-            return KeyboardKey::LCTRL;
-        case SDLK_RCTRL:
-            return KeyboardKey::RCTRL;
-        case SDLK_LSHIFT:
-            return KeyboardKey::LSHIFT;
-        case SDLK_RSHIFT:
-            return KeyboardKey::RSHIFT;
-        case SDLK_LALT:
-            return KeyboardKey::LALT;
-        case SDLK_RALT:
-            return KeyboardKey::RALT;
-        case SDLK_CAPSLOCK:
-            return KeyboardKey::CAPSLOCK;
-
-        case SDLK_RETURN:
-            return KeyboardKey::RETURN;
-        case SDLK_ESCAPE:
-            return KeyboardKey::ESCAPE;
-        case SDLK_BACKSPACE:
-            return KeyboardKey::BACKSPACE;
-        case SDLK_TAB:
-            return KeyboardKey::TAB;
-        case SDLK_SPACE:
-            return KeyboardKey::SPACE;
-
-        case SDLK_KP_0:
-            return KeyboardKey::KP0;
-        case SDLK_KP_1:
-            return KeyboardKey::KP1;
-        case SDLK_KP_2:
-            return KeyboardKey::KP2;
-        case SDLK_KP_3:
-            return KeyboardKey::KP3;
-        case SDLK_KP_4:
-            return KeyboardKey::KP4;
-        case SDLK_KP_5:
-            return KeyboardKey::KP5;
-        case SDLK_KP_6:
-            return KeyboardKey::KP6;
-        case SDLK_KP_7:
-            return KeyboardKey::KP7;
-        case SDLK_KP_8:
-            return KeyboardKey::KP8;
-        case SDLK_KP_9:
-            return KeyboardKey::KP9;
-        case SDLK_KP_PLUS:
-            return KeyboardKey::KPPLUS;
-        case SDLK_KP_MINUS:
-            return KeyboardKey::KPMINUS;
-        case SDLK_KP_MULTIPLY:
-            return KeyboardKey::KPMULTIPLY;
-        case SDLK_KP_DIVIDE:
-            return KeyboardKey::KPDIVIDE;
-        case SDLK_KP_ENTER:
-            return KeyboardKey::KPENTER;
-        case SDLK_KP_PERIOD:
-            return KeyboardKey::KPPERIOD;
-
-        case SDLK_UP:
-            return KeyboardKey::UP;
-        case SDLK_DOWN:
-            return KeyboardKey::DOWN;
-        case SDLK_LEFT:
-            return KeyboardKey::LEFT;
-        case SDLK_RIGHT:
-            return KeyboardKey::RIGHT;
-        case SDLK_HOME:
-            return KeyboardKey::HOME;
-        case SDLK_END:
-            return KeyboardKey::END;
-        case SDLK_PAGEUP:
-            return KeyboardKey::PAGEUP;
-        case SDLK_PAGEDOWN:
-            return KeyboardKey::PAGEDOWN;
-        case SDLK_INSERT:
-            return KeyboardKey::INSERT;
-        case SDLK_DELETE:
-            return KeyboardKey::DELETE;
-
-        case SDLK_COMMA:
-            return KeyboardKey::COMMA;
-        case SDLK_PERIOD:
-            return KeyboardKey::PERIOD;
-        case SDLK_SEMICOLON:
-            return KeyboardKey::SEMICOLON;
-        case SDLK_APOSTROPHE:
-            return KeyboardKey::QUOTE;
-        case SDLK_GRAVE:
-            return KeyboardKey::BACKQUOTE;
-        case SDLK_LEFTBRACKET:
-            return KeyboardKey::LEFTBRACKET;
-        case SDLK_RIGHTBRACKET:
-            return KeyboardKey::RIGHTBRACKET;
-        case SDLK_BACKSLASH:
-            return KeyboardKey::BACKSLASH;
-        case SDLK_SLASH:
-            return KeyboardKey::SLASH;
-        case SDLK_MINUS:
-            return KeyboardKey::MINUS;
-        case SDLK_EQUALS:
-            return KeyboardKey::EQUALS;
-
-        case SDLK_PRINTSCREEN:
-            return KeyboardKey::PRINTSCREEN;
-        case SDLK_SCROLLLOCK:
-            return KeyboardKey::SCROLLLOCK;
-        case SDLK_PAUSE:
-            return KeyboardKey::PAUSE;
-        case SDLK_MENU:
-            return KeyboardKey::MENU;
-
-        case SDLK_VOLUMEUP:
-            return KeyboardKey::VOLUMEUP;
-        case SDLK_VOLUMEDOWN:
-            return KeyboardKey::VOLUMEDOWN;
-
-        default:
-            break;
+    switch (button) {
+        case MouseButton::RIGHT:
+            return SDL_BUTTON_RIGHT;
+        case MouseButton::LEFT:
+            return SDL_BUTTON_LEFT;
+        case MouseButton::MIDDLE:
+            return SDL_BUTTON_MIDDLE;
     }
-
-    return KeyboardKey::UNDEFINED;
 }

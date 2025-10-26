@@ -1,10 +1,10 @@
 #include "core/engine.h"
 
-#include "core/globals.h"
+#include "core/mesh_draw.h"
 #include "imgui.h"
 #include "input/input.h"
 #include "graphics/gltf.h"
-#include "util/common.h"
+#include "util/util.h"
 #include "util/logger.h"
 #include "core/resource_manager.h"
 
@@ -34,26 +34,32 @@ void Engine::initialize()
     physics.initialize();
 
     // setup camera
+    camera.initialize(&input);
     camera.setPerspectiveInf(glm::radians(60.0f), float(width) / height, 0.1f);
     camera.setPosition(vec3(0, 2, 2));
-    camera.type = CameraType::FirstPerson;
 
+    renderer.setCamera(&camera);
+
+    // add light
     ResourceManager::get()->addLight(
         GPULight{
             .type = LightType::Directional,
             .direction = vec3(0.0, -1.0, 0.0),
         });
 
-    logger::logInfo("Engine initialized");
-
     // load scenes
-    // if (!gltf::loadScene(renderer.getGraphics(), scene, "assets/models/sponza/Sponza.gltf")) {
+    Scene scene;
     if (!gltf::loadScene(renderer.getGraphics(), scene, "assets/models/DamagedHelmet.glb")) {
         logger::logError("Failed to load scene.");
         exit(EXIT_FAILURE);
     }
 
-    world.initialize(physics);
+    logger::logInfo("Engine initialized");
+
+    world.initialize(&physics);
+    editor.initialize(&stats);
+
+    renderer.createResources();
 }
 
 void Engine::shutdown()
@@ -96,10 +102,8 @@ void Engine::handleInput(float deltaTime)
 
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
+        input.processEvent(event); // process event before everyting else
         ImGui_ImplSDL3_ProcessEvent(&event);
-
-        Input &input = g_input;
-        input.processEvent(&event);
 
         if (event.type == SDL_EVENT_WINDOW_MINIMIZED)
             minimized = true;
@@ -114,37 +118,35 @@ void Engine::handleInput(float deltaTime)
         if (event.type == SDL_EVENT_WINDOW_RESIZED)
             renderer.requestResize();
 
-        if (event.type == SDL_EVENT_QUIT || input.isKeyPressed(KeyboardKey::ESCAPE)) {
+        if (event.type == SDL_EVENT_QUIT || input.getKey(KeyboardKey::ESCAPE, InputAction::JustPressed)) {
             running = false;
         }
 
-        if (input.isKeyPressed(KeyboardKey::E)) {
-            Globals::isEditorOpened = !Globals::isEditorOpened;
-        }
+        // if (input.getKey(KeyboardKey::R, InputAction::Pressed)) {
+        //     renderer.reloadShaders();
+        // }
 
-        if (input.isKeyPressed(KeyboardKey::R)) {
-            renderer.reloadShaders();
+        if (input.getKey(KeyboardKey::C, InputAction::JustReleased)) {
+            logger::logInfo("Released");
         }
-
-        camera.handleEvent(event, deltaTime);
 
         // do raycast
-        if (!ImGui::GetIO().WantCaptureMouse && input.isMouseButtonPressed(MouseButton::RIGHT)) {
-            vec3 direction = -util::mouseToWorldDirection(vec2(event.motion.x, event.motion.y), vec2(width, height), camera.view, camera.projection);
+        if (!ImGui::GetIO().WantCaptureMouse && input.getMouseButton(MouseButton::RIGHT, InputAction::JustPressed)) {
+            vec3 direction = -util::mouseToWorldDirection(vec2(event.motion.x, event.motion.y), vec2(width, height), camera.getView(), camera.getProjection());
 
-            float raycastRange = 100.0f;
+            float raycastRange = 10000.0f;
             direction *= raycastRange;
 
-            JPH::BodyID hitBody = physics.rayCast(camera.position, -direction);
+            JPH::BodyID hitBody = physics.rayCast(camera.getPosition(), -direction);
             if (hitBody != JPH::BodyID()) { // valid body
                 Entity *entity = world.getEntityByBodyId(hitBody.GetIndexAndSequenceNumber());
-                if (entity) { // valid entity
-                    Globals::selectedEntity = entity;
-                }
+                editor.selectEntity(entity);
             } else {
-                Globals::selectedEntity = nullptr;
+                editor.selectEntity(nullptr);
             }
         }
+
+        camera.processEvent(event);
     }
 }
 
@@ -152,18 +154,21 @@ void Engine::update(float deltaTime)
 {
     ZoneScopedN("Update");
 
-    world.update(deltaTime, physics);
+    world.update(deltaTime);
     physics.update(deltaTime);
     camera.update(deltaTime);
+    editor.update(&input, &camera, vec2(width, height));
 }
 
 void Engine::render()
 {
     ZoneScopedN("Render");
 
-    for (auto &entity : world.getEntities()) {
-        renderer.drawEntity(entity, DrawMask::Opaque | DrawMask::Shadow);
-    }
+    for (auto &entity : world.getEntities())
+        renderer.drawEntity(entity, DrawMask::Opaque);
 
-    renderer.present(camera);
+    for (auto &gizmoMeshDraw : editor.getGizmoMeshDraws())
+        renderer.addMeshDraw(gizmoMeshDraw);
+
+    renderer.present(&editor);
 }
