@@ -1,6 +1,5 @@
-assets/
+assets/models/sponza
 build/
 .cache/
 .vscode/
 .idea/
-cmake-build-debug/
