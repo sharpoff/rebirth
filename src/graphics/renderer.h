@@ -49,11 +49,12 @@ private:
     void loadDefaultResources();
 
     // Passes
+    void clearPass(const VkCommandBuffer cmd);
     void shadowPass(const VkCommandBuffer cmd);
     void meshPass(const VkCommandBuffer cmd);
+    void overlayPass(const VkCommandBuffer cmd);
     void imGuiPass(const VkCommandBuffer cmd, Editor *editor);
     void skyboxPass(const VkCommandBuffer cmd);
-    void clearPass(const VkCommandBuffer cmd);
 
     void cullAndIndexMeshDraws();
     void sortMeshDraws(eastl::vector<uint32_t> &draws);
@@ -98,10 +99,7 @@ private:
 
     eastl::vector<MeshDraw> meshDraws;
 
-    eastl::vector<uint32_t> opaqueDraws;
-    eastl::vector<uint32_t> translucentDraws;
-    eastl::vector<uint32_t> shadowDraws;
-    eastl::vector<uint32_t> wireframeDraws;
+    eastl::vector<uint32_t> meshDrawIndices;
 
     VkQueryPool               queryPool;
     eastl::array<uint64_t, 2> timestamps;

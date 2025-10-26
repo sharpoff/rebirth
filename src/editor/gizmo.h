@@ -18,7 +18,7 @@ public:
         SCALE
     };
 
-    enum Flag
+    enum Flag : unsigned int
     {
         TRANSLATE_X,
         TRANSLATE_Y,
@@ -33,10 +33,6 @@ public:
         SCALE_Z,
     };
 
-    struct OperationInfo
-    {
-    };
-
     void manipulate(Input *input, Camera *camera, const vec2 &screenDim, mat4 &objectTransform);
     const eastl::vector<MeshDraw> getMeshDraws();
 
@@ -47,12 +43,14 @@ public:
     bool dragging = false;
 
 private:
+    const float kGizmoScale = 0.2f;
+
     vec3 gizmoPosition = vec3(0.0f);
     float gizmoScale = 1.0f;
     quat gizmoRotation = glm::identity<quat>();
 
-    Gizmo::Operation gizmoOperation = SCALE;
+    Gizmo::Operation gizmoOperation = ROTATE;
 
     eastl::vector<MeshDraw> operationMeshDraws[3];
-    eastl::vector<int> operationFlags[3];
+    eastl::vector<unsigned int> operationFlags[3];
 };

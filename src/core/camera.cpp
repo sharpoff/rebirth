@@ -52,22 +52,23 @@ void Camera::processEvent(const SDL_Event &event)
         if (!first) {
             yaw -= event.motion.xrel * rotationSpeed;
             pitch -= event.motion.yrel * rotationSpeed;
+        } else {
+            first = false;
         }
 
         yaw = glm::mod(yaw, 360.0f);
         pitch = glm::clamp(pitch, -89.9f, 89.9f);
-
-        first = !first;
-    } else {
-        first = true;
     }
+
+    if (input->getMouseButton(MouseButton::LEFT, InputAction::Released))
+        first = true;
 }
 
 void Camera::updateViewMatrix()
 {
     if (type == CameraType::FirstPerson) {
         view = glm::lookAt(position, position + front, up);
-    } else {
+    } else if (type == CameraType::Orbit) {
         vec3 eye = position + (-front * 10.0f) + (up * 3.0f);
         vec3 target = position + (front * 5.0f);
         view = glm::lookAt(eye, target, up);

@@ -2,14 +2,13 @@
 
 #include "core/camera.h"
 #include "core/mesh.h"
+#include "core/mesh_draw.h"
 #include "core/resource_manager.h"
 #include "input/input.h"
 #include "math/bounds.h"
 #include "math/math.h"
 #include "util/logger.h"
 #include "util/util.h"
-
-#include "EASTL/array.h"
 
 void Gizmo::manipulate(Input *input, Camera *camera, const vec2 &screenDim, mat4 &objectTransform)
 {
@@ -27,8 +26,13 @@ void Gizmo::manipulate(Input *input, Camera *camera, const vec2 &screenDim, mat4
         gizmoOperation = SCALE;
     }
 
-    gizmoPosition = math::getPosition(objectTransform);
+    const vec3 objectPosition = math::getPosition(objectTransform);
+    gizmoPosition = objectPosition;
 
+    float distanceToObject = glm::distance(camera->getPosition(), objectPosition);
+    gizmoScale = distanceToObject * kGizmoScale * camera->getFov();
+
+    // TODO: make it work!!!
     // try to raycast to find hit axis
     if (!dragging && input->getMouseButton(MouseButton::RIGHT, InputAction::Pressed)) {
         auto      &vertices = ResourceManager::get()->getVertices();
@@ -55,16 +59,13 @@ void Gizmo::manipulate(Input *input, Camera *camera, const vec2 &screenDim, mat4
                         const vec3 &v1 = vertices[j + prim.vertexOffset + 1].position;
                         const vec3 &v2 = vertices[j + prim.vertexOffset + 2].position;
 
-                        logger::logInfo("v0: ", glm::to_string(v0), ", v1: ", glm::to_string(v1), ", v2: ", glm::to_string(v2));
-
                         float distance = 0.0f;
                         if (util::rayIntersectVertex(camera->getPosition(), rayDir, v0, v1, v2, distance)) {
                             dragging = true;
                             hit = true;
                             logger::logInfo("HIT!");
+                            logger::logInfo("distance: ", distance);
                         }
-
-                        logger::logInfo("distance: ", distance);
                     }
                 }
             }
@@ -113,15 +114,20 @@ const eastl::vector<MeshDraw> Gizmo::getMeshDraws()
     Mesh *meshY = ResourceManager::get()->getMeshByName(gizmoName + "Y");
     Mesh *meshZ = ResourceManager::get()->getMeshByName(gizmoName + "Z");
     Mesh *meshXYZ = ResourceManager::get()->getMeshByName(gizmoName + "XYZ");
-    eastl::array<Mesh*, 4> meshes = {meshX, meshY, meshZ, meshXYZ};
 
-    for (int i = 0; i < meshes.size(); i++) {
+    Mesh* meshes[] = {meshX, meshY, meshZ, meshXYZ};
+    const char *colorMaterialNames[] = {"red", "green", "blue", "white_transparent"};
+
+    assert(ARRAY_SIZE(meshes) == ARRAY_SIZE(colorMaterialNames));
+
+    for (int i = 0; i < ARRAY_SIZE(meshes); i++) {
         Mesh *mesh = meshes[i];
 
         MeshDraw &meshDraw = operationMeshDraws[gizmoOperation].emplace_back();
         meshDraw.meshId = ResourceManager::get()->getMeshIndex(mesh);
+        meshDraw.overrideMaterialId = ResourceManager::get()->getMaterialIndexByName(colorMaterialNames[i]);
         meshDraw.transform = getTransform() * glm::translate(math::getPosition(mesh->transform));
-        meshDraw.overrideMaterialId = 0;
+        meshDraw.drawMask = DrawMask::Transparent | DrawMask::Overlay;
 
         if (i == 3) { // all flags
             operationFlags[gizmoOperation].push_back((gizmoOperation * 3 + 0) | (gizmoOperation * 3 + 1) | (gizmoOperation * 3 + 2));

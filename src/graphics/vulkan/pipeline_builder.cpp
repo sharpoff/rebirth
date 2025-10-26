@@ -1,5 +1,6 @@
 #include "graphics/vulkan/pipeline_builder.h"
 #include "graphics/vulkan/util.h"
+#include <vulkan/vulkan_core.h>
 
 namespace vulkan
 {
@@ -33,17 +34,11 @@ namespace vulkan
         multisampleState.sampleShadingEnable = VK_FALSE;
 
         depthStencilState = {VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
-        depthStencilState.depthTestEnable = VK_FALSE;
-        depthStencilState.depthWriteEnable = VK_FALSE;
-        depthStencilState.depthCompareOp = VK_COMPARE_OP_NEVER;
-        depthStencilState.depthBoundsTestEnable = VK_FALSE;
-        depthStencilState.stencilTestEnable = VK_FALSE;
-        depthStencilState.front = {};
-        depthStencilState.back = {};
-        depthStencilState.minDepthBounds = 0.f;
-        depthStencilState.maxDepthBounds = 1.f;
+        setDepthTest(VK_FALSE, VK_FALSE);
 
         colorBlendState = {VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
+        colorBlendAttachment = {};
+        disableBlending();
 
         dynamicState = {VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
 
@@ -107,8 +102,6 @@ namespace vulkan
             depthStencilState.minDepthBounds = 0.0f;
             depthStencilState.maxDepthBounds = 1.0f;
         } else {
-            depthStencilState.depthTestEnable = VK_FALSE;
-            depthStencilState.depthWriteEnable = VK_FALSE;
             depthStencilState.depthCompareOp = VK_COMPARE_OP_NEVER;
             depthStencilState.depthBoundsTestEnable = VK_FALSE;
             depthStencilState.stencilTestEnable = VK_FALSE;
@@ -143,6 +136,36 @@ namespace vulkan
         multisampleState.rasterizationSamples = samples;
     }
 
+    void PipelineBuilder::setBlendingAdditive()
+    {
+        colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+        colorBlendAttachment.blendEnable = VK_TRUE;
+        colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+        colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
+        colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+        colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+        colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+        colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+    }
+
+    void PipelineBuilder::setBlendingAlphaBlend()
+    {
+        colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+        colorBlendAttachment.blendEnable = VK_TRUE;
+        colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+        colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+        colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+        colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+        colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+        colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+    }
+
+    void PipelineBuilder::disableBlending()
+    {
+        colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+        colorBlendAttachment.blendEnable = VK_FALSE;
+    }
+
     VkPipeline PipelineBuilder::build(VkDevice device, eastl::vector<VkFormat> colorFormats, VkFormat depthFormat)
     {
         vertexInputState.vertexAttributeDescriptionCount = attributeDescriptions.size();
@@ -156,10 +179,6 @@ namespace vulkan
 
         eastl::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments;
         for (size_t i = 0; i < colorFormats.size(); i++) {
-            VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
-            colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
-                                                  VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-
             colorBlendAttachments.push_back(colorBlendAttachment);
         }
 
@@ -172,7 +191,7 @@ namespace vulkan
             VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR};
         renderingInfo.colorAttachmentCount = colorFormats.size();
         renderingInfo.pColorAttachmentFormats = colorFormats.data();
-        if (depthStencilState.depthTestEnable)
+        if (depthStencilState.depthTestEnable || depthStencilState.depthWriteEnable)
             renderingInfo.depthAttachmentFormat = depthFormat;
 
         VkGraphicsPipelineCreateInfo pipelineInfo = {VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};

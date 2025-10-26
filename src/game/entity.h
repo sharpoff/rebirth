@@ -39,7 +39,7 @@ public:
     int32_t       getOverrideMaterialId() const { return overrideMaterialId; }
     JPH::BodyID   getBodyID() const { return bodyId; }
     int32_t       getMeshID() const { return meshId; }
-    bool          isStatic() const { return m_isStatic; }
+    bool          isStatic() const { return static_; }
 
     bool transformDirty = false;
 
@@ -49,7 +49,7 @@ private:
     int32_t       overrideMaterialId = -1;
     int32_t       meshId = -1;
     JPH::BodyID   bodyId{};
-    bool          m_isStatic = false;
+    bool          static_ = false;
 
     vec3 position = vec3(0.0f);
     quat rotation = glm::identity<quat>();

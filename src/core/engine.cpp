@@ -167,7 +167,7 @@ void Engine::render()
     for (auto &entity : world.getEntities())
         renderer.drawEntity(entity, DrawMask::Opaque);
 
-    for (auto &gizmoMeshDraw : editor.getGizmoMeshDraws())
+    for (const MeshDraw &gizmoMeshDraw : editor.getGizmoMeshDraws())
         renderer.addMeshDraw(gizmoMeshDraw);
 
     renderer.present(&editor);

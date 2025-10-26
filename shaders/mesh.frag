@@ -65,8 +65,8 @@ void main()
         return;
     }
 
-    if (diffuse.a < 0.5)
-        discard;
+    // if (diffuse.a < 0.5)
+    //     discard;
 
     if (inTangent != vec4(0.0)) {
         normal = inTBN * normalize(normal * 2.0 - 1.0);
@@ -136,5 +136,5 @@ void main()
 
     finalColor += emissive;
 
-    fragColor = vec4(finalColor, 1.0);
+    fragColor = vec4(finalColor, diffuse.a);
 }

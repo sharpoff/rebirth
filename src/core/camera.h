@@ -1,14 +1,15 @@
 #pragma once
 
-#include <SDL3/SDL.h>
-#include <EASTL/unordered_map.h>
+#include "SDL3/SDL_events.h"
+#include "EASTL/unordered_map.h"
 
-#include <math/math.h>
+#include "math/math.h"
+#include "util/common_types.h"
 
 enum class CameraType
 {
     FirstPerson,
-    LookAt,
+    Orbit,
 };
 
 class Input;
@@ -27,18 +28,19 @@ public:
     void setOrthographic(float left, float right, float bottom, float top, float near, float far);
     void setCameraType(CameraType type);
 
-    mat4 getProjection() const { return projection; }
-    mat4 getView() const { return view; }
-    vec3 getPosition() const { return position; }
+    const mat4 &getProjection() const { return projection; }
+    const mat4 &getView() const { return view; }
+    const vec3 &getPosition() const { return position; }
+    const float &getFov() const { return fov; }
 
 private:
     CameraType type = CameraType::FirstPerson;
 
     vec3 position = vec3();
 
-    vec3 front = vec3(0.0f, 0.0f, -1.0f);
-    vec3 right = vec3(1.0f, 0.0f, 0.0f);
-    vec3 up = vec3(0.0f, 1.0f, 0.0f);
+    vec3 front = common::worldForward;
+    vec3 right = common::worldRight;
+    vec3 up = common::worldUp;
 
     mat4 projection = mat4(1.0f);
     mat4 view = mat4(1.0f);

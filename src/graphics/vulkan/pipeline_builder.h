@@ -32,12 +32,18 @@ public:
 
     void setMultisampleCount(VkSampleCountFlagBits samples);
 
+    void setBlendingAdditive();
+    void setBlendingAlphaBlend();
+    void disableBlending();
+
     VkPipeline build(VkDevice device, eastl::vector<VkFormat> colorFormats, VkFormat depthFormat = VK_FORMAT_D32_SFLOAT);
 
 private:
     eastl::vector<VkPipelineShaderStageCreateInfo> shaderStages;
     eastl::vector<VkVertexInputBindingDescription> bindingDescriptions;
     eastl::vector<VkVertexInputAttributeDescription> attributeDescriptions;
+
+    VkPipelineColorBlendAttachmentState colorBlendAttachment;
 
     // states
     VkPipelineVertexInputStateCreateInfo vertexInputState;

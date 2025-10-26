@@ -22,7 +22,7 @@ void World::initialize(Physics *physics)
         floor.setMesh(cubeMeshId);
         floor.setStatic(true);
         floor.setBody(physics->createBox(floor.getPosition(), floor.getRotation(), floor.getBounds().extents, floor.isStatic()));
-        floor.setOverrideMaterial(ResourceManager::get()->getMaterialIndexByName("green"));
+        floor.setOverrideMaterial(ResourceManager::get()->getMaterialIndexByName("checkerboard"));
         entities.push_back(floor);
 
         for (int i = -2; i <= 2; i++) {
@@ -33,7 +33,7 @@ void World::initialize(Physics *physics)
             box.setMesh(cubeMeshId);
             box.setStatic(false);
             box.setBody(physics->createBox(box.getPosition(), box.getRotation(), box.getBounds().extents, box.isStatic()));
-            box.setOverrideMaterial(ResourceManager::get()->getMaterialIndexByName("red"));
+            box.setOverrideMaterial(ResourceManager::get()->getMaterialIndexByName("checkerboard"));
             entities.push_back(box);
         }
     }

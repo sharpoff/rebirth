@@ -15,6 +15,7 @@
 
 #include "physics/physics.h"
 #include "util/logger.h"
+#include "util/common_types.h"
 
 #include "tracy/Tracy.hpp"
 #include "tracy/TracyVulkan.hpp"
@@ -35,6 +36,8 @@ void Renderer::initialize(SDL_Window *window, EngineStats *engineStats, Physics 
     createPipelines();
 
     loadDefaultResources();
+
+    logger::logInfo("Renderer initialized");
 }
 
 void Renderer::shutdown()
@@ -145,8 +148,7 @@ void Renderer::present(Editor *editor)
     updateDynamicData();
 
     cullAndIndexMeshDraws();
-    sortMeshDraws(opaqueDraws);
-    sortMeshDraws(translucentDraws);
+    sortMeshDraws(meshDrawIndices);
 
     //
     // Create and begin command buffer
@@ -213,7 +215,7 @@ void Renderer::present(Editor *editor)
     //
     // Shadow Pass
     //
-    if (ResourceManager::get()->getLightsSize() > 0 && shadowDraws.size() > 0) {
+    if (ResourceManager::get()->getLightsSize() > 0 && !meshDrawIndices.empty()) {
         ZoneScopedN("Shadow Pass");
         TracyVkZone(graphics.getTracyContext(), cmd, "Shadow Pass");
 
@@ -223,7 +225,7 @@ void Renderer::present(Editor *editor)
     //
     // Mesh Pass
     //
-    if (opaqueDraws.size() > 0 || translucentDraws.size() > 0 || wireframeDraws.size() > 0) {
+    if (!meshDrawIndices.empty()) {
         ZoneScopedN("Mesh Pass");
         TracyVkZone(graphics.getTracyContext(), cmd, "Mesh Pass");
 
@@ -238,6 +240,14 @@ void Renderer::present(Editor *editor)
         TracyVkZone(graphics.getTracyContext(), cmd, "Skybox Pass");
 
         skyboxPass(cmd);
+    }
+
+    // Overlay pass
+    {
+        ZoneScopedN("Overlay Pass");
+        TracyVkZone(graphics.getTracyContext(), cmd, "Overlay Pass");
+
+        overlayPass(cmd);
     }
 
     //
@@ -294,10 +304,7 @@ void Renderer::present(Editor *editor)
     }
 
     meshDraws.clear();
-    opaqueDraws.clear();
-    translucentDraws.clear();
-    shadowDraws.clear();
-    wireframeDraws.clear();
+    meshDrawIndices.clear();
 
     engineStats->drawCount = 0;
 }
@@ -314,18 +321,7 @@ void Renderer::cullAndIndexMeshDraws()
         // if (!math::isSphereVisible(meshDraws[i].boundingSphere, viewProj, meshDraws[i].transform * ResourceManager::get()->getMeshByIndex(meshDraws[i].meshId)->transform))
         //     continue;
 
-        if (meshDraws[i].drawMask & DrawMask::Opaque) {
-            opaqueDraws.push_back(i);
-        }
-        if (meshDraws[i].drawMask & DrawMask::Translucent) {
-            translucentDraws.push_back(i);
-        }
-        if (meshDraws[i].drawMask & DrawMask::Shadow) {
-            shadowDraws.push_back(i);
-        }
-        if (meshDraws[i].drawMask & DrawMask::Wireframe) {
-            wireframeDraws.push_back(i);
-        }
+        meshDrawIndices.push_back(i);
     }
 }
 
@@ -404,12 +400,10 @@ void Renderer::createPipelines()
         builder.setCulling(VK_CULL_MODE_FRONT_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE);
         builder.setPolygonMode(VK_POLYGON_MODE_FILL);
         pipelines["shadow"] = builder.build(device, {});
-
-        vulkan::setDebugName(device, (uint64_t)pipelines["shadow"], VK_OBJECT_TYPE_PIPELINE, "Shadow pipeline");
     }
 
     {
-        // mesh pipeline
+        // opaque mesh pipeline
         PipelineBuilder builder;
         builder.setPipelineLayout(pipelineLayouts["mesh"]);
         builder.setShader(shaders["mesh.vert.spv"], VK_SHADER_STAGE_VERTEX_BIT);
@@ -418,9 +412,21 @@ void Renderer::createPipelines()
         builder.setCulling(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE);
         builder.setPolygonMode(VK_POLYGON_MODE_FILL);
         builder.setMultisampleCount(graphics.getSampleCount());
-        pipelines["mesh"] = builder.build(device, {colorFormat});
+        pipelines["mesh_opaque"] = builder.build(device, {colorFormat});
+    }
 
-        vulkan::setDebugName(device, (uint64_t)pipelines["mesh"], VK_OBJECT_TYPE_PIPELINE, "Mesh pipeline");
+    {
+        // transparent mesh pipeline
+        PipelineBuilder builder;
+        builder.setPipelineLayout(pipelineLayouts["mesh"]);
+        builder.setShader(shaders["mesh.vert.spv"], VK_SHADER_STAGE_VERTEX_BIT);
+        builder.setShader(shaders["mesh.frag.spv"], VK_SHADER_STAGE_FRAGMENT_BIT);
+        builder.setDepthTest(VK_TRUE, VK_TRUE);
+        builder.setCulling(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE);
+        builder.setPolygonMode(VK_POLYGON_MODE_FILL);
+        builder.setMultisampleCount(graphics.getSampleCount());
+        builder.setBlendingAlphaBlend(); // alpha blending
+        pipelines["mesh_transparent"] = builder.build(device, {colorFormat});
     }
 
     {
@@ -434,8 +440,6 @@ void Renderer::createPipelines()
         builder.setPolygonMode(VK_POLYGON_MODE_LINE);
         builder.setMultisampleCount(graphics.getSampleCount());
         pipelines["wireframe"] = builder.build(device, {colorFormat});
-
-        vulkan::setDebugName(device, (uint64_t)pipelines["wireframe"], VK_OBJECT_TYPE_PIPELINE, "Wireframe pipeline");
     }
 
     {
@@ -448,8 +452,6 @@ void Renderer::createPipelines()
         builder.setDepthTest(VK_TRUE, VK_FALSE, VK_COMPARE_OP_EQUAL);
         builder.setMultisampleCount(graphics.getSampleCount());
         pipelines["skybox"] = builder.build(device, {colorFormat});
-
-        vulkan::setDebugName(device, (uint64_t)pipelines["skybox"], VK_OBJECT_TYPE_PIPELINE, "Skybox pipeline");
     }
 
     for (auto &[_, shader] : shaders) {
@@ -644,20 +646,53 @@ void Renderer::loadDefaultResources()
     // colors
     {
         GPUMaterial &red = ResourceManager::get()->createNewMaterial("red");
-        red.color = vec4(1, 0, 0, 1);
+        red.color = color::red;
         red.materialFlags |= (unsigned int)MaterialFlags::Color;
         red.ambient = 1.0f;
 
         GPUMaterial &green = ResourceManager::get()->createNewMaterial("green");
-        green.color = vec4(0, 1, 0, 1);
+        green.color = color::green;
         green.materialFlags |= (unsigned int)MaterialFlags::Color;
         green.ambient = 1.0f;
 
         GPUMaterial &blue = ResourceManager::get()->createNewMaterial("blue");
-        blue.color = vec4(0, 0, 1, 1);
+        blue.color = color::blue;
         blue.materialFlags |= (unsigned int)MaterialFlags::Color;
         blue.ambient = 1.0f;
+
+        GPUMaterial &black = ResourceManager::get()->createNewMaterial("black");
+        black.color = color::black;
+        black.materialFlags |= (unsigned int)MaterialFlags::Color;
+        black.ambient = 1.0f;
+
+        GPUMaterial &white = ResourceManager::get()->createNewMaterial("white");
+        white.color = color::white;
+        white.materialFlags |= (unsigned int)MaterialFlags::Color;
+        white.ambient = 1.0f;
+
+        GPUMaterial &yellow = ResourceManager::get()->createNewMaterial("yellow");
+        yellow.color = color::yellow;
+        yellow.materialFlags |= (unsigned int)MaterialFlags::Color;
+
+        GPUMaterial &cyan = ResourceManager::get()->createNewMaterial("cyan");
+        cyan.color = color::cyan;
+        cyan.materialFlags |= (unsigned int)MaterialFlags::Color;
+        cyan.ambient = 1.0f;
+        yellow.ambient = 1.0f;
+
+        GPUMaterial &purple = ResourceManager::get()->createNewMaterial("purple");
+        purple.color = color::purple;
+        purple.materialFlags |= (unsigned int)MaterialFlags::Color;
+        purple.ambient = 1.0f;
     }
 
-    logger::logInfo("Renderer initialized");
+    // transparent
+    {
+        GPUMaterial &whiteTransparent = ResourceManager::get()->createNewMaterial("white_transparent");
+        whiteTransparent.color = color::white;
+        whiteTransparent.color.a = 0.3f;
+
+        whiteTransparent.materialFlags |= (unsigned int)MaterialFlags::Color;
+        whiteTransparent.ambient = 1.0f;
+    }
 }

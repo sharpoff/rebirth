@@ -56,7 +56,7 @@ void Entity::setOverrideMaterial(int32_t materialId)
 
 void Entity::setStatic(bool isStatic)
 {
-    this->m_isStatic = isStatic;
+    this->static_ = isStatic;
 }
 
 void Entity::setPosition(vec3 position)

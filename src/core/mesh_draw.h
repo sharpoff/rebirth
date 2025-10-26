@@ -1,16 +1,7 @@
 #pragma once
 
 #include "math/bounds.h"
-
-// should match shader
-enum DrawMask : uint32_t
-{
-    Opaque = 1 << 0,
-    Translucent = 1 << 1,
-    Shadow = 1 << 2,
-    Light = 1 << 3,
-    Wireframe = 1 << 4,
-};
+#include "core/draw_mask.h"
 
 struct MeshDraw
 {
