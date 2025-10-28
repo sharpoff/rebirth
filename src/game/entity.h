@@ -1,9 +1,8 @@
 #pragma once
 
 #include <Jolt/Jolt.h>
-#include <Jolt/Physics/Body/BodyID.h>
+#include "Jolt/Physics/Body/BodyID.h"
 
-#include "glm/ext/matrix_transform.hpp"
 #include "math/bounds.h"
 #include "math/math.h"
 
@@ -43,7 +42,7 @@ public:
 
     bool transformDirty = false;
 
-private:
+protected:
     eastl::string name = "";
     Bounds        bounds{};
     int32_t       overrideMaterialId = -1;
@@ -55,5 +54,5 @@ private:
     quat rotation = glm::identity<quat>();
     vec3 scale = vec3(1.0f);
 
-    Physics *physics;
+    Physics *physics_;
 };

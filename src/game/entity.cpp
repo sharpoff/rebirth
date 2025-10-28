@@ -4,18 +4,18 @@
 Entity::Entity(Physics *physics)
 {
     assert(physics);
-    this->physics = physics;
+    this->physics_ = physics;
 }
 
 void Entity::update(float deltaTime)
 {
     if (bodyId != JPH::BodyID()) {
         if (transformDirty) {
-            physics->setPosition(bodyId, position);
-            physics->setRotation(bodyId, glm::normalize(rotation));
+            physics_->setPosition(bodyId, position);
+            physics_->setRotation(bodyId, glm::normalize(rotation));
         } else {
-            position = physics->getPosition(bodyId);
-            rotation = physics->getRotation(bodyId);
+            position = physics_->getPosition(bodyId);
+            rotation = physics_->getRotation(bodyId);
         }
     }
 }

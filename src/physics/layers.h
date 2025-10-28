@@ -7,9 +7,9 @@
 // Layer that objects can be in, determines which other objects it can collide with
 namespace Layers
 {
-static constexpr JPH::ObjectLayer NON_MOVING = 0;
-static constexpr JPH::ObjectLayer MOVING = 1;
-static constexpr JPH::ObjectLayer NUM_LAYERS = 2;
+    static constexpr JPH::ObjectLayer NON_MOVING = 0;
+    static constexpr JPH::ObjectLayer MOVING = 1;
+    static constexpr JPH::ObjectLayer NUM_LAYERS = 2;
 } // namespace Layers
 
 // Class that determines if two object layers can collide
@@ -33,9 +33,9 @@ public:
 // Each broadphase layer results in a separate bounding volume tree in the broad phase.
 namespace BroadPhaseLayers
 {
-static constexpr JPH::BroadPhaseLayer NON_MOVING(0);
-static constexpr JPH::BroadPhaseLayer MOVING(1);
-static constexpr uint NUM_LAYERS(2);
+    static constexpr JPH::BroadPhaseLayer NON_MOVING(0);
+    static constexpr JPH::BroadPhaseLayer MOVING(1);
+    static constexpr uint                 NUM_LAYERS(2);
 }; // namespace BroadPhaseLayers
 
 // This defines a mapping between object and broadphase layers.

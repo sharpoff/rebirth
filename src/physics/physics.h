@@ -1,11 +1,15 @@
 #pragma once
 
-#include "EASTL/vector.h"
 #include "math/math.h"
+
+#include "EASTL/string.h"
+#include "EASTL/vector.h"
+#include "EASTL/unordered_map.h"
 
 #include <Jolt/Jolt.h>
 
 #include <Jolt/Core/Factory.h>
+#include <Jolt/RegisterTypes.h>
 #include <Jolt/Core/JobSystemThreadPool.h>
 #include <Jolt/Core/TempAllocator.h>
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
@@ -13,10 +17,10 @@
 #include <Jolt/Physics/Collision/Shape/SphereShape.h>
 #include <Jolt/Physics/PhysicsSettings.h>
 #include <Jolt/Physics/PhysicsSystem.h>
-#include <Jolt/RegisterTypes.h>
+#include "Jolt/Physics/Character/CharacterVirtual.h"
 
-#include <physics/physics_layers.h>
-#include <physics/physics_listeners.h>
+#include <physics/layers.h>
+#include <physics/listeners.h>
 
 class Physics
 {
@@ -28,9 +32,13 @@ public:
     void initialize();
     void shutdown();
 
-    void update(float dt);
+    void preUpdate(float dt);
+    void update();
 
     JPH::BodyID createBox(vec3 position, quat rotation, vec3 halfExtent, bool isStatic);
+    JPH::Ref<JPH::CharacterVirtual> createPlayer(JPH::Ref<JPH::CharacterVirtualSettings> settings);
+
+    JPH::BodyID rayCast(vec3 origin, vec3 direction);
 
     vec3 getPosition(JPH::BodyID bodyId);
     quat getRotation(JPH::BodyID bodyId);
@@ -38,8 +46,12 @@ public:
     void setPosition(JPH::BodyID bodyId, vec3 position);
     void setRotation(JPH::BodyID bodyId, quat rotation);
 
-    JPH::BodyID rayCast(vec3 origin, vec3 direction);
+    JPH::RefConst<JPH::Shape> getShapeByName(eastl::string name);
+
 private:
+    void updateCharacter(float deltaTime, JPH::Ref<JPH::CharacterVirtual> character, const JPH::CharacterVirtual::ExtendedUpdateSettings &settings);
+    void createDefaultShapes();
+
     JPH::JobSystemThreadPool *jobSystem;
     JPH::TempAllocatorImpl *tempAllocator;
 
@@ -66,9 +78,17 @@ private:
     BodyActivationListener bodyActivationListener;
     ContactListener contactListener;
 
-    JPH::PhysicsSystem physicsSystem;
+    JPH::PhysicsSystem physicsSystem_;
+
+    // default shapes
+    eastl::unordered_map<eastl::string, JPH::RefConst<JPH::Shape>> shapes;
+
+    // character
+    JPH::CharacterVsCharacterCollisionSimple characterVsCharacterCollision_;
+    JPH::CharacterContactListener characterContactListener_;
 
     eastl::vector<JPH::BodyID> bodies;
+    eastl::vector<JPH::CharacterVirtual> characters;
 
     const float tickDelta = 1.0f / 60.0f;
 };
