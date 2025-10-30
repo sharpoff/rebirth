@@ -7,16 +7,14 @@ namespace util
         eastl::vector<Vertex> vertices;
         for (int i = 0; i < segments; ++i) {
             float angle = glm::two_pi<float>() * i / segments;
-            vec3  ringCenter = vec3(
-                sphereRadius * cos(angle),
-                sphereRadius * sin(angle),
-                0.0f);
+            vec3  ringCenter = vec3(sphereRadius * cos(angle), sphereRadius * sin(angle), 0.0f);
             for (int j = 0; j < thicknessSegments; ++j) {
                 float thicknessAngle = glm::two_pi<float>() * j / thicknessSegments;
                 vec3  offset = vec3(
                     ringThickness * cos(thicknessAngle) * cos(angle),
                     ringThickness * cos(thicknessAngle) * sin(angle),
                     ringThickness * sin(thicknessAngle));
+
                 Vertex &vertex = vertices.emplace_back();
                 vertex.position = ringCenter + offset;
                 vertex.normal = glm::normalize(offset);
@@ -176,36 +174,24 @@ namespace util
         const float           angleStep = 2.0f * MATH_PI / subdivisions;
 
         // Generate vertices for the bottom cap
-        Vertex v1{};
-        v1.position = vec3(0.0f, 0.0f, 0.0f);
-        v1.normal = vec3(0.0f, -1.0f, 0.0f);
-        vertices.push_back(v1); // Center of the bottom cap
+        vertices.push_back({vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, -1.0f, 0.0f)}); // Center of the bottom cap
         for (int i = 0; i <= subdivisions; ++i) {
             float angle = i * angleStep;
             float x = radius * cos(angle);
             float z = radius * sin(angle);
 
-            Vertex v{};
-            v.position = vec3(x, 0.0f, z);
-            v.normal = vec3(0.0f, -1.0f, 0.0f);
-            vertices.push_back(v);
+            vertices.push_back({vec3(x, 0.0f, z), vec3(0.0f, -1.0f, 0.0f)});
         }
 
         // Generate vertices for the top cap
-        Vertex v2{};
-        v2.position = vec3(0.0f, height, 0.0f);
-        v2.normal = vec3(0.0f, 1.0f, 0.0f);
-        vertices.push_back(v2); // Center of the top cap
+        vertices.push_back({vec3(0.0f, height, 0.0f), vec3(0.0f, 1.0f, 0.0f)}); // Center of the top cap
 
         for (int i = 0; i <= subdivisions; ++i) {
             float angle = i * angleStep;
             float x = radius * cos(angle);
             float z = radius * sin(angle);
 
-            Vertex v{};
-            v.position = vec3(x, height, z);
-            v.normal = vec3(0.0f, 1.0f, 0.0f);
-            vertices.push_back(v);
+            vertices.push_back({vec3(x, height, z), vec3(0.0f, 1.0f, 0.0f)});
         }
 
         // Generate vertices for the side
@@ -216,16 +202,10 @@ namespace util
             vec3  normal = glm::normalize(vec3(cos(angle), 0.0f, sin(angle)));
 
             // Bottom vertex
-            Vertex v1{};
-            v1.position = vec3(x, 0.0f, z);
-            v1.normal = normal;
-            vertices.push_back(v1);
+            vertices.push_back({vec3(x, 0.0f, z), normal});
 
             // Top vertex
-            Vertex v2{};
-            v2.position = vec3(x, height, z);
-            v2.normal = normal;
-            vertices.push_back(v2);
+            vertices.push_back({vec3(x, height, z), normal});
         }
         return vertices;
     }
@@ -244,9 +224,9 @@ namespace util
         // Indices for the top cap
         int topCenterIndex = subdivisions + 2; // Index of the top center
         for (int i = 1; i <= subdivisions; ++i) {
-            indices.push_back(topCenterIndex); // Center of the top cap
-            indices.push_back(topCenterIndex + i); // Current vertex
             indices.push_back(topCenterIndex + (i % subdivisions) + 1); // Next vertex (wraps around)
+            indices.push_back(topCenterIndex + i); // Current vertex
+            indices.push_back(topCenterIndex); // Center of the top cap
         }
 
         // Indices for the side
@@ -301,12 +281,7 @@ namespace util
         eastl::vector<Vertex> vertices;
         for (int i = 0; i < 6; ++i) { // Each face
             for (int j = 0; j < 4; ++j) { // Each vertex per face
-                Vertex v{};
-                v.position = positions[i * 4 + j];
-                v.normal = normals[i];
-                v.uv_x = uvs[i * 4 + j].x;
-                v.uv_y = uvs[i * 4 + j].y;
-                vertices.push_back(v);
+                vertices.push_back({positions[i * 4 + j], normals[i], uvs[i * 4 + j]});
             }
         }
         return vertices;

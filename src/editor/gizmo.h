@@ -43,7 +43,7 @@ public:
     bool dragging = false;
 
 private:
-    const float kGizmoScale = 0.2f;
+    const float kGizmoScale = 0.1f;
 
     vec3 gizmoPosition = vec3(0.0f);
     float gizmoScale = 1.0f;

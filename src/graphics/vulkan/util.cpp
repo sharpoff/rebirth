@@ -8,7 +8,7 @@ namespace vulkan
     {
         eastl::vector<char> spirv = filesystem::readFile(path);
         if (spirv.empty()) {
-            logger::logInfo("Failed to read spirv file: ", path);
+            LOGI("Failed to read spirv file: %s", path.c_str());
             return VK_NULL_HANDLE;
         }
 

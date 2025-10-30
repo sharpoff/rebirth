@@ -1,36 +1,46 @@
 #pragma once
 
+#include "core/application_info.h"
 #include "core/camera.h"
-#include "entity.h"
+#include "input/input.h"
 
-#include "Jolt/Physics/Character/CharacterVirtual.h"
-#include "Jolt/Physics/Collision/BackFaceMode.h"
+#include "physics/physics.h"
+#include "physics/helpers.h"
 
 class Player
 {
 public:
-    Player(Physics *physics, Camera *camera);
-
+    void initialize(Physics *physics, Input *input, const ApplicationInfo &appInfo);
     void update(float deltaTime);
+    void processInput(float deltaTime);
+
+    int32_t getMeshId() const { return meshId; }
+    const mat4 getTransform() const { return JoltToMath(worldTransform); }
+    Camera &getCamera() { return camera; }
+    void setKeyboardInput(bool mode);
+    void setMouseInput(bool mode);
 
 private:
-    JPH::Ref<JPH::CharacterVirtualSettings> getCharacterSettings();
-
-    int32_t overrideMaterialId = -1;
     int32_t meshId = -1;
+    JPH::Mat44 worldTransform = JPH::Mat44::sIdentity();
+
+    JPH::Vec3 moveDir = JPH::Vec3::sZero();
+    bool jumping = false;
+    bool canMove = true;
 
     //
     // Physics
     //
+    void initializePhysics();
+    void updatePhysics(float deltaTime);
+    void updatePhysicsController(float deltaTime);
 
-    vec3 velocity = vec3(0);
-
-    bool allowSliding = false;
-
-    JPH::Ref<JPH::CharacterVirtual> character_;
+    JPH::Ref<JPH::CharacterVirtual> character;
+    JPH::Vec3 desiredVelocity = JPH::Vec3::sZero();
 
     // Character movement settings
     bool sEnableCharacterInertia = true;
+    bool allowSliding = false; // True when the player is pressing movement controls
 
     // configuration settings
     float sUpRotationX = 0;
@@ -46,20 +56,15 @@ private:
     bool  sCreateInnerBody = false;
     bool  sPlayerCanPushOtherCharacters = true;
     bool  sOtherCharactersCanPushPlayer = true;
-
     JPH::EBackFaceMode sBackFaceMode = JPH::EBackFaceMode::CollideWithBackFaces;
-
-    // True when the player is pressing movement controls
-    bool mAllowSliding = false;
-
-    // Track active contacts for debugging purposes
-    JPH::Array<JPH::CharacterVirtual::ContactKey> activeContacts_;
 
     // Character movement properties
     bool  sControlMovementDuringJump = true; ///< If false the character cannot change movement direction in mid air
     float sCharacterSpeed = 6.0f;
     float sJumpSpeed = 4.0f;
 
-    Camera  *camera_;
-    Physics *physics_;
+    Camera camera;
+
+    Input   *input;
+    Physics *physics;
 };

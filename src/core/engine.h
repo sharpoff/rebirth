@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/application_info.h"
 #include "core/engine_stats.h"
 #include "game/world.h"
 #include "graphics/renderer.h"
@@ -13,13 +14,13 @@
 class Engine
 {
 public:
-    void initialize();
+    void initialize(const ApplicationInfo &appInfo);
     void shutdown();
 
     void run();
 
 protected:
-    virtual void handleInput(float deltaTime);
+    virtual void processInput(float deltaTime);
     virtual void update(float deltaTime);
     virtual void render();
 
@@ -27,16 +28,14 @@ protected:
     bool minimized = false;
     bool fullscreen = false;
 
-    eastl::string name = "Application";
-    uint32_t      width = 0;
-    uint32_t      height = 0;
+    ApplicationInfo appInfo{};
 
     Timer       timer;
     SDL_Window *window;
     EngineStats stats;
 
     Renderer renderer;
-    Camera   camera;
+    Camera   flyCamera;
     Physics  physics;
     Editor   editor;
     World    world;

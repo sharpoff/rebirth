@@ -7,7 +7,11 @@ int main()
     filesystem::setCurrentPath(filesystem::getExecutablePath().parent_path().parent_path());
 
     Engine engine;
-    engine.initialize();
+    engine.initialize(ApplicationInfo{
+        .name = "Application",
+        .width = 1280,
+        .height = 720,
+    });
 
     engine.run();
 

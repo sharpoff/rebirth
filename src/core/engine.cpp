@@ -1,44 +1,48 @@
 #include "core/engine.h"
 
+#include "SDL3/SDL_video.h"
+#include "core/draw_mask.h"
 #include "core/mesh_draw.h"
-#include "imgui.h"
+#include "core/resource_manager.h"
 #include "input/input.h"
 #include "graphics/gltf.h"
-#include "util/util.h"
-#include "util/logger.h"
-#include "core/resource_manager.h"
+#include "physics/helpers.h"
 
+#include "util/logger.h"
+#include "util/util.h"
+
+#include "imgui.h"
 #include "backend/imgui_impl_sdl3.h"
 #include <tracy/Tracy.hpp>
 
-void Engine::initialize()
+void Engine::initialize(const ApplicationInfo &appInfo)
 {
     ZoneScopedN("Application init");
 
-    width = 1280;
-    height = 720;
     timer.start();
 
+    this->appInfo = appInfo;
+
     if (!SDL_Init(SDL_INIT_VIDEO)) {
-        logger::logError("Failed to initialize SDL", SDL_GetError());
+        LOGE("Failed to initialize SDL: %s", SDL_GetError());
         exit(EXIT_FAILURE);
     }
 
-    SDL_Window *window = SDL_CreateWindow("Application", width, height, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
+    SDL_Window *window = SDL_CreateWindow(appInfo.name.c_str(), appInfo.width, appInfo.height, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
     if (!window) {
-        logger::logError("Failed to create SDL window", SDL_GetError());
+        LOGE("Failed to create SDL window: %s", SDL_GetError());
         exit(EXIT_FAILURE);
     }
 
-    renderer.initialize(window, &stats, &physics);
+    SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+
+    renderer.initialize(window, &stats);
     physics.initialize();
 
     // setup camera
-    camera.initialize(&input);
-    camera.setPerspectiveInf(glm::radians(60.0f), float(width) / height, 0.1f);
-    camera.setPosition(vec3(0, 2, 2));
-
-    renderer.setCamera(&camera);
+    flyCamera.initialize(&input);
+    flyCamera.setPerspectiveInf(glm::radians(60.0f), float(appInfo.width) / appInfo.height, 0.1f);
+    flyCamera.setPosition(vec3(0, 2, 2));
 
     // add light
     ResourceManager::get()->addLight(
@@ -50,14 +54,15 @@ void Engine::initialize()
     // load scenes
     Scene scene;
     if (!gltf::loadScene(renderer.getGraphics(), scene, "assets/models/DamagedHelmet.glb")) {
-        logger::logError("Failed to load scene.");
+        LOGE("%s", "Failed to load scene.");
         exit(EXIT_FAILURE);
     }
 
-    logger::logInfo("Engine initialized");
+    world.initialize(&physics, &input, appInfo);
 
-    world.initialize(&physics);
-    editor.initialize(&stats);
+    // renderer.setCamera(&flyCamera);
+    // world.getPlayer().setKeyboardInput(false);
+    renderer.setCamera(&world.getPlayer().getCamera());
 
     renderer.createResources();
 }
@@ -73,7 +78,7 @@ void Engine::shutdown()
     SDL_DestroyWindow(window);
     SDL_Quit();
 
-    logger::logInfo("Engine shutdown");
+    LOGI("%s", "Engine shutdown");
 }
 
 void Engine::run()
@@ -88,7 +93,7 @@ void Engine::run()
         float deltaTime = deltaTimer.elapsedMilliseconds() / 1000;
         deltaTimer.start();
 
-        handleInput(deltaTime);
+        processInput(deltaTime);
         update(deltaTime);
 
         if (!minimized)
@@ -96,7 +101,7 @@ void Engine::run()
     }
 }
 
-void Engine::handleInput(float deltaTime)
+void Engine::processInput(float deltaTime)
 {
     ZoneScopedN("Handle input");
 
@@ -122,22 +127,19 @@ void Engine::handleInput(float deltaTime)
             running = false;
         }
 
-        // if (input.getKey(KeyboardKey::R, InputAction::Pressed)) {
-        //     renderer.reloadShaders();
-        // }
-
-        if (input.getKey(KeyboardKey::C, InputAction::JustReleased)) {
-            logger::logInfo("Released");
+        if (input.getKey(KeyboardKey::Q, InputAction::Pressed)) {
+            LOGI("%s", "Reloading shaders");
+            renderer.reloadShaders();
         }
 
         // do raycast
         if (!ImGui::GetIO().WantCaptureMouse && input.getMouseButton(MouseButton::RIGHT, InputAction::JustPressed)) {
-            vec3 direction = -util::mouseToWorldDirection(vec2(event.motion.x, event.motion.y), vec2(width, height), camera.getView(), camera.getProjection());
+            vec3 direction = -util::mouseToWorldDirection(vec2(event.motion.x, event.motion.y), vec2(appInfo.width, appInfo.height), flyCamera.getView(), flyCamera.getProjection());
 
             float raycastRange = 10000.0f;
             direction *= raycastRange;
 
-            JPH::BodyID hitBody = physics.rayCast(camera.getPosition(), -direction);
+            JPH::BodyID hitBody = physics.rayCast(MathToJolt(flyCamera.getPosition()), MathToJolt(-direction));
             if (hitBody != JPH::BodyID()) { // valid body
                 Entity *entity = world.getEntityByBodyId(hitBody.GetIndexAndSequenceNumber());
                 editor.selectEntity(entity);
@@ -146,18 +148,21 @@ void Engine::handleInput(float deltaTime)
             }
         }
 
-        camera.processEvent(event);
+        flyCamera.processEvent(event);
+        world.processEvent(event);
     }
+
+    world.processInput(deltaTime);
 }
 
 void Engine::update(float deltaTime)
 {
     ZoneScopedN("Update");
 
+    physics.update();
+    flyCamera.update(deltaTime);
     world.update(deltaTime);
-    physics.update(deltaTime);
-    camera.update(deltaTime);
-    editor.update(&input, &camera, vec2(width, height));
+    editor.update(&input, &flyCamera, appInfo);
 }
 
 void Engine::render()
@@ -170,5 +175,15 @@ void Engine::render()
     for (const MeshDraw &gizmoMeshDraw : editor.getGizmoMeshDraws())
         renderer.addMeshDraw(gizmoMeshDraw);
 
-    renderer.present(&editor);
+    Player &player = world.getPlayer();
+    renderer.drawMesh(player.getMeshId(), DrawMask::Opaque, player.getTransform());
+
+    if (!renderer.present(&editor)) {
+        // recreating swapchain, so change width/height in application info
+        int width = 0, height = 0;
+        SDL_GetWindowSize(window, &width, &height);
+
+        appInfo.width = width;
+        appInfo.height = height;
+    }
 }

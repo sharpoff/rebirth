@@ -16,23 +16,6 @@ int32_t ResourceManager::addMesh(const Mesh &mesh, eastl::string name)
     return id;
 }
 
-int32_t ResourceManager::addMesh(const eastl::vector<Vertex> &vertices, const eastl::vector<uint32_t> &indices, mat4 transform, int32_t materialId, eastl::string name)
-{
-    // create mesh with 1 primitive
-    Primitive prim{};
-    prim.vertexCount = vertices.size();
-    prim.vertexOffset = addVertices(vertices);
-    prim.indexCount = indices.size();
-    prim.indexOffset = addIndices(indices);
-    prim.materialIndex = materialId;
-
-    Mesh mesh{};
-    mesh.primitives = {prim};
-    mesh.transform = transform;
-
-    return addMesh(mesh, name);
-}
-
 Mesh &ResourceManager::createNewMesh(eastl::string name)
 {
     size_t id = meshes_.size();
@@ -119,12 +102,7 @@ Mesh *ResourceManager::getMeshByName(eastl::string name)
     if (meshesMap_.find(name) != meshesMap_.end())
         return &meshes_[meshesMap_[name]];
 
-    for (auto &[k, v] : meshesMap_) {
-        std::cout << k.c_str() << " ";
-    }
-    std::cout << "\n";
-
-    logger::logError("Failed to get mesh by name ", name.c_str());
+    LOGE("Failed to get mesh by name %s", name.c_str());
     return nullptr;
 }
 
@@ -153,7 +131,7 @@ vulkan::Image *ResourceManager::getImageByName(eastl::string name)
     if (imagesMap_.find(name) != imagesMap_.end())
         return &images_[imagesMap_[name]];
 
-    logger::logError("Failed to get image by name ", name.c_str());
+    LOGE("Failed to get image by name %s", name.c_str());
     return nullptr;
 }
 
@@ -183,7 +161,7 @@ GPUMaterial *ResourceManager::getMaterialByName(eastl::string name)
     if (materialsMap_.find(name) != materialsMap_.end())
         return &materials_[materialsMap_[name]];
 
-    logger::logError("Failed to get material by name ", name.c_str());
+    LOGE("Failed to get material by name %s", name.c_str());
     return nullptr;
 }
 

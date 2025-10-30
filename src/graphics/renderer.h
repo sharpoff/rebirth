@@ -24,14 +24,15 @@ public:
     Renderer()  = default;
     ~Renderer() = default;
 
-    void initialize(SDL_Window *window, EngineStats *engineStats, Physics *physics);
+    void initialize(SDL_Window *window, EngineStats *engineStats);
     void shutdown();
 
     void drawEntity(const Entity &entity, const uint32_t &drawMask = DrawMask::Opaque);
     void drawMesh(const int32_t &meshId, const uint32_t &drawMask = DrawMask::Opaque, const mat4 &transform = mat4(1.0f), const int32_t &overrideMaterialId = -1);
     void addMeshDraw(const MeshDraw &meshDraw);
 
-    void present(Editor *editor);
+    bool present(Editor *editor);
+    void clearFrameData();
 
     void requestResize() { graphics.requestResize(); }
 
@@ -51,7 +52,8 @@ private:
     // Passes
     void clearPass(const VkCommandBuffer cmd);
     void shadowPass(const VkCommandBuffer cmd);
-    void meshPass(const VkCommandBuffer cmd);
+    void opaqueMeshPass(const VkCommandBuffer cmd);
+    void transparentMeshPass(const VkCommandBuffer cmd);
     void overlayPass(const VkCommandBuffer cmd);
     void imGuiPass(const VkCommandBuffer cmd, Editor *editor);
     void skyboxPass(const VkCommandBuffer cmd);
@@ -99,7 +101,9 @@ private:
 
     eastl::vector<MeshDraw> meshDraws;
 
-    eastl::vector<uint32_t> meshDrawIndices;
+    eastl::vector<uint32_t> opaqueDrawIndices;
+    eastl::vector<uint32_t> transparentDrawIndices;
+    eastl::vector<uint32_t> overlayDrawIndices;
 
     VkQueryPool               queryPool;
     eastl::array<uint64_t, 2> timestamps;

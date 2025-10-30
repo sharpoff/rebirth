@@ -2,14 +2,9 @@
 
 #include "math/math.h"
 
-void Editor::initialize(EngineStats *engineStats)
-{
-    assert(engineStats);
+#include <imgui.h>
 
-    this->engineStats = engineStats;
-}
-
-void Editor::update(Input *input, Camera *camera, const vec2 &screenDim)
+void Editor::update(Input *input, Camera *camera, const ApplicationInfo &appInfo)
 {
     assert(input && camera);
 
@@ -19,7 +14,7 @@ void Editor::update(Input *input, Camera *camera, const vec2 &screenDim)
     if (selectedEntity) {
         mat4 transform = selectedEntity->getTransform();
         
-        gizmo.manipulate(input, camera, screenDim, transform);
+        gizmo.manipulate(input, camera, vec2(appInfo.width, appInfo.height), transform);
         gizmo.selected = true;
     } else {
         gizmo.selected = false;
@@ -31,10 +26,8 @@ const eastl::vector<MeshDraw> Editor::getGizmoMeshDraws()
     return gizmo.getMeshDraws();
 }
 
-void Editor::drawEditor()
+void Editor::drawEditor(const EngineStats &engineStats)
 {
-    assert(engineStats);
-
     //
     // Windows
     //
@@ -44,9 +37,9 @@ void Editor::drawEditor()
     if (showDebug) {
         ImGui::Begin("Debug", &showDebug);
 
-        ImGui::Text("Frame time: %f ms", engineStats->timestampDeltaMs);
-        ImGui::Text("FPS: %d", int(1000.0f / engineStats->timestampDeltaMs));
-        ImGui::Text("Draw count: %d", engineStats->drawCount);
+        ImGui::Text("Frame time: %f ms", engineStats.timestampDeltaMs);
+        ImGui::Text("FPS: %d", int(1000.0f / engineStats.timestampDeltaMs));
+        ImGui::Text("Draw count: %d", engineStats.drawCount);
 
         // if (selectedEntity) {
         //     ImGui::Separator();

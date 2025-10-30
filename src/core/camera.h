@@ -3,6 +3,7 @@
 #include "SDL3/SDL_events.h"
 #include "EASTL/unordered_map.h"
 
+#include "glm/ext/quaternion_trigonometric.hpp"
 #include "math/math.h"
 #include "util/common_types.h"
 
@@ -27,10 +28,20 @@ public:
     void setPerspectiveInf(float fov, float aspectRatio, float near);
     void setOrthographic(float left, float right, float bottom, float top, float near, float far);
     void setCameraType(CameraType type);
+    void setKeyboardInput(bool mode) { keyboardInput = mode; }
+    void setMouseInput(bool mode) { mouseInput = mode; }
+    
+    // Orbit camera parameters
+    void setEyeUpOffset(float offset) { eyeUpOffset = offset; }
+    void setEyeFrontOffset(float offset) { eyeFrontOffset = offset; }
+    void setTargetUpOffset(float offset) { targetUpOffset = offset; }
+    void setTargetFrontOffset(float offset) { targetFrontOffset = offset; }
 
+    // getters
     const mat4 &getProjection() const { return projection; }
     const mat4 &getView() const { return view; }
     const vec3 &getPosition() const { return position; }
+    quat getRotation() { return glm::angleAxis(glm::radians(yaw), vec3(0, 1, 0)); }
     const float &getFov() const { return fov; }
 
 private:
@@ -54,6 +65,15 @@ private:
     float fov = 60.0f;
     float aspectRatio = 0.0f;
     float near = 0.1f, far = 100.0f;
+
+    bool keyboardInput = true;
+    bool mouseInput = true;
+
+    // Orbit camera parameters
+    float eyeUpOffset = 0.0f;
+    float eyeFrontOffset = 0.0f;
+    float targetUpOffset = 0.0f;
+    float targetFrontOffset = 0.0f;
 
 private:
     void updateViewMatrix();

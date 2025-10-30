@@ -10,10 +10,10 @@
 #include "Jolt/Physics/Collision/Shape/RotatedTranslatedShape.h"
 #include "Jolt/Physics/Character/CharacterVirtual.h"
 
-#include "physics/helpers.h"
 #include "physics/constants.h"
 
 #include "util/logger.h"
+
 #include "tracy/Tracy.hpp"
 
 void Physics::initialize()
@@ -33,61 +33,38 @@ void Physics::initialize()
     tempAllocator = new JPH::TempAllocatorImpl(10 * 1024 * 1024);
 
     // We need a job system that will execute physics jobs on multiple threads.
-    jobSystem = new JPH::JobSystemThreadPool(
-        JPH::cMaxPhysicsJobs,
-        JPH::cMaxPhysicsBarriers,
-        JPH::thread::hardware_concurrency() - 1);
+    jobSystem = new JPH::JobSystemThreadPool(JPH::cMaxPhysicsJobs, JPH::cMaxPhysicsBarriers, JPH::thread::hardware_concurrency() - 1);
 
-    physicsSystem_.Init(
-        maxBodies,
-        numBodyMutexes,
-        maxBodies,
-        maxContactConstraints,
-        broadPhaseLayerInterface,
-        objectVsBroadPhaseLayerFilter,
-        objectVsObjectFilter);
+    physicsSystem.Init(sMaxBodies, sNumBodyMutexes, sMaxBodies, sMaxContactConstraints, broadPhaseLayerInterface, objectVsBroadPhaseLayerFilter, mobjectVsObjectFilter);
 
-    physicsSystem_.SetBodyActivationListener(&bodyActivationListener);
-    physicsSystem_.SetContactListener(&contactListener);
+    physicsSystem.SetBodyActivationListener(&bodyActivationListener);
+    physicsSystem.SetContactListener(&contactListener);
 
     createDefaultShapes();
-
-    logger::logInfo("Physics initialized");
 }
 
 void Physics::shutdown()
 {
     ZoneScopedN("Physics shutdown");
 
-    JPH::BodyInterface &bodyInterface = physicsSystem_.GetBodyInterface();
-
-    for (auto &body : bodies) {
-        bodyInterface.RemoveBody(body);
-        bodyInterface.DestroyBody(body);
-    }
-
     JPH::UnregisterTypes();
 
     delete tempAllocator;
     delete jobSystem;
 
-    logger::logInfo("Physics shutdown");
-}
-
-void Physics::preUpdate(float dt)
-{
+    LOGI("%s", "Physics shutdown");
 }
 
 void Physics::update()
 {
     ZoneScopedN("Physics update");
 
-    physicsSystem_.Update(tickDelta, 1, tempAllocator, jobSystem);
+    physicsSystem.Update(tickDeltaFixed, 1, tempAllocator, jobSystem);
 }
 
-JPH::BodyID Physics::createBox(vec3 position, quat rotation, vec3 halfExtent, bool isStatic)
+JPH::BodyID Physics::createBox(JPH::Vec3 position, JPH::Quat rotation, JPH::Vec3 halfExtent, bool isStatic)
 {
-    JPH::BoxShapeSettings settings(MathToJolt(halfExtent));
+    JPH::BoxShapeSettings settings(halfExtent);
     settings.SetEmbedded();
 
     JPH::Ref<JPH::Shape> shape;
@@ -95,7 +72,7 @@ JPH::BodyID Physics::createBox(vec3 position, quat rotation, vec3 halfExtent, bo
     if (result.IsValid()) {
         shape = result.Get();
     } else {
-        logger::logError("Failed to create physics box: ", result.GetError());
+        LOGE("Failed to create physics box: %s", result.GetError().c_str());
         return JPH::BodyID(); // invalid
     }
 
@@ -105,76 +82,91 @@ JPH::BodyID Physics::createBox(vec3 position, quat rotation, vec3 halfExtent, bo
 
     JPH::BodyCreationSettings bodyCreateInfo = JPH::BodyCreationSettings(
         shape.GetPtr(),
-        MathToJolt(position), MathToJolt(glm::normalize(rotation)),
+        position, rotation.Normalized(),
         motionType, layer
     );
 
-    JPH::BodyInterface &bodyInterface = physicsSystem_.GetBodyInterface();
+    JPH::BodyInterface &bodyInterface = getBodyInterface();
     JPH::BodyID bodyId = bodyInterface.CreateAndAddBody(bodyCreateInfo, activation);
     if (bodyId.IsInvalid()) {
-        logger::logError("Cannot create physics body - out of bodies!");
+        LOGE("%s", "Cannot create physics body, out of bodies!");
         return JPH::BodyID(); // invalid
     }
 
-    bodies.push_back(bodyId);
+    bodyInterface.SetLinearVelocity(bodyId, physicsSystem.GetGravity());
 
     return bodyId;
 }
 
-JPH::Ref<JPH::CharacterVirtual> Physics::createPlayer(JPH::Ref<JPH::CharacterVirtualSettings> settings)
+JPH::Ref<JPH::CharacterVirtual> Physics::createPlayer(JPH::Ref<JPH::CharacterVirtualSettings> settings, const JPH::Vec3 &position)
 {
-    JPH::Ref<JPH::CharacterVirtual> character = new JPH::CharacterVirtual(settings, JPH::RVec3::sZero(), JPH::Quat::sIdentity(), 0, &physicsSystem_);
-    character->SetCharacterVsCharacterCollision(&characterVsCharacterCollision_);
-	characterVsCharacterCollision_.Add(character);
+    JPH::Ref<JPH::CharacterVirtual> character = new JPH::CharacterVirtual(settings, position, JPH::Quat::sIdentity(), 0, &physicsSystem);
+    character->SetCharacterVsCharacterCollision(&characterVsCharacterCollision);
+	characterVsCharacterCollision.Add(character);
 
 	// Install contact listener for all characters
-	for (JPH::CharacterVirtual *character : characterVsCharacterCollision_.mCharacters)
-		character->SetListener(&characterContactListener_);
+	for (JPH::CharacterVirtual *character : characterVsCharacterCollision.mCharacters)
+		character->SetListener(&characterContactListener);
 
     return character;
 }
 
-vec3 Physics::getPosition(JPH::BodyID bodyId)
+void Physics::removeBodyById(JPH::BodyID id)
+{
+    JPH::BodyInterface &bodyInterface = getBodyInterface();
+    bodyInterface.RemoveBody(id);
+    bodyInterface.DestroyBody(id);
+}
+
+JPH::Vec3 Physics::getPosition(JPH::BodyID bodyId)
 {
     assert(bodyId != JPH::BodyID());
 
-    JPH::BodyInterface &bodyInterface = physicsSystem_.GetBodyInterface();
-    return JoltToMath(bodyInterface.GetPosition(bodyId));
+    JPH::BodyInterface &bodyInterface = getBodyInterface();
+    return bodyInterface.GetPosition(bodyId);
 }
 
-quat Physics::getRotation(JPH::BodyID bodyId)
+JPH::Quat Physics::getRotation(JPH::BodyID bodyId)
 {
     assert(bodyId != JPH::BodyID());
 
-    JPH::BodyInterface &bodyInterface = physicsSystem_.GetBodyInterface();
-    return JoltToMath(bodyInterface.GetRotation(bodyId));
+    JPH::BodyInterface &bodyInterface = getBodyInterface();
+    return bodyInterface.GetRotation(bodyId);
 }
 
-void Physics::setPosition(JPH::BodyID bodyId, vec3 position)
+void Physics::setPosition(JPH::BodyID bodyId, JPH::Vec3 position)
 {
     assert(bodyId != JPH::BodyID());
 
-    JPH::BodyInterface &bodyInterface = physicsSystem_.GetBodyInterface();
-    bodyInterface.SetPosition(bodyId, MathToJolt(position), JPH::EActivation::Activate);
+    JPH::BodyInterface &bodyInterface = getBodyInterface();
+    bodyInterface.SetPosition(bodyId, position, JPH::EActivation::Activate);
 }
 
-void Physics::setRotation(JPH::BodyID bodyId, quat rotation)
+void Physics::setRotation(JPH::BodyID bodyId, JPH::Quat rotation)
 {
     assert(bodyId != JPH::BodyID());
 
-    JPH::BodyInterface &bodyInterface = physicsSystem_.GetBodyInterface();
-    bodyInterface.SetRotation(bodyId, MathToJolt(rotation), JPH::EActivation::Activate);
+    JPH::BodyInterface &bodyInterface = getBodyInterface();
+    bodyInterface.SetRotation(bodyId, rotation, JPH::EActivation::Activate);
 }
 
-JPH::BodyID Physics::rayCast(vec3 origin, vec3 direction)
+void Physics::setScale(JPH::BodyID bodyId, JPH::Vec3 scale)
 {
-    JPH::RayCast ray(MathToJolt(origin), MathToJolt(direction));
+    JPH::BodyInterface &bodyInterface = getBodyInterface();
+    JPH::RefConst<JPH::Shape> shape = bodyInterface.GetShape(bodyId);
+    shape->ScaleShape(scale);
+    bodyInterface.SetShape(bodyId, shape, true, JPH::EActivation::Activate);
+}
+
+JPH::BodyID Physics::rayCast(JPH::Vec3 origin, JPH::Vec3 direction)
+{
+    JPH::RayCast ray(origin, direction);
     JPH::ClosestHitCollisionCollector<JPH::RayCastBodyCollector> collector;
 
-    physicsSystem_.GetBroadPhaseQuery().CastRay(ray, collector);
+    physicsSystem.GetBroadPhaseQuery().CastRay(ray, collector);
 
     if (collector.HadHit()) {
-        logger::logInfo("Ray cast HadHit()");
+        LOGI("%s", "Ray cast HadHit()");
         const JPH::RayCastBodyCollector::ResultType hit = collector.mHit;
 
         return hit.mBodyID;
@@ -185,48 +177,8 @@ JPH::BodyID Physics::rayCast(vec3 origin, vec3 direction)
 
 void Physics::createDefaultShapes()
 {
-    shapes["character_standing"] = JPH::RotatedTranslatedShapeSettings(JPH::Vec3(0, 0.5f * kCharacterHeightStanding + kCharacterRadiusStanding, 0), JPH::Quat::sIdentity(), new JPH::CapsuleShape(0.5f * kCharacterHeightStanding, kCharacterRadiusStanding)).Create().Get();
-    shapes["character_crouching"] = JPH::RotatedTranslatedShapeSettings(JPH::Vec3(0, 0.5f * kCharacterHeightCrouching + kCharacterRadiusCrouching, 0), JPH::Quat::sIdentity(), new JPH::CapsuleShape(0.5f * kCharacterHeightCrouching, kCharacterRadiusCrouching)).Create().Get();
-    shapes["character_inner_standing"] = JPH::RotatedTranslatedShapeSettings(JPH::Vec3(0, 0.5f * kCharacterHeightStanding + kCharacterRadiusStanding, 0), JPH::Quat::sIdentity(), new JPH::CapsuleShape(0.5f * kInnerShapeFraction * kCharacterHeightStanding, kInnerShapeFraction * kCharacterRadiusStanding)).Create().Get();
-    shapes["character_inner_crouching"] = JPH::RotatedTranslatedShapeSettings(JPH::Vec3(0, 0.5f * kCharacterHeightCrouching + kCharacterRadiusCrouching, 0), JPH::Quat::sIdentity(), new JPH::CapsuleShape(0.5f * kInnerShapeFraction * kCharacterHeightCrouching, kInnerShapeFraction * kCharacterRadiusCrouching)).Create().Get();
-}
-
-JPH::RefConst<JPH::Shape> Physics::getShapeByName(eastl::string name)
-{
-    return shapes[name];
-}
-
-void Physics::updateCharacter(float deltaTime, JPH::Ref<JPH::CharacterVirtual> character, const JPH::CharacterVirtual::ExtendedUpdateSettings &settings)
-{
-    bool sEnableStickToFloor = true;
-    bool sEnableWalkStairs = true;
-
-	character->ExtendedUpdate(deltaTime,
-		-character->GetUp() * physicsSystem_.GetGravity().Length(),
-		settings,
-		physicsSystem_.GetDefaultBroadPhaseLayerFilter(Layers::MOVING),
-		physicsSystem_.GetDefaultLayerFilter(Layers::MOVING),
-		{},
-		{},
-		*tempAllocator);
-
-	vec3 oldPosition = JoltToMath(character->GetPosition());
-
-	vec3 centerOfMass = JoltToMath(character->GetCenterOfMassPosition());
-	mat4 worldTransform = JoltToMath(character->GetWorldTransform());
-
-	JPH::CharacterVirtual::ExtendedUpdateSettings updateSettings;
-	if (!sEnableStickToFloor)
-		updateSettings.mStickToFloorStepDown = JPH::Vec3::sZero();
-	else
-		updateSettings.mStickToFloorStepDown = -character->GetUp() * updateSettings.mStickToFloorStepDown.Length();
-
-	if (!sEnableWalkStairs)
-		updateSettings.mWalkStairsStepUp = JPH::Vec3::sZero();
-	else
-		updateSettings.mWalkStairsStepUp = character->GetUp() * updateSettings.mWalkStairsStepUp.Length();
-
-    // Calculate effective velocity
-	vec3 newPosition = JoltToMath(character->GetPosition());
-	vec3 velocity = vec3(newPosition - oldPosition) / deltaTime;
+    characterStandingShape = JPH::RotatedTranslatedShapeSettings(JPH::Vec3(0, 0.5f * kCharacterHeightStanding + kCharacterRadiusStanding, 0), JPH::Quat::sIdentity(), new JPH::CapsuleShape(0.5f * kCharacterHeightStanding, kCharacterRadiusStanding)).Create().Get();
+    characterCrouchingShape = JPH::RotatedTranslatedShapeSettings(JPH::Vec3(0, 0.5f * kCharacterHeightCrouching + kCharacterRadiusCrouching, 0), JPH::Quat::sIdentity(), new JPH::CapsuleShape(0.5f * kCharacterHeightCrouching, kCharacterRadiusCrouching)).Create().Get();
+    characterInnerStandingShape = JPH::RotatedTranslatedShapeSettings(JPH::Vec3(0, 0.5f * kCharacterHeightStanding + kCharacterRadiusStanding, 0), JPH::Quat::sIdentity(), new JPH::CapsuleShape(0.5f * kInnerShapeFraction * kCharacterHeightStanding, kInnerShapeFraction * kCharacterRadiusStanding)).Create().Get();
+    characterInnerCrouchingShape = JPH::RotatedTranslatedShapeSettings(JPH::Vec3(0, 0.5f * kCharacterHeightCrouching + kCharacterRadiusCrouching, 0), JPH::Quat::sIdentity(), new JPH::CapsuleShape(0.5f * kInnerShapeFraction * kCharacterHeightCrouching, kInnerShapeFraction * kCharacterRadiusCrouching)).Create().Get();
 }

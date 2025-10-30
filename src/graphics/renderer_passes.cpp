@@ -40,7 +40,7 @@ void Renderer::shadowPass(const VkCommandBuffer cmd)
     // Draw
     //
     for (auto &light : ResourceManager::get()->getLights()) {
-        for (uint32_t &draw : meshDrawIndices) {
+        for (uint32_t &draw : opaqueDrawIndices) {
             MeshDraw &meshDraw = meshDraws[draw];
             if ((meshDraw.drawMask & DrawMask::Shadow) != DrawMask::Shadow)
                 continue;
@@ -94,7 +94,7 @@ void Renderer::shadowPass(const VkCommandBuffer cmd)
         &shadowMapReadBarrier);
 }
 
-void Renderer::meshPass(const VkCommandBuffer cmd)
+void Renderer::opaqueMeshPass(const VkCommandBuffer cmd)
 {
     const Swapchain &swapchain = graphics.getSwapchain();
 
@@ -120,7 +120,7 @@ void Renderer::meshPass(const VkCommandBuffer cmd)
     depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 
     float color[4] = {0.3, 0.3, 0.0, 0.3};
-    vulkan::beginDebugLabel(cmd, "Mesh pass", color);
+    vulkan::beginDebugLabel(cmd, "Opaque mesh pass", color);
 
     eastl::vector<VkRenderingAttachmentInfo> colorAttachments = {colorAttachment};
     vulkan::beginRendering(cmd, colorAttachments, &depthAttachment, extent);
@@ -136,14 +136,10 @@ void Renderer::meshPass(const VkCommandBuffer cmd)
     VkPipeline *currentPipeline = &pipelines["mesh_opaque"];
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, *currentPipeline);
 
-    for (uint32_t &draw : meshDrawIndices) {
+    for (uint32_t &draw : opaqueDrawIndices) {
         MeshDraw &meshDraw = meshDraws[draw];
         Mesh *mesh = ResourceManager::get()->getMeshByIndex(meshDraw.meshId);
         if (!mesh)
-            continue;
-
-        // HACK: don't render overlay here
-        if ((meshDraw.drawMask & DrawMask::Overlay) == DrawMask::Overlay)
             continue;
 
         // set pipeline
@@ -154,10 +150,77 @@ void Renderer::meshPass(const VkCommandBuffer cmd)
         } else if ((meshDraw.drawMask & DrawMask::Wireframe) == DrawMask::Wireframe && currentPipeline != &pipelines["wireframe"]) {
             currentPipeline = &pipelines["wireframe"];
             vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, *currentPipeline);
-        } else if ((meshDraw.drawMask & DrawMask::Transparent) == DrawMask::Transparent && currentPipeline != &pipelines["mesh_transparent"]) {
-            currentPipeline = &pipelines["mesh_transparent"];
-            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, *currentPipeline);
         }
+
+        for (Primitive &primitive : mesh->primitives) {
+            MeshPassPC pc = {
+                .transform = meshDraw.transform * mesh->transform,
+                .materialIndex = meshDraw.overrideMaterialId > -1 ? meshDraw.overrideMaterialId : primitive.materialIndex,
+                .drawMask = meshDraw.drawMask,
+            };
+
+            vkCmdPushConstants(cmd, pipelineLayouts["mesh"], VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pc), &pc);
+
+            if (primitive.indexCount > 0)
+                vkCmdDrawIndexed(cmd, primitive.indexCount, 1, primitive.indexOffset, primitive.vertexOffset, 0);
+            else
+                vkCmdDraw(cmd, primitive.vertexCount, 1, primitive.vertexOffset, 0);
+        }
+
+        engineStats->drawCount++;
+    }
+
+    // end
+    vulkan::endRendering(cmd);
+    vulkan::endDebugLabel(cmd);
+}
+
+void Renderer::transparentMeshPass(const VkCommandBuffer cmd)
+{
+    const Swapchain &swapchain = graphics.getSwapchain();
+
+    // TODO: make RenderInfo that would contain all information needed for a pipeline
+    const VkExtent2D extent = swapchain.getExtent();
+    const Image     &colorImage = graphics.getColorImage();
+    const Image     &depthImage = graphics.getDepthImage();
+
+    // attachments
+    VkRenderingAttachmentInfo colorAttachment;
+    colorAttachment = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
+    colorAttachment.clearValue.color = {{0.0, 0.0, 0.0, 1.0}};
+    colorAttachment.imageView = colorImage.view;
+    colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+    colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+
+    VkRenderingAttachmentInfo depthAttachment = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
+    depthAttachment.clearValue.depthStencil = {0.0, 0};
+    depthAttachment.imageView = depthImage.view;
+    depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+
+    float color[4] = {0.0, 0.2, 0.5, 1.0};
+    vulkan::beginDebugLabel(cmd, "Transparent mesh pass", color);
+
+    eastl::vector<VkRenderingAttachmentInfo> colorAttachments = {colorAttachment};
+    vulkan::beginRendering(cmd, colorAttachments, &depthAttachment, extent);
+
+    vulkan::setViewport(cmd, 0.0f, 0.0f, extent.width, extent.height);
+    vulkan::setScissor(cmd, extent);
+
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayouts["mesh"], 0, 1, &graphics.getDescriptorManager().getSet(), 0, nullptr);
+
+    //
+    // Draw
+    //
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines["mesh_transparent"]);
+
+    for (uint32_t &draw : opaqueDrawIndices) {
+        MeshDraw &meshDraw = meshDraws[draw];
+        Mesh *mesh = ResourceManager::get()->getMeshByIndex(meshDraw.meshId);
+        if (!mesh)
+            continue;
 
         for (Primitive &primitive : mesh->primitives) {
             MeshPassPC pc = {
@@ -224,14 +287,10 @@ void Renderer::overlayPass(const VkCommandBuffer cmd)
     VkPipeline *currentPipeline = &pipelines["mesh_opaque"];
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, *currentPipeline);
 
-    for (uint32_t &draw : meshDrawIndices) {
+    for (uint32_t &draw : overlayDrawIndices) {
         MeshDraw &meshDraw = meshDraws[draw];
         Mesh *mesh = ResourceManager::get()->getMeshByIndex(meshDraw.meshId);
         if (!mesh)
-            continue;
-
-        // HACK: render ONLY overlay here
-        if ((meshDraw.drawMask & DrawMask::Overlay) != DrawMask::Overlay)
             continue;
 
         // set pipeline
@@ -337,7 +396,7 @@ void Renderer::imGuiPass(const VkCommandBuffer cmd, Editor *editor)
     //
     // Draw
     //
-    editor->drawEditor();
+    editor->drawEditor(*engineStats);
 
     ImGui::Render();
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);

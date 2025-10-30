@@ -22,7 +22,6 @@ public:
     }
 
     int32_t addMesh(const Mesh &mesh, eastl::string name = "");
-    int32_t addMesh(const eastl::vector<Vertex> &vertices, const eastl::vector<uint32_t> &indices, mat4 transform = mat4(1.0f), int32_t materialId = -1, eastl::string name = "");
     Mesh &createNewMesh(eastl::string name);
 
     int32_t addImage(const vulkan::Image &image, eastl::string name = "");

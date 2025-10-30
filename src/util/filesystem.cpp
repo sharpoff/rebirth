@@ -29,7 +29,7 @@ namespace filesystem
         std::ifstream file(path, std::ios::ate | std::ios::binary);
 
         if (!file.is_open()) {
-            logger::logError("Failed to open file - ", path);
+            LOGE("Failed to open file %s", path.c_str());
             return {};
         }
 

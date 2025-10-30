@@ -1,36 +1,13 @@
 #pragma once
 
-#include <iostream>
+#include <stdarg.h>
 
-namespace
-{
-    constexpr const char *beginEscape = "\x1B[";
-    constexpr const char *endEscape = "\x1B[m";
-} // namespace
 
 namespace logger
 {
-    template <class... Args>
-    static void logInfo(Args... args)
-    {
-        std::cout << beginEscape << 37 << "m" << "[INFO] ";
-        (std::cout << ... << args);
-        std::cout << endEscape << "\n";
-    }
+    void log(const char *fmt, ...);
+}
 
-    template <class... Args>
-    static void logWarn(Args... args)
-    {
-        std::cout << beginEscape << 33 << "m" << "[WARN] ";
-        (std::cout << ... << args);
-        std::cout << endEscape << "\n";
-    }
-
-    template <class... Args>
-    static void logError(Args... args)
-    {
-        std::cout << beginEscape << 31 << "m" << "[ERROR] ";
-        (std::cout << ... << args);
-        std::cout << endEscape << "\n";
-    }
-} // namespace logger
+#define LOGI(fmt, ...) logger::log("[%s][INFO ] " fmt "\n", __TIME__, __VA_ARGS__)
+#define LOGW(fmt, ...) logger::log("\033[33m" "[%s][WARN ] " fmt "\033[0m\n", __TIME__, __VA_ARGS__)
+#define LOGE(fmt, ...) logger::log("\033[31m" "[%s][ERROR] " fmt "\033[0m\n", __TIME__, __VA_ARGS__)

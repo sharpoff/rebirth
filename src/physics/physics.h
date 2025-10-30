@@ -1,11 +1,5 @@
 #pragma once
 
-#include "math/math.h"
-
-#include "EASTL/string.h"
-#include "EASTL/vector.h"
-#include "EASTL/unordered_map.h"
-
 #include <Jolt/Jolt.h>
 
 #include <Jolt/Core/Factory.h>
@@ -17,6 +11,7 @@
 #include <Jolt/Physics/Collision/Shape/SphereShape.h>
 #include <Jolt/Physics/PhysicsSettings.h>
 #include <Jolt/Physics/PhysicsSystem.h>
+#include "Jolt/Physics/Body/BodyID.h"
 #include "Jolt/Physics/Character/CharacterVirtual.h"
 
 #include <physics/layers.h>
@@ -32,39 +27,36 @@ public:
     void initialize();
     void shutdown();
 
-    void preUpdate(float dt);
     void update();
 
-    JPH::BodyID createBox(vec3 position, quat rotation, vec3 halfExtent, bool isStatic);
-    JPH::Ref<JPH::CharacterVirtual> createPlayer(JPH::Ref<JPH::CharacterVirtualSettings> settings);
+    JPH::BodyID createBox(JPH::Vec3 position, JPH::Quat rotation, JPH::Vec3 halfExtent, bool isStatic);
+    JPH::Ref<JPH::CharacterVirtual> createPlayer(JPH::Ref<JPH::CharacterVirtualSettings> settings, const JPH::Vec3 &position);
 
-    JPH::BodyID rayCast(vec3 origin, vec3 direction);
+    void removeBodyById(JPH::BodyID id);
 
-    vec3 getPosition(JPH::BodyID bodyId);
-    quat getRotation(JPH::BodyID bodyId);
+    JPH::BodyID rayCast(JPH::Vec3 origin, JPH::Vec3 direction);
 
-    void setPosition(JPH::BodyID bodyId, vec3 position);
-    void setRotation(JPH::BodyID bodyId, quat rotation);
+    JPH::Vec3 getPosition(JPH::BodyID bodyId);
+    JPH::Quat getRotation(JPH::BodyID bodyId);
 
-    JPH::RefConst<JPH::Shape> getShapeByName(eastl::string name);
+    void setPosition(JPH::BodyID bodyId, JPH::Vec3 position);
+    void setRotation(JPH::BodyID bodyId, JPH::Quat rotation);
+    void setScale(JPH::BodyID bodyId, JPH::Vec3 scale);
+
+    JPH::PhysicsSystem *getSystem() { return &physicsSystem; }
+    JPH::TempAllocatorImpl *getTempAllocator() { return tempAllocator; };
+    JPH::BodyInterface &getBodyInterface() { return physicsSystem.GetBodyInterface(); };
+
+    JPH::RefConst<JPH::Shape> &getCharacterStandingShape() { return characterStandingShape; }
+    JPH::RefConst<JPH::Shape> &getCharacterCrouchingShape() { return characterCrouchingShape; }
+    JPH::RefConst<JPH::Shape> &getCharacterInnerCrouchingShape() { return characterInnerCrouchingShape; }
+    JPH::RefConst<JPH::Shape> &getCharacterInnerStandingShape() { return characterInnerStandingShape; }
 
 private:
-    void updateCharacter(float deltaTime, JPH::Ref<JPH::CharacterVirtual> character, const JPH::CharacterVirtual::ExtendedUpdateSettings &settings);
     void createDefaultShapes();
 
     JPH::JobSystemThreadPool *jobSystem;
     JPH::TempAllocatorImpl *tempAllocator;
-
-    // This is the max amount of rigid bodies that you can add to the physics system. If you try to add more you'll get an error.
-    // Note: This value is low because this is a simple test. For a real project use something in the order of 65536.
-    const uint maxBodies = 1024;
-
-    // This determines how many mutexes to allocate to protect rigid bodies from concurrent access. Set it to 0 for the default settings.
-    const uint numBodyMutexes = 0;
-
-    // This is the max amount of body pairs that can be queued at any time (the broad phase will detect overlapping
-    // body pairs based on their bounding boxes and will insert them into a queue for the narrowphase).
-    const uint maxContactConstraints = 1024;
 
     // mapping table from object layer to broadphase layer
     BPLayerInterfaceImpl broadPhaseLayerInterface;
@@ -73,22 +65,21 @@ private:
     ObjectVsBroadPhaseLayerFilterImpl objectVsBroadPhaseLayerFilter;
 
     // class that filters object vs object layers
-    ObjectLayerPairFilterImpl objectVsObjectFilter;
+    ObjectLayerPairFilterImpl mobjectVsObjectFilter;
 
     BodyActivationListener bodyActivationListener;
     ContactListener contactListener;
 
-    JPH::PhysicsSystem physicsSystem_;
-
     // default shapes
-    eastl::unordered_map<eastl::string, JPH::RefConst<JPH::Shape>> shapes;
+    JPH::RefConst<JPH::Shape> characterStandingShape;
+    JPH::RefConst<JPH::Shape> characterCrouchingShape;
+    JPH::RefConst<JPH::Shape> characterInnerCrouchingShape;
+    JPH::RefConst<JPH::Shape> characterInnerStandingShape;
 
     // character
-    JPH::CharacterVsCharacterCollisionSimple characterVsCharacterCollision_;
-    JPH::CharacterContactListener characterContactListener_;
+    JPH::CharacterVsCharacterCollisionSimple characterVsCharacterCollision;
+    CharacterContactListenerImpl characterContactListener;
 
-    eastl::vector<JPH::BodyID> bodies;
-    eastl::vector<JPH::CharacterVirtual> characters;
-
-    const float tickDelta = 1.0f / 60.0f;
+    JPH::PhysicsSystem physicsSystem;
+    const float tickDeltaFixed = 1.0f / 60.0f;
 };

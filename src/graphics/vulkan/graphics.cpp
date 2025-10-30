@@ -45,7 +45,7 @@ namespace vulkan
         else if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
             severity = "WARNING";
 
-        printf("[%s][%s] %s\n", type, severity, pCallbackData->pMessage);
+        logger::log("[%s][VULKAN][%s / %s] %s\n", __TIME__, type, severity, pCallbackData->pMessage);
 
         return VK_FALSE;
     }
@@ -470,7 +470,7 @@ namespace vulkan
     {
         resizeRequested = false;
 
-        logger::logInfo("Recreating swapchain");
+        LOGI("%s", "Recreating swapchain");
         vkDeviceWaitIdle(device);
 
         swapchain.destroy(device);
@@ -536,7 +536,7 @@ namespace vulkan
     void Graphics::uploadBuffer(Buffer &buffer, void *data, VkDeviceSize size)
     {
         if (size <= 0) {
-            logger::logError("Cannot upload buffer - size is 0.");
+            LOGE("%s", "Cannot upload buffer, size is 0.");
             return;
         }
 
@@ -574,7 +574,7 @@ namespace vulkan
             recreateSwapchain();
             return VK_NULL_HANDLE;
         } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
-            logger::logError("Failed to acquire swapchain image.");
+            LOGE("%s", "Failed to acquire swapchain image.");
             exit(EXIT_FAILURE);
         }
 
@@ -673,7 +673,7 @@ namespace vulkan
     {
         unsigned char *pixels = stbi_load(path.c_str(), reinterpret_cast<int *>(&createInfo.width), reinterpret_cast<int *>(&createInfo.height), reinterpret_cast<int *>(&createInfo.channels), STBI_rgb_alpha);
         if (!pixels) {
-            logger::logError("Failed to load texture: ", path);
+            LOGE("Failed to load texture: %s", path.c_str());
             return;
         }
 
@@ -684,7 +684,7 @@ namespace vulkan
     {
         unsigned char *pixels = stbi_load_from_memory(data, size, reinterpret_cast<int *>(&createInfo.width), reinterpret_cast<int *>(&createInfo.height), reinterpret_cast<int *>(&createInfo.channels), STBI_rgb_alpha);
         if (!pixels) {
-            logger::logError("Failed to load texture from memory");
+            LOGE("%s", "Failed to load texture from memory");
             return;
         }
 
@@ -807,7 +807,7 @@ namespace vulkan
 
             imagePixels[i] = stbi_load(path.c_str(), reinterpret_cast<int *>(&createInfo.width), reinterpret_cast<int *>(&createInfo.height), reinterpret_cast<int *>(&createInfo.channels), STBI_rgb_alpha);
             if (!imagePixels[i]) {
-                logger::logError("Failed to load image: ", path);
+                LOGE("Failed to load image: %s", path.c_str());
                 return;
             }
         }

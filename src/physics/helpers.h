@@ -1,8 +1,7 @@
 #pragma once
 
 #include <Jolt/Jolt.h>
-
-#include <math/math.h>
+#include "math/math.h"
 
 inline vec3 JoltToMath(JPH::Vec3 vec)
 {

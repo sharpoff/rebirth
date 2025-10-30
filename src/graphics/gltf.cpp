@@ -15,32 +15,28 @@ namespace gltf
         cgltf_result result = cgltf_parse_file(&options, file.c_str(), &data);
 
         if (result != cgltf_result_success) {
-            logger::logError("Failed to load gltf scene ", file);
+            LOGE("Failed to load gltf scene %s", file.c_str());
             return false;
         }
 
         if ((result = cgltf_load_buffers(&options, data, file.c_str())) !=
             cgltf_result_success) {
-            logger::logError("Failed to load buffers of gltf scene ", file);
+            LOGE("Failed to load buffers of gltf scene %s", file.c_str());
             return false;
         }
 
         if ((result = cgltf_validate(data)) != cgltf_result_success) {
-            logger::logError("Failed to load validate gltf scene ", file);
+            LOGE("Failed to load validate gltf scene %s", file.c_str());
             return false;
         }
 
         if (!data) {
-            logger::logError("Failed to load scene - ", file);
+            LOGE("Failed to load data for gltf scene %s", file.c_str());
             return false;
         }
 
         scene.name = file.stem().c_str();
         cgltf_scene *root = data->scene;
-        if (!root) {
-            logger::logError("Failed to load scene - root is NULL!");
-            return false;
-        }
 
         scene.nodes.resize(root->nodes_count);
         for (size_t i = 0; i < scene.nodes.size(); i++)

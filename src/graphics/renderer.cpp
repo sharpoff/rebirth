@@ -1,8 +1,8 @@
 #include "graphics/renderer.h"
 
+#include "core/draw_mask.h"
 #include "core/engine_stats.h"
 #include "core/material.h"
-#include "core/material_flag.h"
 #include "core/resource_manager.h"
 #include "core/scene_draw_data.h"
 #include "graphics/gltf.h"
@@ -13,14 +13,13 @@
 #include "graphics/vulkan/util.h"
 #include "game/entity.h"
 
-#include "physics/physics.h"
+#include "math/math.h"
 #include "util/logger.h"
-#include "util/common_types.h"
 
 #include "tracy/Tracy.hpp"
 #include "tracy/TracyVulkan.hpp"
 
-void Renderer::initialize(SDL_Window *window, EngineStats *engineStats, Physics *physics)
+void Renderer::initialize(SDL_Window *window, EngineStats *engineStats)
 {
     ZoneScopedN("Renderer initialize");
 
@@ -36,8 +35,6 @@ void Renderer::initialize(SDL_Window *window, EngineStats *engineStats, Physics 
     createPipelines();
 
     loadDefaultResources();
-
-    logger::logInfo("Renderer initialized");
 }
 
 void Renderer::shutdown()
@@ -64,11 +61,15 @@ void Renderer::shutdown()
 
     graphics.destroy();
 
-    logger::logInfo("Renderer shutdown");
+    LOGI("%s", "Renderer shutdown");
 }
 
 void Renderer::drawEntity(const Entity &entity, const uint32_t &drawMask)
 {
+    ZoneScoped;
+
+    if (entity.getMeshID() < 0) return;
+
     meshDraws.push_back(
         MeshDraw{
             .meshId = entity.getMeshID(),
@@ -105,6 +106,8 @@ void Renderer::drawMesh(const int32_t &meshId, const uint32_t &drawMask, const m
 
 void Renderer::addMeshDraw(const MeshDraw &meshDraw)
 {
+    ZoneScoped;
+
     meshDraws.push_back(meshDraw);
 }
 
@@ -136,19 +139,11 @@ void Renderer::updateDynamicData()
     memcpy(sceneDataBuffer.info.pMappedData, &sceneData, sizeof(sceneData));
 }
 
-void Renderer::present(Editor *editor)
+bool Renderer::present(Editor *editor)
 {
-    assert(editor);
-
     ZoneScoped;
 
-    engineStats->timestampDeltaMs = getTimestampDeltaMs();
-
-    // TODO: create and update global joints buffer
-    updateDynamicData();
-
-    cullAndIndexMeshDraws();
-    sortMeshDraws(meshDrawIndices);
+    assert(editor);
 
     //
     // Create and begin command buffer
@@ -156,8 +151,17 @@ void Renderer::present(Editor *editor)
     const VkCommandBuffer cmd = graphics.beginCommandBuffer();
     if (cmd == VK_NULL_HANDLE) {
         // Don't present - recreating swapchain
-        return;
+        clearFrameData();
+        return false;
     }
+
+    // TODO: create and update global joints buffer
+    updateDynamicData();
+
+    cullAndIndexMeshDraws();
+    sortMeshDraws(opaqueDrawIndices);
+    sortMeshDraws(transparentDrawIndices);
+    sortMeshDraws(overlayDrawIndices);
 
     bool supportTimestamps = graphics.supportTimestamps();
 
@@ -215,7 +219,7 @@ void Renderer::present(Editor *editor)
     //
     // Shadow Pass
     //
-    if (ResourceManager::get()->getLightsSize() > 0 && !meshDrawIndices.empty()) {
+    if (ResourceManager::get()->getLightsSize() > 0 && !opaqueDrawIndices.empty()) {
         ZoneScopedN("Shadow Pass");
         TracyVkZone(graphics.getTracyContext(), cmd, "Shadow Pass");
 
@@ -223,13 +227,23 @@ void Renderer::present(Editor *editor)
     }
 
     //
-    // Mesh Pass
+    // Opaque mesh Pass
     //
-    if (!meshDrawIndices.empty()) {
+    if (!opaqueDrawIndices.empty()) {
         ZoneScopedN("Mesh Pass");
         TracyVkZone(graphics.getTracyContext(), cmd, "Mesh Pass");
 
-        meshPass(cmd);
+        opaqueMeshPass(cmd);
+    }
+
+    //
+    // Transparent mesh Pass
+    //
+    if (!transparentDrawIndices.empty()) {
+        ZoneScopedN("Mesh Pass");
+        TracyVkZone(graphics.getTracyContext(), cmd, "Mesh Pass");
+
+        transparentMeshPass(cmd);
     }
 
     //
@@ -303,8 +317,19 @@ void Renderer::present(Editor *editor)
         vkGetQueryPoolResults(graphics.getDevice(), queryPool, 0, timestamps.size(), timestamps.size() * sizeof(uint64_t), timestamps.data(), sizeof(uint64_t), VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
     }
 
+    engineStats->timestampDeltaMs = getTimestampDeltaMs();
+    clearFrameData();
+
+    return true;
+}
+
+void Renderer::clearFrameData()
+{
     meshDraws.clear();
-    meshDrawIndices.clear();
+
+    opaqueDrawIndices.clear();
+    overlayDrawIndices.clear();
+    transparentDrawIndices.clear();
 
     engineStats->drawCount = 0;
 }
@@ -317,11 +342,18 @@ void Renderer::cullAndIndexMeshDraws()
     // const mat4 &viewProj = camera->getProjection() * camera->getView();
 
     for (size_t i = 0; i < meshDraws.size(); i++) {
+        MeshDraw &draw = meshDraws[i];
         // FIXME: not working properly
         // if (!math::isSphereVisible(meshDraws[i].boundingSphere, viewProj, meshDraws[i].transform * ResourceManager::get()->getMeshByIndex(meshDraws[i].meshId)->transform))
         //     continue;
 
-        meshDrawIndices.push_back(i);
+        if ((draw.drawMask & DrawMask::Overlay) == DrawMask::Overlay) {
+            overlayDrawIndices.push_back(i);
+        } else if ((draw.drawMask & DrawMask::Opaque) == DrawMask::Opaque) {
+            opaqueDrawIndices.push_back(i);
+        } else if ((draw.drawMask & DrawMask::Transparent) == DrawMask::Transparent) {
+            transparentDrawIndices.push_back(i);
+        }
     }
 }
 
@@ -606,8 +638,6 @@ void Renderer::reloadShaders()
 {
     ZoneScoped;
 
-    logger::logInfo("Reloading shaders.");
-
     vkDeviceWaitIdle(graphics.getDevice());
     destroyPipelines();
     createPipelines();
@@ -615,18 +645,6 @@ void Renderer::reloadShaders()
 
 void Renderer::loadDefaultResources()
 {
-    //
-    // Meshes/scenes
-    //
-
-    Scene primitives;
-    if (!gltf::loadScene(graphics, primitives, "assets/models/primitives.glb"))
-        exit(EXIT_FAILURE);
-
-    Scene gizmo;
-    if (!gltf::loadScene(graphics, gizmo, "assets/models/gizmo.glb"))
-        exit(EXIT_FAILURE);
-
     //
     // Materials
     //
@@ -695,4 +713,16 @@ void Renderer::loadDefaultResources()
         whiteTransparent.materialFlags |= (unsigned int)MaterialFlags::Color;
         whiteTransparent.ambient = 1.0f;
     }
+
+    //
+    // Scenes
+    //
+
+    Scene primitives;
+    if (!gltf::loadScene(graphics, primitives, "assets/models/primitives.glb"))
+        exit(EXIT_FAILURE);
+
+    Scene gizmo;
+    if (!gltf::loadScene(graphics, gizmo, "assets/models/gizmo.glb"))
+        exit(EXIT_FAILURE);
 }

@@ -20,10 +20,7 @@ void Camera::update(float deltaTime)
 
     right = glm::normalize(glm::cross(front, up));
 
-    if (ImGui::GetIO().WantCaptureKeyboard)
-        return;
-
-    if (type == CameraType::FirstPerson) {
+    if (!ImGui::GetIO().WantCaptureKeyboard && keyboardInput && type == CameraType::FirstPerson) {
         float moveSpeed = deltaTime * movementSpeed;
         if (input->getKey(KeyboardKey::LSHIFT, InputAction::Pressed)) {
             moveSpeed *= 4;
@@ -50,8 +47,10 @@ void Camera::processEvent(const SDL_Event &event)
     // mouse
     if (input->getMouseButton(MouseButton::LEFT, InputAction::Pressed)) {
         if (!first) {
+            int pitchSign = type == CameraType::Orbit ? -1 : 1; // reverse pitch for orbit camera
+
             yaw -= event.motion.xrel * rotationSpeed;
-            pitch -= event.motion.yrel * rotationSpeed;
+            pitch -= pitchSign * event.motion.yrel * rotationSpeed;
         } else {
             first = false;
         }
@@ -69,8 +68,8 @@ void Camera::updateViewMatrix()
     if (type == CameraType::FirstPerson) {
         view = glm::lookAt(position, position + front, up);
     } else if (type == CameraType::Orbit) {
-        vec3 eye = position + (-front * 10.0f) + (up * 3.0f);
-        vec3 target = position + (front * 5.0f);
+        vec3 eye = position + (front * eyeFrontOffset) + (up * eyeUpOffset);
+        vec3 target = position + (front * targetFrontOffset) + (up * targetUpOffset);
         view = glm::lookAt(eye, target, up);
     }
 }

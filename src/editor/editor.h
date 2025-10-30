@@ -4,17 +4,14 @@
 #include "game/entity.h"
 #include "core/engine_stats.h"
 #include "input/input.h"
-
-#include <imgui.h>
+#include "core/application_info.h"
 
 class Editor
 {
 public:
-    void initialize(EngineStats *engineStats);
-
-    void update(Input *input, Camera *camera, const vec2 &screenDim);
+    void update(Input *input, Camera *camera, const ApplicationInfo &appInfo);
     const eastl::vector<MeshDraw> getGizmoMeshDraws();
-    void drawEditor();
+    void drawEditor(const EngineStats &engineStats);
     void selectEntity(Entity *entity);
 
 private:
@@ -23,6 +20,4 @@ private:
 
     Gizmo gizmo;
     Entity *selectedEntity = nullptr;
-
-    EngineStats *engineStats;
 };

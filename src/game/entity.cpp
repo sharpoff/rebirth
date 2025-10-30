@@ -1,28 +1,32 @@
 #include "game/entity.h"
 #include "physics/physics.h"
+#include "physics/helpers.h"
 
-Entity::Entity(Physics *physics)
+void Entity::initialize(Physics *physics, const EntityCreateInfo &createInfo)
 {
     assert(physics);
-    this->physics_ = physics;
-}
+    this->physics = physics;
 
-void Entity::update(float deltaTime)
-{
-    if (bodyId != JPH::BodyID()) {
-        if (transformDirty) {
-            physics_->setPosition(bodyId, position);
-            physics_->setRotation(bodyId, glm::normalize(rotation));
-        } else {
-            position = physics_->getPosition(bodyId);
-            rotation = physics_->getRotation(bodyId);
-        }
-    }
+    name = createInfo.name;
+    bounds = createInfo.bounds;
+    scale = createInfo.scale;
+    bodyId = createInfo.bodyId;
+    static_ = createInfo.isStatic;
 }
 
 mat4 Entity::getTransform() const
 {
-    return glm::translate(position) * glm::toMat4(rotation) * glm::scale(scale);
+    return glm::translate(getPosition()) * glm::toMat4(getRotation()) * glm::scale(scale);
+}
+
+vec3 Entity::getPosition() const
+{
+    return JoltToMath(physics->getPosition(bodyId));
+}
+
+quat Entity::getRotation() const
+{
+    return JoltToMath(physics->getRotation(bodyId));
 }
 
 void Entity::setMesh(int32_t meshId)
@@ -31,45 +35,24 @@ void Entity::setMesh(int32_t meshId)
     this->meshId = meshId;
 }
 
-void Entity::setBody(JPH::BodyID bodyId, bool isStatic)
-{
-    assert(bodyId != JPH::BodyID());
-    this->bodyId = bodyId;
-}
-
-void Entity::setName(eastl::string name)
-{
-    assert(!name.empty());
-    this->name = name;
-}
-
-void Entity::setBounds(Bounds bounds)
-{
-    this->bounds = bounds;
-}
-
 void Entity::setOverrideMaterial(int32_t materialId)
 {
     assert(materialId > -1);
     this->overrideMaterialId = materialId;
 }
 
-void Entity::setStatic(bool isStatic)
-{
-    this->static_ = isStatic;
-}
-
 void Entity::setPosition(vec3 position)
 {
-    this->position = position;
+    physics->setPosition(bodyId, MathToJolt(position));
 }
 
 void Entity::setRotation(quat rotation)
 {
-    this->rotation = rotation;
+    physics->setRotation(bodyId, MathToJolt(glm::normalize(rotation)));
 }
 
 void Entity::setScale(vec3 scale)
 {
     this->scale = scale;
+    physics->setScale(bodyId, MathToJolt(scale));
 }

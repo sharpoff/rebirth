@@ -48,9 +48,6 @@ void Gizmo::manipulate(Input *input, Camera *camera, const vec2 &screenDim, mat4
                     if (hit)
                         break;
 
-                    // logger::logInfo("offset: ", prim.vertexOffset, ", count: ", prim.vertexCount);
-                    // assert(prim.vertexCount > 0 && prim.vertexCount % 3 == 0);
-
                     for (size_t j = 0; j < prim.vertexCount; j += 3) {
                         if (hit)
                             break;
@@ -63,8 +60,8 @@ void Gizmo::manipulate(Input *input, Camera *camera, const vec2 &screenDim, mat4
                         if (util::rayIntersectVertex(camera->getPosition(), rayDir, v0, v1, v2, distance)) {
                             dragging = true;
                             hit = true;
-                            logger::logInfo("HIT!");
-                            logger::logInfo("distance: ", distance);
+                            LOGI("%s", "HIT!");
+                            LOGI("distance: %f", distance);
                         }
                     }
                 }
@@ -76,7 +73,7 @@ void Gizmo::manipulate(Input *input, Camera *camera, const vec2 &screenDim, mat4
         dragging = false;
 
     if (dragging) {
-        logger::logInfo("DRAGGING");
+        LOGI("%s", "DRAGGING");
     }
 
     operationMeshDraws[gizmoOperation].clear();
@@ -120,7 +117,7 @@ const eastl::vector<MeshDraw> Gizmo::getMeshDraws()
 
     assert(ARRAY_SIZE(meshes) == ARRAY_SIZE(colorMaterialNames));
 
-    for (int i = 0; i < ARRAY_SIZE(meshes); i++) {
+    for (unsigned int i = 0; i < ARRAY_SIZE(meshes); i++) {
         Mesh *mesh = meshes[i];
 
         MeshDraw &meshDraw = operationMeshDraws[gizmoOperation].emplace_back();
