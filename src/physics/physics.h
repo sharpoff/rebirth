@@ -47,14 +47,7 @@ public:
     JPH::TempAllocatorImpl *getTempAllocator() { return tempAllocator; };
     JPH::BodyInterface &getBodyInterface() { return physicsSystem.GetBodyInterface(); };
 
-    JPH::RefConst<JPH::Shape> &getCharacterStandingShape() { return characterStandingShape; }
-    JPH::RefConst<JPH::Shape> &getCharacterCrouchingShape() { return characterCrouchingShape; }
-    JPH::RefConst<JPH::Shape> &getCharacterInnerCrouchingShape() { return characterInnerCrouchingShape; }
-    JPH::RefConst<JPH::Shape> &getCharacterInnerStandingShape() { return characterInnerStandingShape; }
-
 private:
-    void createDefaultShapes();
-
     JPH::JobSystemThreadPool *jobSystem;
     JPH::TempAllocatorImpl *tempAllocator;
 
@@ -69,12 +62,6 @@ private:
 
     BodyActivationListener bodyActivationListener;
     ContactListener contactListener;
-
-    // default shapes
-    JPH::RefConst<JPH::Shape> characterStandingShape;
-    JPH::RefConst<JPH::Shape> characterCrouchingShape;
-    JPH::RefConst<JPH::Shape> characterInnerCrouchingShape;
-    JPH::RefConst<JPH::Shape> characterInnerStandingShape;
 
     // character
     JPH::CharacterVsCharacterCollisionSimple characterVsCharacterCollision;

@@ -7,6 +7,7 @@
 #include "core/light.h"
 #include "core/material.h"
 #include "core/mesh.h"
+#include "core/model.h"
 #include "core/vertex.h"
 #include "graphics/vulkan/resources.h"
 
@@ -21,17 +22,11 @@ public:
         return &singleton;
     }
 
-    int32_t addMesh(const Mesh &mesh, eastl::string name = "");
-    Mesh &createNewMesh(eastl::string name);
-
-    int32_t addImage(const vulkan::Image &image, eastl::string name = "");
-    vulkan::Image &createNewImage(eastl::string name);
-
-    int32_t addMaterial(const GPUMaterial &material, eastl::string name = "");
-    GPUMaterial &createNewMaterial(eastl::string name);
-
-    int32_t addLight(const GPULight &light);
-    GPULight &createNewLight();
+    int32_t addModel(Model &model, eastl::string name = "");
+    int32_t addMesh(Mesh &mesh, eastl::string name = "");
+    int32_t addImage(vulkan::Image &image, eastl::string name = "");
+    int32_t addMaterial(GPUMaterial &material, eastl::string name = "");
+    int32_t addLight(GPULight &light);
 
     // return offset
     size_t addVertices(const eastl::vector<Vertex> &vertices);
@@ -39,52 +34,62 @@ public:
     // return offset
     size_t addIndices(const eastl::vector<uint32_t> &indices);
 
+    Model *getModelByName(eastl::string name);
+    Model *getModelByIndex(int32_t index);
+    int32_t getModelIndexByName(eastl::string name);
+    int32_t getModelIndex(Model &model);
+
     Mesh *getMeshByName(eastl::string name);
     Mesh *getMeshByIndex(int32_t index);
     int32_t getMeshIndexByName(eastl::string name);
-    int32_t getMeshIndex(Mesh *mesh);
+    int32_t getMeshIndex(Mesh &mesh);
 
     vulkan::Image *getImageByName(eastl::string name);
     vulkan::Image *getImageByIndex(int32_t index);
     int32_t getImageIndexByName(eastl::string name);
-    int32_t getImageIndex(vulkan::Image *image);
+    int32_t getImageIndex(vulkan::Image &image);
 
     GPUMaterial *getMaterialByName(eastl::string name);
     GPUMaterial *getMaterialByIndex(int32_t index);
     int32_t getMaterialIndexByName(eastl::string name);
-    int32_t getMaterialIndex(GPUMaterial *material);
+    int32_t getMaterialIndex(GPUMaterial &material);
 
     GPULight *getLightByIndex(int32_t index);
 
-    eastl::vector<Mesh> &getMeshes() { return meshes_; };
-    eastl::vector<vulkan::Image> &getImages() { return images_; };
-    eastl::vector<GPUMaterial> &getMaterials() { return materials_; };
-    eastl::vector<GPULight> &getLights() { return lights_; };
-    eastl::vector<Vertex> &getVertices() { return vertices_; };
-    eastl::vector<uint32_t> &getIndices() { return indices_; };
+    eastl::vector<Model> &getModels() { return models; };
+    eastl::vector<Mesh> &getMeshes() { return meshes; };
+    eastl::vector<vulkan::Image> &getImages() { return images; };
+    eastl::vector<GPUMaterial> &getMaterials() { return materials; };
+    eastl::vector<GPULight> &getLights() { return lights; };
+    eastl::vector<Vertex> &getVertices() { return vertices; };
+    eastl::vector<uint32_t> &getIndices() { return indices; };
 
-    size_t getMeshesSize() const { return meshes_.size(); }
-    size_t getImagesSize() const { return images_.size(); }
-    size_t getMaterialsSize() const { return materials_.size(); }
-    size_t getLightsSize() const { return lights_.size(); }
-    size_t getVerticesSize() const { return vertices_.size(); }
-    size_t getIndicesSize() const { return indices_.size(); }
+    size_t getModelsSize() const { return models.size(); }
+    size_t getMeshesSize() const { return meshes.size(); }
+    size_t getImagesSize() const { return images.size(); }
+    size_t getMaterialsSize() const { return materials.size(); }
+    size_t getLightsSize() const { return lights.size(); }
+    size_t getVerticesSize() const { return vertices.size(); }
+    size_t getIndicesSize() const { return indices.size(); }
 
 private:
     ResourceManager() {};
     ~ResourceManager() {};
 
-    eastl::vector<Mesh> meshes_;
+    eastl::vector<Model> models;
+    eastl::unordered_map<eastl::string, int32_t> modelsMap_;
+
+    eastl::vector<Mesh> meshes;
     eastl::unordered_map<eastl::string, int32_t> meshesMap_;
 
-    eastl::vector<vulkan::Image> images_;
+    eastl::vector<vulkan::Image> images;
     eastl::unordered_map<eastl::string, int32_t> imagesMap_;
 
-    eastl::vector<GPUMaterial> materials_;
+    eastl::vector<GPUMaterial> materials;
     eastl::unordered_map<eastl::string, int32_t> materialsMap_;
 
-    eastl::vector<GPULight> lights_;
+    eastl::vector<GPULight> lights;
 
-    eastl::vector<Vertex> vertices_;
-    eastl::vector<uint32_t> indices_;
+    eastl::vector<Vertex> vertices;
+    eastl::vector<uint32_t> indices;
 };

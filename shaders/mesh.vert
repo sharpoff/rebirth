@@ -14,8 +14,6 @@ layout (location = 2) out vec2 outUV;
 layout (location = 3) out vec4 outTangent;
 layout (location = 4) out mat3 outTBN;
 
-layout (constant_id = 0) const int DRAW_MASK = 0;
-
 void main()
 {
     Vertex vertex = vertices[gl_VertexIndex];

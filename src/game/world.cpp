@@ -18,11 +18,12 @@ void World::initialize(Physics *physics, Input *input, const ApplicationInfo &ap
     // Entities
     {
         int32_t cubeMeshId = ResourceManager::get()->getMeshIndexByName("Cube");
+        assert(cubeMeshId > -1);
 
         // Floor
         {
-            vec3 scale = vec3(10.0f, 0.1f, 10.0f);
-            Bounds bounds = math::calculateBoundingBox(cubeMeshId, glm::scale(scale));
+            vec3 scale = vec3(10.0f, 0.2f, 10.0f);
+            Bounds bounds = math::calculateBoundingBox(cubeMeshId, scale);
             bool isStatic = true;
             JPH::BodyID id = physics->createBox(JPH::Vec3::sZero(), JPH::Quat::sIdentity(), MathToJolt(bounds.extents), isStatic);
 
@@ -42,8 +43,10 @@ void World::initialize(Physics *physics, Input *input, const ApplicationInfo &ap
 
         // Boxes
         for (int i = -2; i <= 2; i++) {
+            vec3 scale = vec3(0.5f);
             vec3 position = vec3(i * 2.3f, 20.0f, 0.0f);
-            Bounds bounds = math::calculateBoundingBox(cubeMeshId, glm::translate(position));
+
+            Bounds bounds = math::calculateBoundingBox(cubeMeshId, scale);
             bool isStatic = false;
             JPH::BodyID id = physics->createBox(MathToJolt(position), JPH::Quat::sIdentity(), MathToJolt(bounds.extents), isStatic);
 

@@ -6,8 +6,6 @@
 #include "Jolt/Physics/Collision/RayCast.h"
 #include "Jolt/Physics/Collision/CastResult.h" // IWYU pragma: export
 #include "Jolt/Physics/Collision/CollisionCollectorImpl.h"
-#include "Jolt/Physics/Collision/Shape/CapsuleShape.h"
-#include "Jolt/Physics/Collision/Shape/RotatedTranslatedShape.h"
 #include "Jolt/Physics/Character/CharacterVirtual.h"
 
 #include "physics/constants.h"
@@ -35,12 +33,10 @@ void Physics::initialize()
     // We need a job system that will execute physics jobs on multiple threads.
     jobSystem = new JPH::JobSystemThreadPool(JPH::cMaxPhysicsJobs, JPH::cMaxPhysicsBarriers, JPH::thread::hardware_concurrency() - 1);
 
-    physicsSystem.Init(sMaxBodies, sNumBodyMutexes, sMaxBodies, sMaxContactConstraints, broadPhaseLayerInterface, objectVsBroadPhaseLayerFilter, mobjectVsObjectFilter);
+    physicsSystem.Init(physics::maxBodies, physics::numBodyMutexes, physics::maxBodies, physics::maxContactConstraints, broadPhaseLayerInterface, objectVsBroadPhaseLayerFilter, mobjectVsObjectFilter);
 
     physicsSystem.SetBodyActivationListener(&bodyActivationListener);
     physicsSystem.SetContactListener(&contactListener);
-
-    createDefaultShapes();
 }
 
 void Physics::shutdown()
@@ -173,12 +169,4 @@ JPH::BodyID Physics::rayCast(JPH::Vec3 origin, JPH::Vec3 direction)
     }
 
     return JPH::BodyID();
-}
-
-void Physics::createDefaultShapes()
-{
-    characterStandingShape = JPH::RotatedTranslatedShapeSettings(JPH::Vec3(0, 0.5f * kCharacterHeightStanding + kCharacterRadiusStanding, 0), JPH::Quat::sIdentity(), new JPH::CapsuleShape(0.5f * kCharacterHeightStanding, kCharacterRadiusStanding)).Create().Get();
-    characterCrouchingShape = JPH::RotatedTranslatedShapeSettings(JPH::Vec3(0, 0.5f * kCharacterHeightCrouching + kCharacterRadiusCrouching, 0), JPH::Quat::sIdentity(), new JPH::CapsuleShape(0.5f * kCharacterHeightCrouching, kCharacterRadiusCrouching)).Create().Get();
-    characterInnerStandingShape = JPH::RotatedTranslatedShapeSettings(JPH::Vec3(0, 0.5f * kCharacterHeightStanding + kCharacterRadiusStanding, 0), JPH::Quat::sIdentity(), new JPH::CapsuleShape(0.5f * kInnerShapeFraction * kCharacterHeightStanding, kInnerShapeFraction * kCharacterRadiusStanding)).Create().Get();
-    characterInnerCrouchingShape = JPH::RotatedTranslatedShapeSettings(JPH::Vec3(0, 0.5f * kCharacterHeightCrouching + kCharacterRadiusCrouching, 0), JPH::Quat::sIdentity(), new JPH::CapsuleShape(0.5f * kInnerShapeFraction * kCharacterHeightCrouching, kInnerShapeFraction * kCharacterRadiusCrouching)).Create().Get();
 }

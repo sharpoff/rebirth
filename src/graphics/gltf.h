@@ -3,7 +3,8 @@
 #include <filesystem>
 
 #include "core/light.h"
-#include "core/scene.h"
+#include "core/model.h"
+#include "core/vertex.h"
 
 #include <cgltf.h>
 
@@ -14,22 +15,22 @@ namespace vulkan
 
 namespace gltf
 {
-    bool loadScene(vulkan::Graphics &graphics, Scene &scene, std::filesystem::path file);
+    //
+    // Loading
+    //
+    bool loadModel(Model &result, vulkan::Graphics &graphics, std::filesystem::path modelFile);
 
-    bool loadGltfNode(Scene &scene, SceneNode &node, cgltf_data *data, cgltf_node *gltfNode);
-    void loadGltfMesh(Scene &scene, mat4 transform, cgltf_data *data, cgltf_mesh *gltfMesh);
+    void loadGltfNode(Model &model, ModelNode &modelNode, cgltf_data *data, cgltf_node *gltfNode);
+    void loadGltfMesh(Mesh &mesh, mat4 transform, cgltf_data *data, cgltf_mesh *gltfMesh);
 
-    // return offset
-    size_t loadVertices(cgltf_primitive prim);
+    eastl::vector<Vertex> loadVertices(cgltf_primitive prim);
+    eastl::vector<uint32_t> loadIndices(cgltf_primitive prim);
 
-    // return offset
-    size_t loadIndices(cgltf_primitive prim);
+    void loadGltfMaterials(Model &model, cgltf_data *data, size_t textureOffset);
+    void loadGltfTextures(Model &model, vulkan::Graphics &graphics, std::filesystem::path dir, cgltf_data *data);
 
-    void loadGltfMaterials(cgltf_data *data);
-    void loadGltfTextures(vulkan::Graphics &graphics, std::filesystem::path dir, cgltf_data *data);
-
-    void loadGltfAnimations(Scene &scene, cgltf_data *data);
-    void loadGltfSkins(Scene &scene, cgltf_data *data);
+    void loadGltfAnimations(Model &model, cgltf_data *data);
+    void loadGltfSkins(Model &model, cgltf_data *data);
 
     void loadGltfLight(GPULight &light, mat4 worldMatrix, cgltf_light *gltfLight);
 

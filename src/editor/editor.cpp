@@ -29,7 +29,7 @@ const eastl::vector<MeshDraw> Editor::getGizmoMeshDraws()
 void Editor::drawEditor(const EngineStats &engineStats)
 {
     //
-    // Windows
+    // Show windows
     //
     if (showDemo)
         ImGui::ShowDemoWindow(&showDemo);

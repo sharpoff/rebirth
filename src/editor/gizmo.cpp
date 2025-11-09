@@ -121,7 +121,7 @@ const eastl::vector<MeshDraw> Gizmo::getMeshDraws()
         Mesh *mesh = meshes[i];
 
         MeshDraw &meshDraw = operationMeshDraws[gizmoOperation].emplace_back();
-        meshDraw.meshId = ResourceManager::get()->getMeshIndex(mesh);
+        meshDraw.meshId = ResourceManager::get()->getMeshIndex(*mesh);
         meshDraw.overrideMaterialId = ResourceManager::get()->getMaterialIndexByName(colorMaterialNames[i]);
         meshDraw.transform = getTransform() * glm::translate(math::getPosition(mesh->transform));
         meshDraw.drawMask = DrawMask::Transparent | DrawMask::Overlay;

@@ -92,16 +92,8 @@ void Renderer::drawMesh(const int32_t &meshId, const uint32_t &drawMask, const m
             .overrideMaterialId = overrideMaterialId,
             .drawMask = drawMask,
             .transform = transform,
-            .boundingSphere = math::calculateBoundingSphere(meshId),
+            .boundingSphere = math::calculateBoundingSphere(meshId, math::getScale(transform), math::getRotation(transform)),
         });
-
-    // // --------- DEBUG bounding sphere!!!!!! -------------
-    // MeshDraw meshDraw;
-    // meshDraw.meshId = ResourceManager::get()->getMeshIndexByName("Sphere");
-    // meshDraw.boundingSphere = math::calculateBoundingSphere(meshId);
-    // meshDraw.drawMask = DrawMask::Wireframe;
-    // meshDraw.transform *= transform * glm::scale(vec3(meshDraw.boundingSphere.sphereRadius));
-    // meshDraws.push_back(meshDraw);
 }
 
 void Renderer::addMeshDraw(const MeshDraw &meshDraw)
@@ -216,7 +208,7 @@ bool Renderer::present(Editor *editor)
         clearPass(cmd);
     }
 
-    //
+    
     // Shadow Pass
     //
     if (ResourceManager::get()->getLightsSize() > 0 && !opaqueDrawIndices.empty()) {
@@ -397,7 +389,7 @@ void Renderer::createPipelines()
     DescriptorManager &descriptorManager = graphics.getDescriptorManager();
     const VkFormat     colorFormat = graphics.getSwapchain().getSurfaceFormat().format;
 
-    eastl::unordered_map<eastl::string, VkShaderModule> shaders = loadShaderModules("build/shaders");
+    eastl::unordered_map<eastl::string, VkShaderModule> shaders = loadShaderModules("shaders/bin");
 
     //
     // Create pipeline layouts
@@ -651,78 +643,89 @@ void Renderer::loadDefaultResources()
 
     // checkerboard
     {
-        vulkan::Image &image = ResourceManager::get()->createNewImage("checkerboard");
+        vulkan::Image image;
         ImageCreateInfo imageCI{};
         graphics.createImageFromFile(image, imageCI, "assets/textures/checkerboard.png");
+        ResourceManager::get()->addImage(image, "checkerboard");
 
-        GPUMaterial &material = ResourceManager::get()->createNewMaterial("checkerboard");
-        material.diffuseId = ResourceManager::get()->getImageIndex(&image);
+        GPUMaterial material;
+        material.diffuseId = ResourceManager::get()->getImageIndexByName("checkerboard");
         material.metallicFactor = 0.0f;
         material.roughnessFactor = 1.0f;
+        ResourceManager::get()->addMaterial(material, "checkerboard");
     }
 
     // colors
     {
-        GPUMaterial &red = ResourceManager::get()->createNewMaterial("red");
+        GPUMaterial red;
         red.color = color::red;
         red.materialFlags |= (unsigned int)MaterialFlags::Color;
         red.ambient = 1.0f;
+        ResourceManager::get()->addMaterial(red, "red");
 
-        GPUMaterial &green = ResourceManager::get()->createNewMaterial("green");
+        GPUMaterial green;
         green.color = color::green;
         green.materialFlags |= (unsigned int)MaterialFlags::Color;
         green.ambient = 1.0f;
+        ResourceManager::get()->addMaterial(green, "green");
 
-        GPUMaterial &blue = ResourceManager::get()->createNewMaterial("blue");
+        GPUMaterial blue;
         blue.color = color::blue;
         blue.materialFlags |= (unsigned int)MaterialFlags::Color;
         blue.ambient = 1.0f;
+        ResourceManager::get()->addMaterial(blue, "blue");
 
-        GPUMaterial &black = ResourceManager::get()->createNewMaterial("black");
+        GPUMaterial black;
         black.color = color::black;
         black.materialFlags |= (unsigned int)MaterialFlags::Color;
         black.ambient = 1.0f;
+        ResourceManager::get()->addMaterial(black, "black");
 
-        GPUMaterial &white = ResourceManager::get()->createNewMaterial("white");
+        GPUMaterial white;
         white.color = color::white;
         white.materialFlags |= (unsigned int)MaterialFlags::Color;
         white.ambient = 1.0f;
+        ResourceManager::get()->addMaterial(white, "white");
 
-        GPUMaterial &yellow = ResourceManager::get()->createNewMaterial("yellow");
+        GPUMaterial yellow;
         yellow.color = color::yellow;
         yellow.materialFlags |= (unsigned int)MaterialFlags::Color;
+        yellow.ambient = 1.0f;
+        ResourceManager::get()->addMaterial(yellow, "yellow");
 
-        GPUMaterial &cyan = ResourceManager::get()->createNewMaterial("cyan");
+        GPUMaterial cyan;
         cyan.color = color::cyan;
         cyan.materialFlags |= (unsigned int)MaterialFlags::Color;
         cyan.ambient = 1.0f;
-        yellow.ambient = 1.0f;
+        ResourceManager::get()->addMaterial(cyan, "cyan");
 
-        GPUMaterial &purple = ResourceManager::get()->createNewMaterial("purple");
+        GPUMaterial purple;
         purple.color = color::purple;
         purple.materialFlags |= (unsigned int)MaterialFlags::Color;
         purple.ambient = 1.0f;
+        ResourceManager::get()->addMaterial(purple, "purple");
     }
 
     // transparent
     {
-        GPUMaterial &whiteTransparent = ResourceManager::get()->createNewMaterial("white_transparent");
+        GPUMaterial whiteTransparent;
         whiteTransparent.color = color::white;
         whiteTransparent.color.a = 0.3f;
-
         whiteTransparent.materialFlags |= (unsigned int)MaterialFlags::Color;
         whiteTransparent.ambient = 1.0f;
+
+        ResourceManager::get()->addMaterial(whiteTransparent, "whiteTransparent");
     }
 
     //
-    // Scenes
+    // Models
     //
 
-    Scene primitives;
-    if (!gltf::loadScene(graphics, primitives, "assets/models/primitives.glb"))
+    Model primitives;
+    if (!gltf::loadModel(primitives, graphics, "assets/models/primitives.glb"))
         exit(EXIT_FAILURE);
 
-    Scene gizmo;
-    if (!gltf::loadScene(graphics, gizmo, "assets/models/gizmo.glb"))
+    Model gizmo;
+    if (!gltf::loadModel(gizmo, graphics, "assets/models/gizmo.glb"))
         exit(EXIT_FAILURE);
 }

@@ -1,6 +1,7 @@
-#include <core/scene.h>
+#include "core/model.h"
+#include "core/animation.h"
 
-void Scene::updateAnimation(float deltaTime, eastl::string name)
+void Model::updateAnimation(float deltaTime, eastl::string name)
 {
     if (animations.size() < 1)
         return;
@@ -22,7 +23,7 @@ void Scene::updateAnimation(float deltaTime, eastl::string name)
                 (animation->currentTime <= sampler.inputs[i + 1])) {
                 float step = (animation->currentTime - sampler.inputs[i]) /
                              (sampler.inputs[i + 1] - sampler.inputs[i]);
-                SceneNode *node = getNodeByIndex(channel.nodeIndex);
+                ModelNode *node = getNodeByIndex(channel.nodeIndex);
 
                 if (!node)
                     continue;
@@ -55,17 +56,17 @@ void Scene::updateAnimation(float deltaTime, eastl::string name)
     }
 
     for (auto &node : nodes) {
-        updateJoints(node);
+        updateJoints(&node);
     }
 }
 
-mat4 Scene::getNodeWorldMatrix(SceneNode *node)
+mat4 Model::getNodeWorldMatrix(ModelNode *node)
 {
     if (!node)
         return mat4(1.0f);
 
     mat4 worldMatrix = node->transform;
-    SceneNode *parent = getNodeByIndex(node->parentIndex);
+    ModelNode *parent = getNodeByIndex(node->parentIndex);
     while (parent) {
         worldMatrix = parent->transform * worldMatrix;
         parent = getNodeByIndex(parent->parentIndex);
@@ -74,7 +75,7 @@ mat4 Scene::getNodeWorldMatrix(SceneNode *node)
     return worldMatrix;
 }
 
-Animation *Scene::getAnimationByName(eastl::string name)
+Animation *Model::getAnimationByName(eastl::string name)
 {
     for (auto &animation : animations) {
         if (animation.name == name)
@@ -84,36 +85,38 @@ Animation *Scene::getAnimationByName(eastl::string name)
     return nullptr;
 }
 
-void Scene::updateJoints(SceneNode &node)
+void Model::updateJoints(ModelNode *node)
 {
-    if (node.skinIndex > -1) {
-        mat4 inverseTransform = glm::inverse(getNodeWorldMatrix(&node));
-        Skin &skin = skins[node.skinIndex];
+    if (!node)
+        return;
 
-        size_t jointsCount = skin.joints.size();
+    if (node->skin) {
+        mat4 inverseTransform = glm::inverse(getNodeWorldMatrix(node));
+
+        size_t jointsCount = node->skin->joints.size();
         eastl::vector<mat4> jointMatrices(jointsCount);
 
         for (size_t i = 0; i < jointsCount; i++) {
-            SceneNode *joint = getNodeByIndex(skin.joints[i]);
+            ModelNode *joint = getNodeByIndex(node->skin->joints[i]);
             if (!joint)
                 continue;
 
-            jointMatrices[i] = getNodeWorldMatrix(joint) * skin.inverseBindMatrices[i];
+            jointMatrices[i] = getNodeWorldMatrix(joint) * node->skin->inverseBindMatrices[i];
             jointMatrices[i] = inverseTransform * jointMatrices[i];
         }
     }
 
-    for (auto &child : node.children) {
-        updateJoints(child);
+    for (auto &child : node->children) {
+        updateJoints(&child);
     }
 }
 
-SceneNode *Scene::getNodeByIndex(int index)
+ModelNode *Model::getNodeByIndex(int index)
 {
     if (index <= -1)
         return nullptr;
 
-    SceneNode *found = nullptr;
+    ModelNode *found = nullptr;
     for (auto &node : nodes) {
         found = searchNode(&node, index);
         if (found)
@@ -123,12 +126,12 @@ SceneNode *Scene::getNodeByIndex(int index)
     return found;
 }
 
-SceneNode *Scene::searchNode(SceneNode *node, int index)
+ModelNode *Model::searchNode(ModelNode *node, int index)
 {
     if (index <= -1)
         return nullptr;
 
-    SceneNode *found = nullptr;
+    ModelNode *found = nullptr;
     if (node->index == index)
         return node;
 

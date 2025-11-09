@@ -7,7 +7,7 @@
 
 namespace math
 {
-    Bounds calculateBoundingBox(int32_t meshId, mat4 transform)
+    Bounds calculateBoundingBox(int32_t meshId, vec3 scale, quat rotation)
     {
         Mesh *mesh = ResourceManager::get()->getMeshByIndex(meshId);
         if (!mesh) return Bounds{};
@@ -18,11 +18,13 @@ namespace math
         auto &vertices = ResourceManager::get()->getVertices();
         auto &indices = ResourceManager::get()->getIndices();
 
+        mat4 transform = glm::toMat4(rotation) * glm::scale(scale);
+
         for (Primitive &primitive : mesh->primitives) {
             for (size_t i = primitive.indexOffset; i < primitive.indexCount; i++) {
                 const Vertex &vert = vertices[indices[i]];
 
-                vec3 pos = transform * vec4(vert.position, 0.0f);
+                vec3 pos = transform * vec4(vert.position, 1.0f);
                 min = glm::min(min, pos);
                 max = glm::max(max, pos);
             }
@@ -33,7 +35,7 @@ namespace math
         };
     }
 
-    Bounds calculateBoundingSphere(int32_t meshId, mat4 transform)
+    Bounds calculateBoundingSphere(int32_t meshId, vec3 scale, quat rotation)
     {
         Mesh *mesh = ResourceManager::get()->getMeshByIndex(meshId);
         if (!mesh) return Bounds{};
@@ -44,13 +46,15 @@ namespace math
         auto &vertices = ResourceManager::get()->getVertices();
         auto &indices = ResourceManager::get()->getIndices();
 
+        mat4 transform = glm::toMat4(rotation) * glm::scale(scale);
+
         for (Primitive &primitive : mesh->primitives) {
             for (size_t i = primitive.indexOffset; i < primitive.indexCount; i++) {
                 const Vertex &vert = vertices[indices[i]];
 
                 vec3 pos = transform * vec4(vert.position, 0.0f);
-                min = glm::min(min, vert.position);
-                max = glm::max(max, vert.position);
+                min = glm::min(min, pos);
+                max = glm::max(max, pos);
             }
         }
 

@@ -6,8 +6,6 @@
 #include "editor/editor.h"
 #include "graphics/vulkan/graphics.h"
 
-#include "EASTL/string.h"
-
 using namespace vulkan;
 
 static const int      MAX_MATERIALS         = 100;

@@ -2,17 +2,15 @@
 
 #include "SDL3/SDL_video.h"
 #include "core/draw_mask.h"
-#include "core/mesh_draw.h"
 #include "core/resource_manager.h"
 #include "input/input.h"
-#include "graphics/gltf.h"
 #include "physics/helpers.h"
 
 #include "util/logger.h"
 #include "util/util.h"
 
 #include "imgui.h"
-#include "backend/imgui_impl_sdl3.h"
+#include "imgui_impl_sdl3.h"
 #include <tracy/Tracy.hpp>
 
 void Engine::initialize(const ApplicationInfo &appInfo)
@@ -45,23 +43,15 @@ void Engine::initialize(const ApplicationInfo &appInfo)
     flyCamera.setPosition(vec3(0, 2, 2));
 
     // add light
-    ResourceManager::get()->addLight(
-        GPULight{
-            .type = LightType::Directional,
-            .direction = vec3(0.0, -1.0, 0.0),
-        });
-
-    // load scenes
-    Scene scene;
-    if (!gltf::loadScene(renderer.getGraphics(), scene, "assets/models/DamagedHelmet.glb")) {
-        LOGE("%s", "Failed to load scene.");
-        exit(EXIT_FAILURE);
-    }
+    GPULight dirLight = GPULight{.type = LightType::Directional, .direction = vec3(0.0, -1.0, 0.0)};
+    ResourceManager::get()->addLight(dirLight);
 
     world.initialize(&physics, &input, appInfo);
 
     // renderer.setCamera(&flyCamera);
     // world.getPlayer().setKeyboardInput(false);
+    // world.getPlayer().setMouseInput(false);
+
     renderer.setCamera(&world.getPlayer().getCamera());
 
     renderer.createResources();
@@ -134,12 +124,12 @@ void Engine::processInput(float deltaTime)
 
         // do raycast
         if (!ImGui::GetIO().WantCaptureMouse && input.getMouseButton(MouseButton::RIGHT, InputAction::JustPressed)) {
-            vec3 direction = -util::mouseToWorldDirection(vec2(event.motion.x, event.motion.y), vec2(appInfo.width, appInfo.height), flyCamera.getView(), flyCamera.getProjection());
+            vec3 direction = util::mouseToWorldDirection(vec2(event.motion.x, event.motion.y), vec2(appInfo.width, appInfo.height), flyCamera.getView(), flyCamera.getProjection());
 
             float raycastRange = 10000.0f;
             direction *= raycastRange;
 
-            JPH::BodyID hitBody = physics.rayCast(MathToJolt(flyCamera.getPosition()), MathToJolt(-direction));
+            JPH::BodyID hitBody = physics.rayCast(MathToJolt(flyCamera.getPosition()), MathToJolt(direction));
             if (hitBody != JPH::BodyID()) { // valid body
                 Entity *entity = world.getEntityByBodyId(hitBody.GetIndexAndSequenceNumber());
                 editor.selectEntity(entity);
@@ -172,8 +162,9 @@ void Engine::render()
     for (auto &entity : world.getEntities())
         renderer.drawEntity(entity, DrawMask::Opaque);
 
-    for (const MeshDraw &gizmoMeshDraw : editor.getGizmoMeshDraws())
-        renderer.addMeshDraw(gizmoMeshDraw);
+    for (auto &meshDraw : editor.getGizmoMeshDraws()) {
+        renderer.addMeshDraw(meshDraw);
+    }
 
     Player &player = world.getPlayer();
     renderer.drawMesh(player.getMeshId(), DrawMask::Opaque, player.getTransform());

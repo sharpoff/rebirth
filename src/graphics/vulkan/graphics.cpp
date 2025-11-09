@@ -10,14 +10,15 @@
 #include "graphics/vulkan/swapchain.h"
 #include "graphics/vulkan/util.h"
 
-#include "backend/imgui_impl_sdl3.h"
-#include "backend/imgui_impl_vulkan.h"
+#include "imgui_impl_sdl3.h"
+#include "imgui_impl_vulkan.h"
 #include "imgui.h"
 
 #include <stb_image.h>
 
 #include <tracy/Tracy.hpp>
 #include <tracy/TracyVulkan.hpp>
+#include <vulkan/vulkan_core.h>
 
 namespace vulkan
 {
@@ -505,8 +506,7 @@ namespace vulkan
 
         VkFormat colorFormat = swapchain.getSurfaceFormat().format;
 
-        VkPipelineRenderingCreateInfoKHR pipelineRenderingCI = {
-            VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR};
+        VkPipelineRenderingCreateInfoKHR pipelineRenderingCI = {VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR};
         pipelineRenderingCI.colorAttachmentCount = 1;
         pipelineRenderingCI.pColorAttachmentFormats = &colorFormat;
         pipelineRenderingCI.depthAttachmentFormat = VK_FORMAT_D32_SFLOAT;
@@ -1233,8 +1233,7 @@ namespace vulkan
         return set;
     }
 
-    VkPipelineLayout
-    Graphics::createPipelineLayout(VkDescriptorSetLayout *setLayout, VkPushConstantRange *pushConstant)
+    VkPipelineLayout Graphics::createPipelineLayout(VkDescriptorSetLayout *setLayout, VkPushConstantRange *pushConstant)
     {
         VkPipelineLayoutCreateInfo layoutInfo = {VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
         if (setLayout) {

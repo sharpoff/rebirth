@@ -1,25 +1,27 @@
 #include "game/player.h"
 
 #include "Jolt/Geometry/Plane.h"
-#include "Jolt/Physics/PhysicsSystem.h"
+#include "Jolt/Physics/Collision/Shape/CapsuleShape.h"
+#include "Jolt/Physics/Collision/Shape/RotatedTranslatedShape.h"
 
-#include "physics/constants.h"
 #include "physics/helpers.h"
 #include "physics/layers.h"
 
 void Player::initializePhysics()
 {
+    standingShape = JPH::RotatedTranslatedShapeSettings(JPH::Vec3(0, 0.5f * characterHeightStanding + characterRadiusStanding, 0), JPH::Quat::sIdentity(), new JPH::CapsuleShape(0.5f * characterHeightStanding, characterRadiusStanding)).Create().Get();
+
     JPH::Ref<JPH::CharacterVirtualSettings> settings = new JPH::CharacterVirtualSettings();
-    settings->mMaxSlopeAngle = sMaxSlopeAngle;
-	settings->mMaxStrength = sMaxStrength;
-	settings->mShape = physics->getCharacterStandingShape();
-	settings->mBackFaceMode = sBackFaceMode;
-	settings->mCharacterPadding = sCharacterPadding;
-	settings->mPenetrationRecoverySpeed = sPenetrationRecoverySpeed;
-	settings->mPredictiveContactDistance = sPredictiveContactDistance;
-	settings->mSupportingVolume = JPH::Plane(JPH::Vec3::sAxisY(), -kCharacterRadiusStanding); // Accept contacts that touch the lower sphere of the capsule
-	settings->mEnhancedInternalEdgeRemoval = sEnhancedInternalEdgeRemoval;
-	settings->mInnerBodyShape = sCreateInnerBody ? physics->getCharacterInnerStandingShape() : nullptr;
+    settings->mMaxSlopeAngle = playerPhysicsSettings.maxSlopeAngle;
+	settings->mMaxStrength = playerPhysicsSettings.maxStrength;
+	settings->mShape = standingShape;
+	settings->mBackFaceMode = playerPhysicsSettings.backFaceMode;
+	settings->mCharacterPadding = playerPhysicsSettings.characterPadding;
+	settings->mPenetrationRecoverySpeed = playerPhysicsSettings.penetrationRecoverySpeed;
+	settings->mPredictiveContactDistance = playerPhysicsSettings.predictiveContactDistance;
+	settings->mSupportingVolume = JPH::Plane(JPH::Vec3::sAxisY(), -characterRadiusStanding); // Accept contacts that touch the lower sphere of the capsule
+	settings->mEnhancedInternalEdgeRemoval = playerPhysicsSettings.enhancedInternalEdgeRemoval;
+	settings->mInnerBodyShape = playerPhysicsSettings.createInnerBody ? standingShape : nullptr;
 	settings->mInnerBodyLayer = Layers::MOVING;
 
     character = physics->createPlayer(settings, JPH::Vec3(0.0f, 10.0f, 3.0f));
@@ -35,12 +37,12 @@ void Player::updatePhysics(float deltaTime)
 
     // Settings for our update function
     JPH::CharacterVirtual::ExtendedUpdateSettings settings{};
-    if (!sEnableStickToFloor)
+    if (!playerPhysicsSettings.enableStickToFloor)
         settings.mStickToFloorStepDown = JPH::Vec3::sZero();
     else
         settings.mStickToFloorStepDown = -character->GetUp() * settings.mStickToFloorStepDown.Length();
 
-    if (!sEnableWalkStairs)
+    if (!playerPhysicsSettings.enableWalkStairs)
         settings.mWalkStairsStepUp = JPH::Vec3::sZero();
     else
         settings.mWalkStairsStepUp = character->GetUp() * settings.mWalkStairsStepUp.Length();
@@ -64,13 +66,13 @@ void Player::updatePhysicsController(float deltaTime)
 {
     JPH::PhysicsSystem *physicsSystem = physics->getSystem();
 
-    bool playerControlsHorizontalVelocity = sControlMovementDuringJump || character->IsSupported();
+    bool playerControlsHorizontalVelocity = canControlMovementDuringJump || character->IsSupported();
 	if (playerControlsHorizontalVelocity) {
 		// Smooth the player input
-		desiredVelocity = sEnableCharacterInertia? 0.25f * moveDir * sCharacterSpeed + 0.75f * desiredVelocity : moveDir * sCharacterSpeed;
+		desiredVelocity = enableCharacterInertia? 0.25f * moveDirection * movespeed + 0.75f * desiredVelocity : moveDirection * movespeed;
 
 		// True if the player intended to move
-		allowSliding = !moveDir.IsNearZero();
+		allowSliding = !moveDirection.IsNearZero();
 	}
 	else {
 		// While in air we allow sliding
@@ -78,7 +80,7 @@ void Player::updatePhysicsController(float deltaTime)
 	}
 
 	// Update the character rotation and its up vector to match the up vector set by the user settings
-	JPH::Quat characterUpRotation = MathToJolt(camera.getRotation()) * JPH::Quat::sEulerAngles(JPH::Vec3(sUpRotationX, 0, sUpRotationZ));
+	JPH::Quat characterUpRotation = MathToJolt(camera.getRotation());
 	character->SetUp(characterUpRotation.RotateAxisY());
 	character->SetRotation(characterUpRotation);
 
@@ -92,7 +94,7 @@ void Player::updatePhysicsController(float deltaTime)
 	JPH::Vec3 newVelocity;
 	bool movingTowardsGround = (currentVerticalVelocity.GetY() - groundVelocity.GetY()) < 0.1f;
 	if (character->GetGroundState() == JPH::CharacterVirtual::EGroundState::OnGround	// If on ground
-		&& (sEnableCharacterInertia?
+		&& (enableCharacterInertia?
 			movingTowardsGround													// Inertia enabled: And not moving away from ground
 			: !character->IsSlopeTooSteep(character->GetGroundNormal())))			// Inertia disabled: And not on a slope that is too steep
 	{
@@ -101,7 +103,7 @@ void Player::updatePhysicsController(float deltaTime)
 
 		// Jump
 		if (jumping && movingTowardsGround)
-			newVelocity += sJumpSpeed * character->GetUp();
+			newVelocity += jumpSpeed * character->GetUp();
 	}
 	else
 		newVelocity = currentVerticalVelocity;

@@ -1,88 +1,96 @@
 #include "graphics/gltf.h"
+#include "core/animation.h"
+#include "core/light.h"
+#include "core/material.h"
 #include "core/material_flag.h"
+#include "core/model.h"
 #include "core/resource_manager.h"
 #include "graphics/vulkan/graphics.h"
 
+#include "graphics/vulkan/resources.h"
 #include "util/logger.h"
 #include "graphics/vulkan/graphics.h"
 
 namespace gltf
 {
-    bool loadScene(vulkan::Graphics &graphics, Scene &scene, std::filesystem::path file)
+    bool loadModel(Model &model, vulkan::Graphics &graphics, std::filesystem::path modelFile)
     {
         cgltf_options options = {};
         cgltf_data *data = NULL;
-        cgltf_result result = cgltf_parse_file(&options, file.c_str(), &data);
+        cgltf_result result = cgltf_parse_file(&options, modelFile.c_str(), &data);
 
         if (result != cgltf_result_success) {
-            LOGE("Failed to load gltf scene %s", file.c_str());
+            LOGE("Failed to load gltf model %s", modelFile.c_str());
             return false;
         }
 
-        if ((result = cgltf_load_buffers(&options, data, file.c_str())) !=
+        if ((result = cgltf_load_buffers(&options, data, modelFile.c_str())) !=
             cgltf_result_success) {
-            LOGE("Failed to load buffers of gltf scene %s", file.c_str());
+            LOGE("Failed to load buffers of gltf model %s", modelFile.c_str());
             return false;
         }
 
         if ((result = cgltf_validate(data)) != cgltf_result_success) {
-            LOGE("Failed to load validate gltf scene %s", file.c_str());
+            LOGE("Failed to load validate gltf model %s", modelFile.c_str());
             return false;
         }
 
         if (!data) {
-            LOGE("Failed to load data for gltf scene %s", file.c_str());
+            LOGE("Failed to load data for gltf model %s", modelFile.c_str());
             return false;
         }
 
-        scene.name = file.stem().c_str();
+        model.name = modelFile.stem().c_str();
         cgltf_scene *root = data->scene;
+        size_t textureOffset = ResourceManager::get()->getImages().size();
 
-        scene.nodes.resize(root->nodes_count);
-        for (size_t i = 0; i < scene.nodes.size(); i++)
-            loadGltfNode(scene, scene.nodes[i], data, root->nodes[i]);
+        loadGltfSkins(model, data);
 
-        loadGltfMaterials(data);
-        loadGltfTextures(graphics, file.parent_path(), data);
+        for (size_t i = 0; i < root->nodes_count; i++) {
+            ModelNode node;
+            loadGltfNode(model, node, data, root->nodes[i]);
+            model.nodes.push_back(node);
+        }
 
-        // loadGltfSkins(scene, data);
-        // loadGltfAnimations(scene, data);
+        loadGltfMaterials(model, data, textureOffset);
+        loadGltfTextures(model, graphics, modelFile.parent_path(), data);
+        loadGltfAnimations(model, data);
 
         cgltf_free(data);
         return true;
     }
 
-    bool loadGltfNode(Scene &scene, SceneNode &node, cgltf_data *data, cgltf_node *gltfNode)
+    void loadGltfNode(Model &model, ModelNode &node, cgltf_data *data, cgltf_node *gltfNode)
     {
-        if (!data || !gltfNode)
-            return false;
-
         node.name = gltfNode->name ? gltfNode->name : "Node";
         node.index = cgltf_node_index(data, gltfNode);
         node.transform = loadGltfTransform(gltfNode, false);
 
-        if (gltfNode->skin) {
-            node.skinIndex = cgltf_skin_index(data, gltfNode->skin);
+        if (gltfNode->skin && !model.skins.empty()) {
+            node.skin = &model.skins[cgltf_skin_index(data, gltfNode->skin)];
         }
 
         if (gltfNode->mesh) {
             mat4 worldTransform = loadGltfTransform(gltfNode, true);
-            loadGltfMesh(scene, worldTransform, data, gltfNode->mesh);
+
+            Mesh mesh;
+            loadGltfMesh(mesh, worldTransform, data, gltfNode->mesh);
+
+            model.meshes.push_back(mesh);
+            ResourceManager::get()->addMesh(mesh, gltfNode->mesh->name ? gltfNode->mesh->name : "");
         }
 
         // recursively load child nodes
-        node.children.resize(gltfNode->children_count);
         for (size_t i = 0; i < gltfNode->children_count; i++) {
-            loadGltfNode(scene, node.children[i], data, gltfNode->children[i]);
-            node.children[i].parentIndex = node.index;
+            ModelNode child;
+            loadGltfNode(model, child, data, gltfNode->children[i]);
+            child.parentIndex = node.index;
+            node.children.push_back(child);
         }
-
-        return true;
     }
 
-    void loadGltfMesh(Scene &scene, mat4 transform, cgltf_data *data, cgltf_mesh *gltfMesh)
+    void loadGltfMesh(Mesh &mesh, mat4 transform, cgltf_data *data, cgltf_mesh *gltfMesh)
     {
-        Mesh mesh;
         mesh.transform = transform;
 
         for (size_t i = 0; i < gltfMesh->primitives_count; i++) {
@@ -95,10 +103,15 @@ namespace gltf
             uint32_t vertexCount = prim.attributes[0].data ? prim.attributes[0].data->count : 0;
             uint32_t indexCount = prim.indices ? prim.indices->count : 0;
 
-            if (vertexCount > 0)
-                vertexOffset = loadVertices(prim);
-            if (indexCount > 0)
-                indexOffset = loadIndices(prim);
+            if (vertexCount > 0) {
+                eastl::vector<Vertex> vertices = loadVertices(prim);
+                ResourceManager::get()->addVertices(vertices);
+            }
+
+            if (indexCount > 0) {
+                eastl::vector<uint32_t> indices = loadIndices(prim);
+                ResourceManager::get()->addIndices(indices);
+            }
 
             int materialIndex = prim.material ? materialOffset + cgltf_material_index(data, prim.material) : -1;
 
@@ -111,12 +124,9 @@ namespace gltf
 
             mesh.primitives.push_back(primitive);
         }
-
-        auto meshId = ResourceManager::get()->addMesh(mesh, gltfMesh->name ? gltfMesh->name : "");
-        scene.meshes.push_back(meshId);
     }
 
-    size_t loadVertices(cgltf_primitive prim)
+    eastl::vector<Vertex> loadVertices(cgltf_primitive prim)
     {
         // load vertices
         size_t vertexCount = prim.attributes[0].data->count;
@@ -204,25 +214,23 @@ namespace gltf
             }
         }
 
-        return ResourceManager::get()->addVertices(vertices);
+        return vertices;
     }
 
-    size_t loadIndices(cgltf_primitive prim)
+    eastl::vector<uint32_t> loadIndices(cgltf_primitive prim)
     {
         eastl::vector<uint32_t> indices;
         indices.resize(prim.indices->count);
         cgltf_accessor_unpack_indices(prim.indices, indices.data(), 4, indices.size());
 
-        return ResourceManager::get()->addIndices(indices);
+        return indices;
     }
 
-    void loadGltfMaterials(cgltf_data *data)
+    void loadGltfMaterials(Model &model, cgltf_data *data, size_t textureOffset)
     {
-        size_t textureOffset = ResourceManager::get()->getImages().size();
-
         for (size_t i = 0; i < data->materials_count; i++) {
             cgltf_material gltfMaterial = data->materials[i];
-            GPUMaterial material{};
+            GPUMaterial material;
             material.materialFlags |= (unsigned int)(MaterialFlags::All);
 
             // clang-format off
@@ -256,17 +264,19 @@ namespace gltf
             }
             // clang-format on
 
+            model.materials.push_back(material);
             ResourceManager::get()->addMaterial(material);
         }
     }
 
-    void loadGltfTextures(vulkan::Graphics &graphics, std::filesystem::path dir, cgltf_data *data)
+    void loadGltfTextures(Model &model, vulkan::Graphics &graphics, std::filesystem::path dir, cgltf_data *data)
     {
+        model.textures.reserve(data->textures_count);
         for (size_t i = 0; i < data->textures_count; i++) {
             cgltf_texture gltfTexture = data->textures[i];
 
             vulkan::ImageCreateInfo createInfo{};
-            vulkan::Image image;
+            vulkan::Image image{};
 
             if (gltfTexture.image->uri) { // load from file
                 std::filesystem::path file = dir / gltfTexture.image->uri;
@@ -279,15 +289,15 @@ namespace gltf
                 graphics.createImageFromMemory(image, createInfo, const_cast<unsigned char *>(data), size);
             }
 
-            ResourceManager::get()->addImage(image, gltfTexture.name ? gltfTexture.name : "");
+            model.textures.push_back(image);
+            ResourceManager::get()->addImage(image, gltfTexture.name ? gltfTexture.name : "Image");
         }
     }
 
-    void loadGltfAnimations(Scene &scene, cgltf_data *data)
+    void loadGltfAnimations(Model &model, cgltf_data *data)
     {
-        scene.animations.resize(data->animations_count);
         for (size_t i = 0; i < data->animations_count; i++) {
-            Animation &animation = scene.animations[i];
+            Animation animation;
             cgltf_animation gltfAnimation = data->animations[i];
 
             animation.name = gltfAnimation.name
@@ -370,14 +380,15 @@ namespace gltf
                     }
                 }
             }
+
+            model.animations.push_back(animation);
         }
     }
 
-    void loadGltfSkins(Scene &scene, cgltf_data *data)
+    void loadGltfSkins(Model &model, cgltf_data *data)
     {
-        scene.skins.resize(data->skins_count);
         for (size_t i = 0; i < data->skins_count; i++) {
-            Skin &skin = scene.skins[i];
+            Skin skin;
             cgltf_skin gltfSkin = data->skins[i];
 
             skin.name = gltfSkin.name ? gltfSkin.name : "skin";
@@ -418,21 +429,14 @@ namespace gltf
                         temp[j * 16 + 15],
                     };
                 }
-
-                // TODO: this should be changed to global joint materices buffer
-                // vulkan::BufferCreateInfo createInfo = {
-                //     .size = sizeof(mat4) * skin.inverseBindMatrices.size(),
-                //     .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                // };
-                // g_graphics.createBuffer(skin.jointMatricesBuffer, createInfo);
             }
+
+            model.skins.push_back(skin);
         }
     }
 
     void loadGltfLight(GPULight &light, mat4 worldMatrix, cgltf_light *gltfLight)
     {
-        if (!gltfLight) return;
-
         if (gltfLight->type == cgltf_light_type_directional) {
             light.type = LightType::Directional;
             light.position = math::getPosition(worldMatrix);
