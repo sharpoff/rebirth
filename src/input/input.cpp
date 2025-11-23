@@ -7,6 +7,7 @@ void Input::processEvent(const SDL_Event &event)
 {
     bool        keyPressed = event.type != SDL_EVENT_KEY_UP;
     SDL_Keycode key = event.key.key;
+    currentKeys[key] = false;
     previousKeys[key] = currentKeys[key];
     currentKeys[key] = keyPressed;
 
@@ -17,7 +18,7 @@ void Input::processEvent(const SDL_Event &event)
 
     if (event.type == SDL_EVENT_MOUSE_MOTION) {
         mousePosition = vec2(event.motion.x, event.motion.y);
-        mouseRelativePosition = vec2(event.motion.xrel, event.motion.yrel);
+        mouseRelativeMotion = vec2(event.motion.xrel, event.motion.yrel);
     }
 
 }
@@ -54,16 +55,6 @@ bool Input::getMouseButton(MouseButton button, InputAction action)
     }
 
     return false;
-}
-
-vec2 Input::getMousePosition()
-{
-    return mousePosition;
-}
-
-vec2 Input::getMouseRelativePosition()
-{
-    return mouseRelativePosition;
 }
 
 SDL_Keycode Input::getSDLKey(KeyboardKey key)

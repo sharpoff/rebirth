@@ -2,19 +2,21 @@
 
 #include "math/math.h"
 
+#include <Jolt/Jolt.h>
 #include <imgui.h>
 
-void Editor::update(Input *input, Camera *camera, const ApplicationInfo &appInfo)
+Editor::Editor(Input *input, Camera *camera)
 {
-    assert(input && camera);
+    pInput = input;
+    pCamera = camera;
+}
 
-    //
-    // Gizmo
-    //
-    if (selectedEntity) {
-        mat4 transform = selectedEntity->getTransform();
+void Editor::update(uint32_t appWidth, uint32_t appHeight)
+{
+    if (pSelectedEntity) {
+        mat4 transform = pSelectedEntity->getTransform();
         
-        gizmo.manipulate(input, camera, vec2(appInfo.width, appInfo.height), transform);
+        gizmo.manipulate(pInput, pCamera, vec2(appWidth, appHeight), transform);
         gizmo.selected = true;
     } else {
         gizmo.selected = false;
@@ -28,9 +30,7 @@ const eastl::vector<MeshDraw> Editor::getGizmoMeshDraws()
 
 void Editor::drawEditor(const EngineStats &engineStats)
 {
-    //
     // Show windows
-    //
     if (showDemo)
         ImGui::ShowDemoWindow(&showDemo);
 
@@ -54,9 +54,7 @@ void Editor::drawEditor(const EngineStats &engineStats)
         ImGui::End();
     }
 
-    //
     // Menu Bar
-    //
     if (ImGui::BeginMainMenuBar()) {
         if (ImGui::BeginMenu("File")) {
             ImGui::MenuItem("Save level");
@@ -87,5 +85,5 @@ void Editor::drawEditor(const EngineStats &engineStats)
 
 void Editor::selectEntity(Entity *entity)
 {
-    selectedEntity = entity;
+    pSelectedEntity = entity;
 }

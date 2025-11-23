@@ -20,12 +20,8 @@
 class Physics
 {
 public:
-    Physics() = default;
-    Physics(Physics const &) = delete;
-    void operator=(Physics const &) = delete;
-
-    void initialize();
-    void shutdown();
+    Physics();
+    ~Physics();
 
     void update();
 

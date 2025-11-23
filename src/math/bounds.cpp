@@ -1,12 +1,11 @@
 #include "math/bounds.h"
 
-#include "core/resource_manager.h"
-
 #include "core/vertex.h"
 #include "core/mesh.h"
 
 namespace math
 {
+    /*
     Bounds calculateBoundingBox(int32_t meshId, vec3 scale, quat rotation)
     {
         Mesh *mesh = ResourceManager::get()->getMeshByIndex(meshId);
@@ -66,4 +65,5 @@ namespace math
             .extents = extents,
         };
     }
+*/
 } // namespace math

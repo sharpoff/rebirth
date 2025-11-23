@@ -1,11 +1,7 @@
 #pragma once
 
-#include "SDL3/SDL_events.h"
-#include "EASTL/unordered_map.h"
-
-#include "glm/ext/quaternion_trigonometric.hpp"
 #include "math/math.h"
-#include "util/common_types.h"
+#include "EASTL/unordered_map.h"
 
 enum class CameraType
 {
@@ -18,10 +14,11 @@ class Input;
 class Camera
 {
 public:
-    void initialize(Input *input);
+    Camera(Input *input);
+    ~Camera() = default;
 
     void update(float deltaTime);
-    void processEvent(const SDL_Event &event);
+    void processInput();
 
     void setPosition(vec3 position);
     void setPerspective(float fov, float aspectRatio, float near, float far);
@@ -40,18 +37,20 @@ public:
     // getters
     const mat4 &getProjection() const { return projection; }
     const mat4 &getView() const { return view; }
-    const vec3 &getPosition() const { return position; }
+    const vec3 &getPosition() const { return m_position; }
     quat getRotation() { return glm::angleAxis(glm::radians(yaw), vec3(0, 1, 0)); }
     const float &getFov() const { return fov; }
 
 private:
-    CameraType type = CameraType::FirstPerson;
+    void updateViewMatrix();
 
-    vec3 position = vec3();
+    CameraType m_type = CameraType::FirstPerson;
 
-    vec3 front = common::worldForward;
-    vec3 right = common::worldRight;
-    vec3 up = common::worldUp;
+    vec3 m_position = vec3();
+
+    vec3 m_front = vec3(0, 0, -1);
+    vec3 m_right = vec3(1, 0, 0);
+    vec3 m_up = vec3(0, 1, 0);
 
     mat4 projection = mat4(1.0f);
     mat4 view = mat4(1.0f);
@@ -75,11 +74,8 @@ private:
     float targetUpOffset = 0.0f;
     float targetFrontOffset = 0.0f;
 
-private:
-    void updateViewMatrix();
-
     eastl::unordered_map<unsigned int, bool> keys;
     bool first = true;
 
-    Input *input;
+    Input *pInput;
 };

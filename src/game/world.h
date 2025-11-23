@@ -1,38 +1,30 @@
 #pragma once
 
 #include "EASTL/string.h"
+#include "EASTL/unordered_map.h"
 #include "EASTL/vector.h"
 
-#include "SDL3/SDL_events.h"
-#include "core/application_info.h"
-
 #include "game/entity.h"
-#include "game/player.h"
 
 class Physics;
-class Camera;
+class Input;
 
 class World
 {
 public:
-    void initialize(Physics *physics, Input *input, const ApplicationInfo &appInfo);
-    void shutdown();
+    World(Physics *physics, Input *input);
+    ~World();
 
     void update(float deltaTime);
-    void processEvent(const SDL_Event &event);
     void processInput(float deltaTime);
 
     Entity *getEntityByName(eastl::string name);
-    Entity *getEntityByIndex(size_t index);
-    Entity *getEntityByBodyId(uint32_t bodyId);
-
-    eastl::vector<Entity> &getEntities() { return entities; };
-    Player &getPlayer() { return player; }
+    eastl::vector<Entity *> &getEntities() { return entities; };
 
 private:
-    eastl::vector<Entity> entities;
-    Player player;
+    eastl::vector<Entity *> entities;
+    eastl::unordered_map<eastl::string, Entity *> entityNameMap;
 
-    Input   *input = nullptr;
-    Physics *physics = nullptr;
+    Input   *pInput = nullptr;
+    Physics *pPhysics = nullptr;
 };

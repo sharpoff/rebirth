@@ -2,55 +2,55 @@
 
 #include "input/input.h"
 
-#include "SDL3/SDL_events.h"
 #include "imgui.h"
 
-void Camera::initialize(Input *input)
+Camera::Camera(Input *input)
 {
     assert(input);
-    this->input = input;
+    pInput = input;
 }
 
 void Camera::update(float deltaTime)
 {
-    front.x = cos(glm::radians(pitch)) * sin(glm::radians(yaw));
-    front.y = sin(glm::radians(pitch));
-    front.z = cos(glm::radians(pitch)) * cos(glm::radians(yaw));
-    front = glm::normalize(front);
+    m_front.x = cos(glm::radians(pitch)) * sin(glm::radians(yaw));
+    m_front.y = sin(glm::radians(pitch));
+    m_front.z = cos(glm::radians(pitch)) * cos(glm::radians(yaw));
+    m_front = glm::normalize(m_front);
 
-    right = glm::normalize(glm::cross(front, up));
+    m_right = glm::normalize(glm::cross(m_front, m_up));
 
-    if (!ImGui::GetIO().WantCaptureKeyboard && keyboardInput && type == CameraType::FirstPerson) {
+    if (!ImGui::GetIO().WantCaptureKeyboard && keyboardInput && m_type == CameraType::FirstPerson) {
         float moveSpeed = deltaTime * movementSpeed;
-        if (input->getKey(KeyboardKey::LSHIFT, InputAction::Pressed)) {
+        if (pInput->getKey(KeyboardKey::LSHIFT, InputAction::Pressed)) {
             moveSpeed *= 4;
         }
 
-        if (input->getKey(KeyboardKey::W, InputAction::Pressed))
-            position += front * moveSpeed;
-        if (input->getKey(KeyboardKey::S, InputAction::Pressed))
-            position -= front * moveSpeed;
-        if (input->getKey(KeyboardKey::A, InputAction::Pressed))
-            position -= right * moveSpeed;
-        if (input->getKey(KeyboardKey::D, InputAction::Pressed))
-            position += right * moveSpeed;
+        if (pInput->getKey(KeyboardKey::W, InputAction::Pressed))
+            m_position += m_front * moveSpeed;
+        if (pInput->getKey(KeyboardKey::S, InputAction::Pressed))
+            m_position -= m_front * moveSpeed;
+        if (pInput->getKey(KeyboardKey::A, InputAction::Pressed))
+            m_position -= m_right * moveSpeed;
+        if (pInput->getKey(KeyboardKey::D, InputAction::Pressed))
+            m_position += m_right * moveSpeed;
     }
 
     updateViewMatrix();
 }
 
-void Camera::processEvent(const SDL_Event &event)
+void Camera::processInput()
 {
     if (ImGui::GetIO().WantCaptureMouse)
         return;
 
     // mouse
-    if (input->getMouseButton(MouseButton::LEFT, InputAction::Pressed)) {
+    if (pInput->getMouseButton(MouseButton::LEFT, InputAction::Pressed)) {
+        vec2 relPosition = pInput->getMouseRelativeMotion();
         if (!first) {
-            int pitchSign = type == CameraType::Orbit ? -1 : 1; // reverse pitch for orbit camera
+            int pitchSign = m_type == CameraType::Orbit ? -1 : 1; // reverse pitch for orbit camera
 
-            yaw -= event.motion.xrel * rotationSpeed;
-            pitch -= pitchSign * event.motion.yrel * rotationSpeed;
+            yaw -= relPosition.x * rotationSpeed;
+            pitch -= pitchSign * relPosition.y * rotationSpeed;
         } else {
             first = false;
         }
@@ -59,24 +59,24 @@ void Camera::processEvent(const SDL_Event &event)
         pitch = glm::clamp(pitch, -89.9f, 89.9f);
     }
 
-    if (input->getMouseButton(MouseButton::LEFT, InputAction::Released))
+    if (pInput->getMouseButton(MouseButton::LEFT, InputAction::Released))
         first = true;
 }
 
 void Camera::updateViewMatrix()
 {
-    if (type == CameraType::FirstPerson) {
-        view = glm::lookAt(position, position + front, up);
-    } else if (type == CameraType::Orbit) {
-        vec3 eye = position + (front * eyeFrontOffset) + (up * eyeUpOffset);
-        vec3 target = position + (front * targetFrontOffset) + (up * targetUpOffset);
-        view = glm::lookAt(eye, target, up);
+    if (m_type == CameraType::FirstPerson) {
+        view = glm::lookAt(m_position, m_position + m_front, m_up);
+    } else if (m_type == CameraType::Orbit) {
+        vec3 eye = m_position + (m_front * eyeFrontOffset) + (m_up * eyeUpOffset);
+        vec3 target = m_position + (m_front * targetFrontOffset) + (m_up * targetUpOffset);
+        view = glm::lookAt(eye, target, m_up);
     }
 }
 
 void Camera::setPosition(vec3 position)
 {
-    this->position = position;
+    this->m_position = position;
     updateViewMatrix();
 }
 
@@ -110,5 +110,5 @@ void Camera::setOrthographic(float left, float right, float bottom, float top, f
 
 void Camera::setCameraType(CameraType type)
 {
-    this->type = type;
+    this->m_type = type;
 }

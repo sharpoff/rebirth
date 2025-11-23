@@ -1,23 +1,33 @@
 #pragma once
 
+#include "core/engine_stats.h"
 #include "editor/gizmo.h"
 #include "game/entity.h"
-#include "core/engine_stats.h"
 #include "input/input.h"
-#include "core/application_info.h"
+
+class Camera;
+class Input;
 
 class Editor
 {
 public:
-    void update(Input *input, Camera *camera, const ApplicationInfo &appInfo);
-    const eastl::vector<MeshDraw> getGizmoMeshDraws();
+    Editor(Input *input, Camera *camera);
+    ~Editor() = default;
+
+    void update(uint32_t appWidth, uint32_t appHeight);
     void drawEditor(const EngineStats &engineStats);
     void selectEntity(Entity *entity);
+
+    const eastl::vector<MeshDraw> getGizmoMeshDraws();
 
 private:
     bool showDemo = false;
     bool showDebug = false;
 
+    Entity *pSelectedEntity = nullptr;
+
     Gizmo gizmo;
-    Entity *selectedEntity = nullptr;
+
+    Input  *pInput = nullptr;
+    Camera *pCamera = nullptr;
 };

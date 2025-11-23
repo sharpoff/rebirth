@@ -2,7 +2,7 @@
 
 C++20 Vulkan Game engine
 
-## Features
+## Features (some could be broken right now)
 * PBR (without IBL)
 * Shadow maps
 * Skeleton animations (vertex skinning)

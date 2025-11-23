@@ -11,6 +11,9 @@ class Camera;
 class Gizmo
 {
 public:
+    Gizmo() = default;
+    ~Gizmo() = default;
+
     enum Operation
     {
         TRANSLATE,

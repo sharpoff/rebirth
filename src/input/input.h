@@ -20,11 +20,15 @@ enum class InputAction
 class Input
 {
 public:
+    Input() = default;
+    ~Input() = default;
+
     void processEvent(const SDL_Event &event);
+
     bool getKey(KeyboardKey key, InputAction action);
     bool getMouseButton(MouseButton button, InputAction action);
-    vec2 getMousePosition();
-    vec2 getMouseRelativePosition();
+    vec2 getMousePosition() const { return mousePosition; };
+    vec2 getMouseRelativeMotion() const { return mouseRelativeMotion; };
 
 private:
     SDL_Keycode getSDLKey(KeyboardKey key);
@@ -36,6 +40,7 @@ private:
 
     eastl::unordered_map<SDL_MouseButtonFlags, bool> previousMouseButtons;
     eastl::unordered_map<SDL_MouseButtonFlags, bool> currentMouseButtons;
+
     vec2 mousePosition = vec2(0.f, 0.f);
-    vec2 mouseRelativePosition = vec2(0.f, 0.f);
+    vec2 mouseRelativeMotion = vec2(0.f, 0.f);
 };

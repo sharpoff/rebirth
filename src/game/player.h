@@ -1,10 +1,9 @@
 #pragma once
 
-#include "core/application_info.h"
 #include "core/camera.h"
+#include "game/entity.h"
 #include "input/input.h"
 
-#include "physics/helpers.h"
 #include "physics/physics.h"
 
 struct PlayerPhysicsSettings
@@ -24,48 +23,55 @@ struct PlayerPhysicsSettings
     JPH::EBackFaceMode backFaceMode = JPH::EBackFaceMode::CollideWithBackFaces;
 };
 
+struct PlayerCreateParams
+{
+    eastl::string m_name = "";
+    Bounds        m_bounds = {};
+    mat4          m_transform = mat4(1.0f);
+    uint32_t      m_meshId = 0;
+    uint32_t      m_customMaterialId = 0;
 
-class Player
+    uint32_t appWidth = 0;
+    uint32_t appHeight = 0;
+    Physics *pPhysics = nullptr;
+    Input   *pInput = nullptr;
+};
+
+class Player : public Entity
 {
 public:
-    void initialize(Physics *physics, Input *input, const ApplicationInfo &appInfo);
-    void update(float deltaTime);
-    void processInput(float deltaTime);
+    Player(const PlayerCreateParams &params);
+    void update(float deltaTime) override;
+    void processInput(float deltaTime) override;
 
-    int32_t    getMeshId() const { return meshId; }
-    const mat4 getTransform() const { return JoltToMath(worldTransform); }
-    Camera    &getCamera() { return camera; }
-    void       setKeyboardInput(bool mode) { canMove = mode; camera.setKeyboardInput(mode); }
-    void       setMouseInput(bool mode) { camera.setMouseInput(mode); }
+    Camera *getCamera() { return m_pCamera; }
+
+    void setKeyboardInput(bool mode);
+    void setMouseInput(bool mode);
 
 private:
-    int32_t    meshId = -1;
     JPH::Mat44 worldTransform = JPH::Mat44::sIdentity();
 
     JPH::Vec3 moveDirection = JPH::Vec3::sZero();
     bool      jumping = false;
     bool      canMove = true;
 
-    Camera   camera;
-    Input   *input;
-    Physics *physics;
+    // Character dimensions
+    const float characterHeightStanding = 2.0f;
+    const float characterRadiusStanding = 0.5f;
+
+    Camera  *m_pCamera = nullptr;
+    Input   *m_pInput = nullptr;
+    Physics *m_pPhysics = nullptr;
 
     //
     // Physics
     //
-    void initializePhysics();
-    void updatePhysics(float deltaTime);
-    void updatePhysicsController(float deltaTime);
+    PlayerPhysicsSettings m_playerPhysicsSettings = PlayerPhysicsSettings();
 
-    // Character size
-    const float characterHeightStanding = 2.0f;
-    const float characterRadiusStanding = 0.5f;
-
-	PlayerPhysicsSettings playerPhysicsSettings = PlayerPhysicsSettings();
-
-    JPH::Ref<JPH::CharacterVirtual> character;
-    JPH::RefConst<JPH::Shape>       standingShape;
-    JPH::Vec3                       desiredVelocity = JPH::Vec3::sZero();
+    JPH::Ref<JPH::CharacterVirtual> m_character;
+    JPH::RefConst<JPH::Shape>       m_standingShape;
+    JPH::Vec3                       m_desiredVelocity = JPH::Vec3::sZero();
 
     // Character movement settings
     bool  enableCharacterInertia = true;
@@ -73,4 +79,8 @@ private:
     bool  canControlMovementDuringJump = true; ///< If false the character cannot change movement direction in mid air
     float movespeed = 6.0f;
     float jumpSpeed = 4.0f;
+
+    void initializePhysics();
+    void updatePhysics(float deltaTime);
+    void updatePhysicsController(float deltaTime);
 };

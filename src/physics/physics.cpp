@@ -10,11 +10,11 @@
 
 #include "physics/constants.h"
 
-#include "util/logger.h"
+#include "core/logger.h"
 
 #include "tracy/Tracy.hpp"
 
-void Physics::initialize()
+Physics::Physics()
 {
     ZoneScopedN("Physics init");
 
@@ -39,16 +39,14 @@ void Physics::initialize()
     physicsSystem.SetContactListener(&contactListener);
 }
 
-void Physics::shutdown()
+Physics::~Physics()
 {
-    ZoneScopedN("Physics shutdown");
+    ZoneScoped;
 
     JPH::UnregisterTypes();
 
     delete tempAllocator;
     delete jobSystem;
-
-    LOGI("%s", "Physics shutdown");
 }
 
 void Physics::update()

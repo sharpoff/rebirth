@@ -9,67 +9,67 @@
 
 void Player::initializePhysics()
 {
-    standingShape = JPH::RotatedTranslatedShapeSettings(JPH::Vec3(0, 0.5f * characterHeightStanding + characterRadiusStanding, 0), JPH::Quat::sIdentity(), new JPH::CapsuleShape(0.5f * characterHeightStanding, characterRadiusStanding)).Create().Get();
+    m_standingShape = JPH::RotatedTranslatedShapeSettings(JPH::Vec3(0, 0.5f * characterHeightStanding + characterRadiusStanding, 0), JPH::Quat::sIdentity(), new JPH::CapsuleShape(0.5f * characterHeightStanding, characterRadiusStanding)).Create().Get();
 
     JPH::Ref<JPH::CharacterVirtualSettings> settings = new JPH::CharacterVirtualSettings();
-    settings->mMaxSlopeAngle = playerPhysicsSettings.maxSlopeAngle;
-	settings->mMaxStrength = playerPhysicsSettings.maxStrength;
-	settings->mShape = standingShape;
-	settings->mBackFaceMode = playerPhysicsSettings.backFaceMode;
-	settings->mCharacterPadding = playerPhysicsSettings.characterPadding;
-	settings->mPenetrationRecoverySpeed = playerPhysicsSettings.penetrationRecoverySpeed;
-	settings->mPredictiveContactDistance = playerPhysicsSettings.predictiveContactDistance;
+    settings->mMaxSlopeAngle = m_playerPhysicsSettings.maxSlopeAngle;
+	settings->mMaxStrength = m_playerPhysicsSettings.maxStrength;
+	settings->mShape = m_standingShape;
+	settings->mBackFaceMode = m_playerPhysicsSettings.backFaceMode;
+	settings->mCharacterPadding = m_playerPhysicsSettings.characterPadding;
+	settings->mPenetrationRecoverySpeed = m_playerPhysicsSettings.penetrationRecoverySpeed;
+	settings->mPredictiveContactDistance = m_playerPhysicsSettings.predictiveContactDistance;
 	settings->mSupportingVolume = JPH::Plane(JPH::Vec3::sAxisY(), -characterRadiusStanding); // Accept contacts that touch the lower sphere of the capsule
-	settings->mEnhancedInternalEdgeRemoval = playerPhysicsSettings.enhancedInternalEdgeRemoval;
-	settings->mInnerBodyShape = playerPhysicsSettings.createInnerBody ? standingShape : nullptr;
+	settings->mEnhancedInternalEdgeRemoval = m_playerPhysicsSettings.enhancedInternalEdgeRemoval;
+	settings->mInnerBodyShape = m_playerPhysicsSettings.createInnerBody ? m_standingShape : nullptr;
 	settings->mInnerBodyLayer = Layers::MOVING;
 
-    character = physics->createPlayer(settings, JPH::Vec3(0.0f, 10.0f, 3.0f));
-	character->SetLinearVelocity(physics->getSystem()->GetGravity());
+    m_character = m_pPhysics->createPlayer(settings, JPH::Vec3(0.0f, 10.0f, 3.0f));
+	m_character->SetLinearVelocity(m_pPhysics->getSystem()->GetGravity());
 }
 
 void Player::updatePhysics(float deltaTime)
 {
-    if (!character) return;
+    if (!m_character) return;
 
 	if (canMove)
 		updatePhysicsController(deltaTime);
 
     // Settings for our update function
     JPH::CharacterVirtual::ExtendedUpdateSettings settings{};
-    if (!playerPhysicsSettings.enableStickToFloor)
+    if (!m_playerPhysicsSettings.enableStickToFloor)
         settings.mStickToFloorStepDown = JPH::Vec3::sZero();
     else
-        settings.mStickToFloorStepDown = -character->GetUp() * settings.mStickToFloorStepDown.Length();
+        settings.mStickToFloorStepDown = -m_character->GetUp() * settings.mStickToFloorStepDown.Length();
 
-    if (!playerPhysicsSettings.enableWalkStairs)
+    if (!m_playerPhysicsSettings.enableWalkStairs)
         settings.mWalkStairsStepUp = JPH::Vec3::sZero();
     else
-        settings.mWalkStairsStepUp = character->GetUp() * settings.mWalkStairsStepUp.Length();
+        settings.mWalkStairsStepUp = m_character->GetUp() * settings.mWalkStairsStepUp.Length();
 
-    JPH::PhysicsSystem *physicsSystem = physics->getSystem();
+    JPH::PhysicsSystem *physicsSystem = m_pPhysics->getSystem();
 
     // Update the character position
-    character->ExtendedUpdate(deltaTime,
-        -character->GetUp() * physicsSystem->GetGravity().Length(),
+    m_character->ExtendedUpdate(deltaTime,
+        -m_character->GetUp() * physicsSystem->GetGravity().Length(),
         settings,
         physicsSystem->GetDefaultBroadPhaseLayerFilter(Layers::MOVING),
         physicsSystem->GetDefaultLayerFilter(Layers::MOVING),
         {},
         {},
-        *physics->getTempAllocator());
+        *m_pPhysics->getTempAllocator());
 
-    worldTransform = character->GetWorldTransform();
+    worldTransform = m_character->GetWorldTransform();
 }
 
 void Player::updatePhysicsController(float deltaTime)
 {
-    JPH::PhysicsSystem *physicsSystem = physics->getSystem();
+    JPH::PhysicsSystem *physicsSystem = m_pPhysics->getSystem();
 
-    bool playerControlsHorizontalVelocity = canControlMovementDuringJump || character->IsSupported();
+    bool playerControlsHorizontalVelocity = canControlMovementDuringJump || m_character->IsSupported();
 	if (playerControlsHorizontalVelocity) {
 		// Smooth the player input
-		desiredVelocity = enableCharacterInertia? 0.25f * moveDirection * movespeed + 0.75f * desiredVelocity : moveDirection * movespeed;
+		m_desiredVelocity = enableCharacterInertia? 0.25f * moveDirection * movespeed + 0.75f * m_desiredVelocity : moveDirection * movespeed;
 
 		// True if the player intended to move
 		allowSliding = !moveDirection.IsNearZero();
@@ -80,30 +80,30 @@ void Player::updatePhysicsController(float deltaTime)
 	}
 
 	// Update the character rotation and its up vector to match the up vector set by the user settings
-	JPH::Quat characterUpRotation = MathToJolt(camera.getRotation());
-	character->SetUp(characterUpRotation.RotateAxisY());
-	character->SetRotation(characterUpRotation);
+	JPH::Quat characterUpRotation = MathToJolt(m_pCamera->getRotation());
+	m_character->SetUp(characterUpRotation.RotateAxisY());
+	m_character->SetRotation(characterUpRotation);
 
 	// A cheaper way to update the character's ground velocity,
 	// the platforms that the character is standing on may have changed velocity
-	character->UpdateGroundVelocity();
+	m_character->UpdateGroundVelocity();
 
 	// Determine new basic velocity
-	JPH::Vec3 currentVerticalVelocity = character->GetLinearVelocity().Dot(character->GetUp()) * character->GetUp();
-	JPH::Vec3 groundVelocity = character->GetGroundVelocity();
+	JPH::Vec3 currentVerticalVelocity = m_character->GetLinearVelocity().Dot(m_character->GetUp()) * m_character->GetUp();
+	JPH::Vec3 groundVelocity = m_character->GetGroundVelocity();
 	JPH::Vec3 newVelocity;
 	bool movingTowardsGround = (currentVerticalVelocity.GetY() - groundVelocity.GetY()) < 0.1f;
-	if (character->GetGroundState() == JPH::CharacterVirtual::EGroundState::OnGround	// If on ground
+	if (m_character->GetGroundState() == JPH::CharacterVirtual::EGroundState::OnGround	// If on ground
 		&& (enableCharacterInertia?
 			movingTowardsGround													// Inertia enabled: And not moving away from ground
-			: !character->IsSlopeTooSteep(character->GetGroundNormal())))			// Inertia disabled: And not on a slope that is too steep
+			: !m_character->IsSlopeTooSteep(m_character->GetGroundNormal())))			// Inertia disabled: And not on a slope that is too steep
 	{
 		// Assume velocity of ground when on ground
 		newVelocity = groundVelocity;
 
 		// Jump
 		if (jumping && movingTowardsGround)
-			newVelocity += jumpSpeed * character->GetUp();
+			newVelocity += jumpSpeed * m_character->GetUp();
 	}
 	else
 		newVelocity = currentVerticalVelocity;
@@ -113,14 +113,14 @@ void Player::updatePhysicsController(float deltaTime)
 
 	if (playerControlsHorizontalVelocity) {
 		// Player input
-		newVelocity += characterUpRotation * desiredVelocity;
+		newVelocity += characterUpRotation * m_desiredVelocity;
 	}
 	else {
 		// Preserve horizontal velocity
-		JPH::Vec3 currentHorizontalVelocity = character->GetLinearVelocity() - currentVerticalVelocity;
+		JPH::Vec3 currentHorizontalVelocity = m_character->GetLinearVelocity() - currentVerticalVelocity;
 		newVelocity += currentHorizontalVelocity;
 	}
 
 	// Update character velocity
-	character->SetLinearVelocity(newVelocity);
+	m_character->SetLinearVelocity(newVelocity);
 }

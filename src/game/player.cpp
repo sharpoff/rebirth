@@ -1,51 +1,47 @@
 #include "game/player.h"
 
-#include "Jolt/Math/MathTypes.h"
-#include "Jolt/Math/Vec3.h"
 #include "core/camera.h"
-#include "core/resource_manager.h"
 #include "math/math.h"
 #include "physics/helpers.h"
-#include "util/util.h"
 
-void Player::initialize(Physics *physics, Input *input, const ApplicationInfo &appInfo)
+Player::Player(const PlayerCreateParams &params)
 {
-    assert(physics && input);
+    assert(params.pInput && params.pPhysics);
 
-    this->physics = physics;
-    this->input = input;
+    m_pPhysics = params.pPhysics;
+    m_pInput = params.pInput;
 
     // create camera
-    camera.initialize(input);
-    camera.setKeyboardInput(false); // turn off input checking, only direct position setting
-    camera.setCameraType(CameraType::Orbit);
-    camera.setPerspectiveInf(glm::radians(60.0f), float(appInfo.width) / appInfo.height, 0.1f);
-    camera.setEyeUpOffset(characterHeightStanding);
-    camera.setEyeFrontOffset(characterHeightStanding + 2.0f);
-    camera.setTargetUpOffset(2.0f);
+    m_pCamera = new Camera({m_pInput});
+    m_pCamera->setKeyboardInput(false); // turn off input checking, only direct position setting
+    m_pCamera->setCameraType(CameraType::Orbit);
+    m_pCamera->setPerspectiveInf(glm::radians(60.0f), float(params.appWidth) / params.appHeight, 0.1f);
+    m_pCamera->setEyeUpOffset(characterHeightStanding);
+    m_pCamera->setEyeFrontOffset(characterHeightStanding + 2.0f);
+    m_pCamera->setTargetUpOffset(2.0f);
 
     initializePhysics();
 
-    // Create character mesh
-    // TODO: replace cylinder with a capsule
-    {
-        int                     segments = 16;
-        eastl::vector<Vertex>   vertices = util::generateCylinderVertices(characterRadiusStanding, characterHeightStanding, segments);
-        eastl::vector<uint32_t> indices = util::generateCylinderIndices(segments);
+    // // Create character mesh
+    // // TODO: replace cylinder with a capsule
+    // {
+    //     int                     segments = 16;
+    //     eastl::vector<Vertex>   vertices = util::generateCylinderVertices(characterRadiusStanding, characterHeightStanding, segments);
+    //     eastl::vector<uint32_t> indices = util::generateCylinderIndices(segments);
 
-        uint32_t vertexOffset = ResourceManager::get()->addVertices(vertices);
-        uint32_t indexOffset = ResourceManager::get()->addIndices(indices);
+    //     uint32_t vertexOffset = ResourceManager::get()->addVertices(vertices);
+    //     uint32_t indexOffset = ResourceManager::get()->addIndices(indices);
 
-        Mesh cylinder = {};
-        cylinder.primitives.push_back(Primitive{
-            .materialIndex = ResourceManager::get()->getMaterialIndexByName("checkerboard"),
-            .indexOffset = indexOffset,
-            .indexCount = uint32_t(indices.size()),
-            .vertexOffset = vertexOffset,
-            .vertexCount = uint32_t(vertices.size()),
-        });
-        meshId = ResourceManager::get()->addMesh(cylinder);
-    }
+    //     Mesh cylinder = {};
+    //     cylinder.primitives.push_back(Primitive{
+    //         .materialIndex = ResourceManager::get()->getMaterialIndexByName("checkerboard"),
+    //         .indexOffset = indexOffset,
+    //         .indexCount = uint32_t(indices.size()),
+    //         .vertexOffset = vertexOffset,
+    //         .vertexCount = uint32_t(vertices.size()),
+    //     });
+    //     meshId = ResourceManager::get()->addMesh(cylinder);
+    // }
 }
 
 void Player::update(float deltaTime)
@@ -53,28 +49,40 @@ void Player::update(float deltaTime)
     updatePhysics(deltaTime);
 
     // set camera position behind player
-    camera.setPosition(math::getPosition(JoltToMath(worldTransform)));
-    camera.update(deltaTime);
+    m_pCamera->setPosition(math::getPosition(JoltToMath(worldTransform)));
+    m_pCamera->update(deltaTime);
 }
 
 void Player::processInput(float deltaTime)
 {
-    if (!canMove) return;
+    if (!canMove)
+        return;
 
-    assert(input);
+    assert(m_pInput);
 
     moveDirection = JPH::Vec3::sZero();
-    if (input->getKey(KeyboardKey::W, InputAction::Pressed))
+    if (m_pInput->getKey(KeyboardKey::W, InputAction::Pressed))
         moveDirection.SetZ(-1);
-    if (input->getKey(KeyboardKey::S, InputAction::Pressed))
+    if (m_pInput->getKey(KeyboardKey::S, InputAction::Pressed))
         moveDirection.SetZ(1);
-    if (input->getKey(KeyboardKey::A, InputAction::Pressed))
+    if (m_pInput->getKey(KeyboardKey::A, InputAction::Pressed))
         moveDirection.SetX(-1);
-    if (input->getKey(KeyboardKey::D, InputAction::Pressed))
+    if (m_pInput->getKey(KeyboardKey::D, InputAction::Pressed))
         moveDirection.SetX(1);
     moveDirection = moveDirection.NormalizedOr(JPH::Vec3::sZero());
 
     jumping = false;
-    if (input->getKey(KeyboardKey::SPACE, InputAction::Pressed))
+    if (m_pInput->getKey(KeyboardKey::SPACE, InputAction::Pressed))
         jumping = true;
+}
+
+void Player::setKeyboardInput(bool mode)
+{
+    canMove = mode;
+    m_pCamera->setKeyboardInput(mode);
+}
+
+void Player::setMouseInput(bool mode)
+{
+    m_pCamera->setMouseInput(mode);
 }

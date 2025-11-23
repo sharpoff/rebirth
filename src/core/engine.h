@@ -1,43 +1,40 @@
 #pragma once
 
-#include "core/application_info.h"
+#include "core/application.h"
+#include "core/camera.h"
 #include "core/engine_stats.h"
+#include "editor/editor.h"
 #include "game/world.h"
-#include "graphics/renderer.h"
 #include "input/input.h"
 #include "physics/physics.h"
+#include "render/renderer.h"
 
-#include "util/timer.h"
-
-#include <SDL3/SDL.h>
+#include "EASTL/unique_ptr.h"
 
 class Engine
 {
 public:
-    void initialize(const ApplicationInfo &appInfo);
-    void shutdown();
+    Engine(const char *name, uint32_t width, uint32_t height);
+    ~Engine();
 
     void run();
 
 protected:
-    virtual void processInput(float deltaTime);
-    virtual void update(float deltaTime);
-    virtual void render();
+    void processInput(float deltaTime);
+    void update(float deltaTime);
+    void render();
 
     bool running = false;
     bool minimized = false;
     bool fullscreen = false;
 
-    ApplicationInfo appInfo{};
-
-    Timer       timer;
-    SDL_Window *window;
     EngineStats stats;
 
-    Renderer renderer;
-    Camera   flyCamera;
-    Physics  physics;
-    Editor   editor;
-    World    world;
-    Input    input;
+    eastl::unique_ptr<Application> application;
+    eastl::unique_ptr<Renderer>    renderer;
+    eastl::unique_ptr<Physics>     physics;
+    eastl::unique_ptr<Camera>      camera;
+    eastl::unique_ptr<Input>       input;
+    eastl::unique_ptr<Editor>      editor;
+    eastl::unique_ptr<World>       world;
 };

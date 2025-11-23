@@ -1,87 +1,42 @@
 #include "core/engine.h"
 
-#include "SDL3/SDL_video.h"
-#include "core/draw_mask.h"
-#include "core/resource_manager.h"
-#include "input/input.h"
-#include "physics/helpers.h"
-
-#include "util/logger.h"
-#include "util/util.h"
-
-#include "imgui.h"
+#include <SDL3/SDL.h>
+#include "core/application.h"
 #include "imgui_impl_sdl3.h"
+
 #include <tracy/Tracy.hpp>
 
-void Engine::initialize(const ApplicationInfo &appInfo)
+Engine::Engine(const char *name, uint32_t width, uint32_t height)
 {
     ZoneScopedN("Application init");
 
-    timer.start();
-
-    this->appInfo = appInfo;
-
-    if (!SDL_Init(SDL_INIT_VIDEO)) {
-        LOGE("Failed to initialize SDL: %s", SDL_GetError());
-        exit(EXIT_FAILURE);
-    }
-
-    SDL_Window *window = SDL_CreateWindow(appInfo.name.c_str(), appInfo.width, appInfo.height, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
-    if (!window) {
-        LOGE("Failed to create SDL window: %s", SDL_GetError());
-        exit(EXIT_FAILURE);
-    }
-
-    SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
-
-    renderer.initialize(window, &stats);
-    physics.initialize();
-
-    // setup camera
-    flyCamera.initialize(&input);
-    flyCamera.setPerspectiveInf(glm::radians(60.0f), float(appInfo.width) / appInfo.height, 0.1f);
-    flyCamera.setPosition(vec3(0, 2, 2));
-
-    // add light
-    GPULight dirLight = GPULight{.type = LightType::Directional, .direction = vec3(0.0, -1.0, 0.0)};
-    ResourceManager::get()->addLight(dirLight);
-
-    world.initialize(&physics, &input, appInfo);
-
-    // renderer.setCamera(&flyCamera);
-    // world.getPlayer().setKeyboardInput(false);
-    // world.getPlayer().setMouseInput(false);
-
-    renderer.setCamera(&world.getPlayer().getCamera());
-
-    renderer.createResources();
+    application = eastl::make_unique<Application>(name, width, height);
+    renderer = eastl::make_unique<Renderer>(application.get());
+    physics = eastl::make_unique<Physics>();
+    input = eastl::make_unique<Input>();
+    camera = eastl::make_unique<Camera>(input.get());
+    editor = eastl::make_unique<Editor>(input.get(), camera.get());
+    world = eastl::make_unique<World>(physics.get(), input.get());
 }
 
-void Engine::shutdown()
+Engine::~Engine()
 {
-    ZoneScopedN("Application shutdown");
-
-    world.shutdown();
-    physics.shutdown();
-    renderer.shutdown();
-
-    SDL_DestroyWindow(window);
-    SDL_Quit();
-
-    LOGI("%s", "Engine shutdown");
+    ZoneScoped;
 }
 
 void Engine::run()
 {
     running = true;
 
-    Timer deltaTimer;
-    deltaTimer.start();
+   auto previousTime = std::chrono::high_resolution_clock::now();
 
     while (running) {
         ZoneScopedN("Main loop");
-        float deltaTime = deltaTimer.elapsedMilliseconds() / 1000;
-        deltaTimer.start();
+
+        // calculate deltaTime
+        auto currentTime = std::chrono::high_resolution_clock::now();
+        float deltaTime = std::chrono::duration<float, std::milli>(previousTime - currentTime).count() / 1000;
+        previousTime = currentTime;
 
         processInput(deltaTime);
         update(deltaTime);
@@ -97,8 +52,8 @@ void Engine::processInput(float deltaTime)
 
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
-        input.processEvent(event); // process event before everyting else
-        ImGui_ImplSDL3_ProcessEvent(&event);
+        input->processEvent(event); // process event before everyting else
+        // ImGui_ImplSDL3_ProcessEvent(&event);
 
         if (event.type == SDL_EVENT_WINDOW_MINIMIZED)
             minimized = true;
@@ -111,70 +66,30 @@ void Engine::processInput(float deltaTime)
             fullscreen = false;
 
         if (event.type == SDL_EVENT_WINDOW_RESIZED)
-            renderer.requestResize();
+            renderer->requestResize();
 
-        if (event.type == SDL_EVENT_QUIT || input.getKey(KeyboardKey::ESCAPE, InputAction::JustPressed)) {
+        if (event.type == SDL_EVENT_QUIT)
             running = false;
-        }
 
-        if (input.getKey(KeyboardKey::Q, InputAction::Pressed)) {
-            LOGI("%s", "Reloading shaders");
-            renderer.reloadShaders();
-        }
+        if (input->getKey(KeyboardKey::ESCAPE, InputAction::Pressed))
+            running = false;
 
-        // do raycast
-        if (!ImGui::GetIO().WantCaptureMouse && input.getMouseButton(MouseButton::RIGHT, InputAction::JustPressed)) {
-            vec3 direction = util::mouseToWorldDirection(vec2(event.motion.x, event.motion.y), vec2(appInfo.width, appInfo.height), flyCamera.getView(), flyCamera.getProjection());
-
-            float raycastRange = 10000.0f;
-            direction *= raycastRange;
-
-            JPH::BodyID hitBody = physics.rayCast(MathToJolt(flyCamera.getPosition()), MathToJolt(direction));
-            if (hitBody != JPH::BodyID()) { // valid body
-                Entity *entity = world.getEntityByBodyId(hitBody.GetIndexAndSequenceNumber());
-                editor.selectEntity(entity);
-            } else {
-                editor.selectEntity(nullptr);
-            }
-        }
-
-        flyCamera.processEvent(event);
-        world.processEvent(event);
+        // flyCamera.processInput(deltaTime);
+        // world->processInput(deltaTime);
     }
-
-    world.processInput(deltaTime);
 }
 
 void Engine::update(float deltaTime)
 {
     ZoneScopedN("Update");
 
-    physics.update();
-    flyCamera.update(deltaTime);
-    world.update(deltaTime);
-    editor.update(&input, &flyCamera, appInfo);
+    // physics->update();
+    // flyCamera.update(deltaTime);
+    // world->update(deltaTime);
+    // editor->update(width, height);
 }
 
 void Engine::render()
 {
     ZoneScopedN("Render");
-
-    for (auto &entity : world.getEntities())
-        renderer.drawEntity(entity, DrawMask::Opaque);
-
-    for (auto &meshDraw : editor.getGizmoMeshDraws()) {
-        renderer.addMeshDraw(meshDraw);
-    }
-
-    Player &player = world.getPlayer();
-    renderer.drawMesh(player.getMeshId(), DrawMask::Opaque, player.getTransform());
-
-    if (!renderer.present(&editor)) {
-        // recreating swapchain, so change width/height in application info
-        int width = 0, height = 0;
-        SDL_GetWindowSize(window, &width, &height);
-
-        appInfo.width = width;
-        appInfo.height = height;
-    }
 }
