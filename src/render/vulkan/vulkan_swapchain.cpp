@@ -4,7 +4,7 @@
 
 #include <algorithm>
 
-void VulkanSwapchain::create(const VulkanSwapchainCreateParams &params)
+void VulkanSwapchain::create(const VulkanSwapchainCreateInfo &params)
 {
     VkSurfaceCapabilitiesKHR capabilities;
     VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(params.physicalDevice, params.surface, &capabilities));

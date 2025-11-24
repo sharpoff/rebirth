@@ -9,10 +9,6 @@ VulkanSDLWindowSystem::VulkanSDLWindowSystem(SDL_Window *window)
     pWindow = window;
 }
 
-VulkanSDLWindowSystem::~VulkanSDLWindowSystem()
-{
-}
-
 eastl::vector<const char *> VulkanSDLWindowSystem::getInstanceExtensions()
 {
     uint32_t extensionCount = 0;

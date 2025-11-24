@@ -17,13 +17,13 @@ Renderer::Renderer(Application *application)
 
     vec2 windowSize = application->getWindowSize();
 
-    TextureCreateParams textureParmas = {
+    TextureCreateInfo textureParmas = {
         .width = (uint32_t)windowSize.x,
         .height = (uint32_t)windowSize.y,
         .arrayLayers = 0,
         .mipLevels = renderDevice->calculateMipLevels(windowSize.x, windowSize.y),
         .sampleCount = 1,
-        .usage = (int)TextureUsageFlags::ColorAttachment,
+        .usage = (int)TextureUsageFlagBits::ColorAttachment,
         .format = TextureFormat::R8G8B8A8_SRGB,
     };
 

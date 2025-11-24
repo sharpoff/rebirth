@@ -23,13 +23,13 @@ public:
     VulkanRenderDevice(Application *application);
     virtual ~VulkanRenderDevice();
 
-    virtual Buffer  *createBuffer(const BufferCreateParams &params) override final;
-    virtual Texture *createTexture(const TextureCreateParams &params) override final;
-    virtual Texture *createTextureView(const TextureViewCreateParams &params) override final;
-    virtual Sampler *createSampler(const SamplerCreateParams &params) override final;
-    virtual PipelineLayout *createPipelineLayout(const PipelineLayoutCreateParams &params) override final;
-    virtual RenderPipeline *createRenderPipeline(const RenderPipelineCreateParams &params) override final;
-    virtual ComputePipeline *createComputePipeline(const ComputePipelineCreateParams &params) override final;
+    virtual Buffer  *createBuffer(const BufferCreateInfo &createInfo) override final;
+    virtual Texture *createTexture(const TextureCreateInfo &createInfo) override final;
+    virtual Texture *createTextureView(const TextureViewCreateInfo &createInfo) override final;
+    virtual Sampler *createSampler(const SamplerCreateInfo &createInfo) override final;
+    virtual PipelineLayout *createPipelineLayout(const PipelineLayoutCreateInfo &createInfo) override final;
+    virtual RenderPipeline *createRenderPipeline(const RenderPipelineCreateInfo &createInfo) override final;
+    virtual ComputePipeline *createComputePipeline(const ComputePipelineCreateInfo &createInfo) override final;
 
     virtual void destroyBuffer(Buffer *buffer) override final;
     virtual void destroyTexture(Texture *texture) override final;

@@ -19,9 +19,9 @@ namespace vulkan
     VkImageType             getImageType(TextureType type);
     VkImageViewType         getImageViewType(TextureType type);
     VkImageSubresourceRange getImageSubresourceRange(Texture *texture);
-    VkImageUsageFlags       getImageUsageFlags(TextureUsageMask usage);
+    VkImageUsageFlags       getImageUsageFlags(TextureUsageFlags usage);
     VkFormat                getFormat(TextureFormat format);
-    VkBufferUsageFlags      getBufferUsageFlags(BufferUsageMask usage);
+    VkBufferUsageFlags      getBufferUsageFlags(BufferUsageFlags usage);
     VkFilter                getFilter(SamplerFilter filter);
     VkSamplerMipmapMode     getSamplerMipmapMode(SamplerFilter mode);
     VkSamplerAddressMode    getSamplerAddressMode(SamplerAddressMode samplerAddressMode);
@@ -33,9 +33,9 @@ namespace vulkan
     VkFrontFace             getFrontFace(FrontFace frontFace);
     VkBlendOp               getBlendOp(BlendOperator blendOp);
     VkBlendFactor           getBlendFactor(BlendFactor blendFactor);
-    VkColorComponentFlags   getColorComponentFlags(ColorComponentMask colorComponentMask);
+    VkColorComponentFlags   getColorComponentFlags(ColorComponentFlags colorComponentMask);
     VkDescriptorType        getDescriptorType(DescriptorType type);
-    VkShaderStageFlags      getShaderStageFlags(ShaderStageMask stage);
+    VkShaderStageFlags      getShaderStageFlags(ShaderStageFlags stage);
 
     void setDebugName(VkDevice device, VkSemaphore semaphore, eastl::string name);
     void beginDebugLabel(VkCommandBuffer cmd, const char *name, float color[4]);

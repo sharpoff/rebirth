@@ -76,12 +76,12 @@ VulkanRenderDevice::VulkanRenderDevice(Application *application)
 
     createAllocator();
 
-    VulkanSwapchainCreateParams swapchainParams;
-    swapchainParams.device = device;
-    swapchainParams.physicalDevice = physicalDevice;
-    swapchainParams.pWindowSystem = windowSystem;
-    swapchainParams.surface = surface;
-    swapchain.create(swapchainParams);
+    VulkanSwapchainCreateInfo swapchaincreateInfo;
+    swapchaincreateInfo.device = device;
+    swapchaincreateInfo.physicalDevice = physicalDevice;
+    swapchaincreateInfo.pWindowSystem = windowSystem;
+    swapchaincreateInfo.surface = surface;
+    swapchain.create(swapchaincreateInfo);
 
     // create command pool
     VkCommandPoolCreateInfo commandPoolCI = {VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
@@ -151,14 +151,14 @@ VulkanRenderDevice::~VulkanRenderDevice()
     vkDestroyInstance(instance, nullptr);
 }
 
-Buffer *VulkanRenderDevice::createBuffer(const BufferCreateParams &params)
+Buffer *VulkanRenderDevice::createBuffer(const BufferCreateInfo &createInfo)
 {
-    assert(params.size > 0);
+    assert(createInfo.size > 0);
 
     VkBufferCreateInfo bufferInfo = {VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
-    bufferInfo.size = params.size;
+    bufferInfo.size = createInfo.size;
     bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    bufferInfo.usage = vulkan::getBufferUsageFlags(params.usage);
+    bufferInfo.usage = vulkan::getBufferUsageFlags(createInfo.usage);
 
     VmaAllocationCreateInfo allocInfo = {};
     allocInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
@@ -166,8 +166,8 @@ Buffer *VulkanRenderDevice::createBuffer(const BufferCreateParams &params)
     allocInfo.priority = 1.0;
 
     VulkanBuffer *buffer = new VulkanBuffer();
-    buffer->size = params.size;
-    buffer->usage = params.usage;
+    buffer->size = createInfo.size;
+    buffer->usage = createInfo.usage;
     VK_CHECK(vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer->buffer, &buffer->allocation.handle, &buffer->allocation.info));
 
     if ((bufferInfo.usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT) == VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT) {
@@ -179,19 +179,19 @@ Buffer *VulkanRenderDevice::createBuffer(const BufferCreateParams &params)
     return buffer;
 }
 
-Texture *VulkanRenderDevice::createTexture(const TextureCreateParams &params)
+Texture *VulkanRenderDevice::createTexture(const TextureCreateInfo &createInfo)
 {
     VkImageCreateInfo imageInfo = {VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
-    imageInfo.imageType = vulkan::getImageType(params.type);
-    imageInfo.format = vulkan::getFormat(params.format);
-    imageInfo.extent.width = params.width;
-    imageInfo.extent.height = params.height;
+    imageInfo.imageType = vulkan::getImageType(createInfo.type);
+    imageInfo.format = vulkan::getFormat(createInfo.format);
+    imageInfo.extent.width = createInfo.width;
+    imageInfo.extent.height = createInfo.height;
     imageInfo.extent.depth = 1;
-    imageInfo.mipLevels = params.mipLevels;
-    imageInfo.arrayLayers = params.arrayLayers;
-    imageInfo.samples = vulkan::getSampleCount(params.sampleCount);
+    imageInfo.mipLevels = createInfo.mipLevels;
+    imageInfo.arrayLayers = createInfo.arrayLayers;
+    imageInfo.samples = vulkan::getSampleCount(createInfo.sampleCount);
     imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-    imageInfo.usage = vulkan::getImageUsageFlags(params.usage);
+    imageInfo.usage = vulkan::getImageUsageFlags(createInfo.usage);
     imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
@@ -201,28 +201,28 @@ Texture *VulkanRenderDevice::createTexture(const TextureCreateParams &params)
 
     VulkanTexture *texture = new VulkanTexture();
     assert(texture);
-    texture->width = params.width;
-    texture->height = params.height;
-    texture->layerCount = params.arrayLayers;
-    texture->levelCount = params.mipLevels;
-    texture->sampleCount = params.sampleCount;
-    texture->type = params.type;
-    texture->usage = params.usage;
-    texture->format = params.format;
+    texture->width = createInfo.width;
+    texture->height = createInfo.height;
+    texture->layerCount = createInfo.arrayLayers;
+    texture->levelCount = createInfo.mipLevels;
+    texture->sampleCount = createInfo.sampleCount;
+    texture->type = createInfo.type;
+    texture->usage = createInfo.usage;
+    texture->format = createInfo.format;
     VK_CHECK(vmaCreateImage(allocator, &imageInfo, &allocInfo, &texture->image, &texture->allocation.handle, &texture->allocation.info));
 
     return texture;
 }
 
-Texture *VulkanRenderDevice::createTextureView(const TextureViewCreateParams &params)
+Texture *VulkanRenderDevice::createTextureView(const TextureViewCreateInfo &createInfo)
 {
-    VulkanTexture *pViewedTexture = (VulkanTexture *)params.pTexture;
+    VulkanTexture *pViewedTexture = (VulkanTexture *)createInfo.pTexture;
     assert(pViewedTexture);
 
     VulkanTexture *texture = new VulkanTexture();
     assert(texture);
 
-    texture->pViewedTexture = params.pTexture;
+    texture->pViewedTexture = createInfo.pTexture;
     texture->width = pViewedTexture->width;
     texture->height = pViewedTexture->height;
     texture->layerCount = pViewedTexture->layerCount;
@@ -246,43 +246,43 @@ Texture *VulkanRenderDevice::createTextureView(const TextureViewCreateParams &pa
     return texture;
 }
 
-Sampler *VulkanRenderDevice::createSampler(const SamplerCreateParams &params)
+Sampler *VulkanRenderDevice::createSampler(const SamplerCreateInfo &createInfo)
 {
-    VkSamplerCreateInfo createInfo = {VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
-    createInfo.minFilter = vulkan::getFilter(params.minFilter);
-    createInfo.magFilter = vulkan::getFilter(params.magFilter);
-    createInfo.addressModeU = vulkan::getSamplerAddressMode(params.addressModeU);
-    createInfo.addressModeV = vulkan::getSamplerAddressMode(params.addressModeV);
-    createInfo.addressModeW = vulkan::getSamplerAddressMode(params.addressModeW);
-    createInfo.mipmapMode = vulkan::getSamplerMipmapMode(params.mipmapMode);
-    createInfo.compareOp = vulkan::getCompareOp(params.compareOp);
-    createInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-    createInfo.maxLod = params.maxLod;
+    VkSamplerCreateInfo samplerCreateInfo = {VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
+    samplerCreateInfo.minFilter = vulkan::getFilter(createInfo.minFilter);
+    samplerCreateInfo.magFilter = vulkan::getFilter(createInfo.magFilter);
+    samplerCreateInfo.addressModeU = vulkan::getSamplerAddressMode(createInfo.addressModeU);
+    samplerCreateInfo.addressModeV = vulkan::getSamplerAddressMode(createInfo.addressModeV);
+    samplerCreateInfo.addressModeW = vulkan::getSamplerAddressMode(createInfo.addressModeW);
+    samplerCreateInfo.mipmapMode = vulkan::getSamplerMipmapMode(createInfo.mipmapMode);
+    samplerCreateInfo.compareOp = vulkan::getCompareOp(createInfo.compareOp);
+    samplerCreateInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+    samplerCreateInfo.maxLod = createInfo.maxLod;
 
     VulkanSampler *sampler = new VulkanSampler();
     assert(sampler);
-    sampler->mipLodBias = params.mipLodBias;
-    sampler->minLod = params.minLod;
-    sampler->maxLod = params.maxLod;
-    sampler->maxAnisotropy = params.maxAnisotropy;
-    sampler->magFilter = params.magFilter;
-    sampler->minFilter = params.minFilter;
-    sampler->mipmapMode = params.mipmapMode;
-    sampler->addressModeU = params.addressModeU;
-    sampler->addressModeV = params.addressModeV;
-    sampler->addressModeW = params.addressModeW;
-    sampler->compareOp = params.compareOp;
-    VK_CHECK(vkCreateSampler(device, &createInfo, nullptr, &sampler->sampler));
+    sampler->mipLodBias = createInfo.mipLodBias;
+    sampler->minLod = createInfo.minLod;
+    sampler->maxLod = createInfo.maxLod;
+    sampler->maxAnisotropy = createInfo.maxAnisotropy;
+    sampler->magFilter = createInfo.magFilter;
+    sampler->minFilter = createInfo.minFilter;
+    sampler->mipmapMode = createInfo.mipmapMode;
+    sampler->addressModeU = createInfo.addressModeU;
+    sampler->addressModeV = createInfo.addressModeV;
+    sampler->addressModeW = createInfo.addressModeW;
+    sampler->compareOp = createInfo.compareOp;
+    VK_CHECK(vkCreateSampler(device, &samplerCreateInfo, nullptr, &sampler->sampler));
 
     return sampler;
 }
 
-PipelineLayout *VulkanRenderDevice::createPipelineLayout(const PipelineLayoutCreateParams &params)
+PipelineLayout *VulkanRenderDevice::createPipelineLayout(const PipelineLayoutCreateInfo &createInfo)
 {
-    eastl::vector<VkDescriptorSetLayout> descriptorSetLayouts(params.descriptorSetLayouts.size());
+    eastl::vector<VkDescriptorSetLayout> descriptorSetLayouts(createInfo.descriptorSetLayouts.size());
 
-    for (size_t i = 0; i < params.descriptorSetLayouts.size(); i++) {
-        const eastl::vector<DescriptorSetLayoutBinding> &bindings = params.descriptorSetLayouts[i].bindings;
+    for (size_t i = 0; i < createInfo.descriptorSetLayouts.size(); i++) {
+        const eastl::vector<DescriptorSetLayoutBinding> &bindings = createInfo.descriptorSetLayouts[i].bindings;
 
         eastl::vector<VkDescriptorSetLayoutBinding> descriptorSetLayoutBindings(bindings.size());
 
@@ -300,19 +300,19 @@ PipelineLayout *VulkanRenderDevice::createPipelineLayout(const PipelineLayoutCre
         VK_CHECK(vkCreateDescriptorSetLayout(device, &createInfo, nullptr, &descriptorSetLayouts[i]));
     }
 
-    VkPipelineLayoutCreateInfo createInfo = {VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-    createInfo.setLayoutCount = descriptorSetLayouts.size();
-    createInfo.pSetLayouts = descriptorSetLayouts.data();
+    VkPipelineLayoutCreateInfo layoutCreateInfo = {VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
+    layoutCreateInfo.setLayoutCount = descriptorSetLayouts.size();
+    layoutCreateInfo.pSetLayouts = descriptorSetLayouts.data();
 
     VulkanPipelineLayout *pipelineLayout = new VulkanPipelineLayout();
-    VK_CHECK(vkCreatePipelineLayout(device, &createInfo, nullptr, &pipelineLayout->layout));
+    VK_CHECK(vkCreatePipelineLayout(device, &layoutCreateInfo, nullptr, &pipelineLayout->layout));
 
     return pipelineLayout;
 }
 
-RenderPipeline *VulkanRenderDevice::createRenderPipeline(const RenderPipelineCreateParams &params)
+RenderPipeline *VulkanRenderDevice::createRenderPipeline(const RenderPipelineCreateInfo &createInfo)
 {
-    VulkanPipelineLayout *vulkanPipelineLayout = (VulkanPipelineLayout *)params.pPipelineLayout;
+    VulkanPipelineLayout *vulkanPipelineLayout = (VulkanPipelineLayout *)createInfo.pPipelineLayout;
     assert(vulkanPipelineLayout);
 
     eastl::vector<VkPipelineShaderStageCreateInfo> stages;
@@ -322,10 +322,10 @@ RenderPipeline *VulkanRenderDevice::createRenderPipeline(const RenderPipelineCre
     VkShaderModule tessellationControlModule = VK_NULL_HANDLE;
     VkShaderModule tessellationEvaluationModule = VK_NULL_HANDLE;
 
-    if (!params.vertexCode.empty()) {
+    if (!createInfo.vertexCode.empty()) {
         VkShaderModuleCreateInfo shaderModuleCreateInfo = {VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
-        shaderModuleCreateInfo.codeSize = params.vertexCode.size();
-        shaderModuleCreateInfo.pCode = params.vertexCode.data();
+        shaderModuleCreateInfo.codeSize = createInfo.vertexCode.size();
+        shaderModuleCreateInfo.pCode = createInfo.vertexCode.data();
         VK_CHECK(vkCreateShaderModule(device, &shaderModuleCreateInfo, nullptr, &vertexModule));
 
         VkPipelineShaderStageCreateInfo &stage = stages.emplace_back();
@@ -335,10 +335,10 @@ RenderPipeline *VulkanRenderDevice::createRenderPipeline(const RenderPipelineCre
         stage.pName = "main";
     }
 
-    if (!params.fragmentCode.empty()) {
+    if (!createInfo.fragmentCode.empty()) {
         VkShaderModuleCreateInfo shaderModuleCreateInfo = {VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
-        shaderModuleCreateInfo.codeSize = params.fragmentCode.size();
-        shaderModuleCreateInfo.pCode = params.fragmentCode.data();
+        shaderModuleCreateInfo.codeSize = createInfo.fragmentCode.size();
+        shaderModuleCreateInfo.pCode = createInfo.fragmentCode.data();
         VK_CHECK(vkCreateShaderModule(device, &shaderModuleCreateInfo, nullptr, &fragmentModule));
 
         VkPipelineShaderStageCreateInfo &stage = stages.emplace_back();
@@ -348,10 +348,10 @@ RenderPipeline *VulkanRenderDevice::createRenderPipeline(const RenderPipelineCre
         stage.pName = "main";
     }
 
-    if (!params.tessellationControlCode.empty()) {
+    if (!createInfo.tessellationControlCode.empty()) {
         VkShaderModuleCreateInfo shaderModuleCreateInfo = {VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
-        shaderModuleCreateInfo.codeSize = params.tessellationControlCode.size();
-        shaderModuleCreateInfo.pCode = params.tessellationControlCode.data();
+        shaderModuleCreateInfo.codeSize = createInfo.tessellationControlCode.size();
+        shaderModuleCreateInfo.pCode = createInfo.tessellationControlCode.data();
         VK_CHECK(vkCreateShaderModule(device, &shaderModuleCreateInfo, nullptr, &tessellationControlModule));
 
         VkPipelineShaderStageCreateInfo &stage = stages.emplace_back();
@@ -361,10 +361,10 @@ RenderPipeline *VulkanRenderDevice::createRenderPipeline(const RenderPipelineCre
         stage.pName = "main";
     }
 
-    if (!params.tessellationEvaluationCode.empty()) {
+    if (!createInfo.tessellationEvaluationCode.empty()) {
         VkShaderModuleCreateInfo shaderModuleCreateInfo = {VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
-        shaderModuleCreateInfo.codeSize = params.tessellationEvaluationCode.size();
-        shaderModuleCreateInfo.pCode = params.tessellationEvaluationCode.data();
+        shaderModuleCreateInfo.codeSize = createInfo.tessellationEvaluationCode.size();
+        shaderModuleCreateInfo.pCode = createInfo.tessellationEvaluationCode.data();
         VK_CHECK(vkCreateShaderModule(device, &shaderModuleCreateInfo, nullptr, &tessellationEvaluationModule));
 
         VkPipelineShaderStageCreateInfo &stage = stages.emplace_back();
@@ -376,10 +376,10 @@ RenderPipeline *VulkanRenderDevice::createRenderPipeline(const RenderPipelineCre
 
     VkPipelineVertexInputStateCreateInfo   vertexInputState = {VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
     VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = {VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
-    inputAssemblyState.topology = vulkan::getPrimitiveTopology(params.topology);
+    inputAssemblyState.topology = vulkan::getPrimitiveTopology(createInfo.topology);
 
     VkPipelineTessellationStateCreateInfo tessellationState = {VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO};
-    tessellationState.patchControlPoints = params.patchControlPoints;
+    tessellationState.patchControlPoints = createInfo.patchControlPoints;
 
     VkViewport viewport;
     viewport.x = 0.0f;
@@ -404,9 +404,9 @@ RenderPipeline *VulkanRenderDevice::createRenderPipeline(const RenderPipelineCre
     VkPipelineRasterizationStateCreateInfo rasterizationState = {VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO};
     rasterizationState.depthClampEnable = VK_FALSE;
     rasterizationState.rasterizerDiscardEnable = VK_FALSE;
-    rasterizationState.polygonMode = vulkan::getPolygonMode(params.polygonMode);
-    rasterizationState.cullMode = vulkan::getCullMode(params.cullMode);
-    rasterizationState.frontFace = vulkan::getFrontFace(params.frontFace);
+    rasterizationState.polygonMode = vulkan::getPolygonMode(createInfo.polygonMode);
+    rasterizationState.cullMode = vulkan::getCullMode(createInfo.cullMode);
+    rasterizationState.frontFace = vulkan::getFrontFace(createInfo.frontFace);
     rasterizationState.depthBiasEnable = VK_FALSE;
     rasterizationState.depthBiasConstantFactor = 0.0f;
     rasterizationState.depthBiasClamp = 0.0f;
@@ -414,7 +414,7 @@ RenderPipeline *VulkanRenderDevice::createRenderPipeline(const RenderPipelineCre
     rasterizationState.lineWidth = 1.0;
 
     VkPipelineMultisampleStateCreateInfo multisampleState = {VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
-    multisampleState.rasterizationSamples = vulkan::getSampleCount(params.sampleCount);
+    multisampleState.rasterizationSamples = vulkan::getSampleCount(createInfo.sampleCount);
     if (deviceFeatures.sampleRateShading) {
         multisampleState.sampleShadingEnable = VK_TRUE;
         multisampleState.minSampleShading = 0.2f;
@@ -422,13 +422,13 @@ RenderPipeline *VulkanRenderDevice::createRenderPipeline(const RenderPipelineCre
         multisampleState.sampleShadingEnable = VK_FALSE;
     }
 
-    const VkBool32 depthTestEnabled = params.depthCompareOp != CompareOperator::Always;
-    const VkBool32 depthWriteEnabled = params.depthWriteEnable;
+    const VkBool32 depthTestEnabled = createInfo.depthCompareOp != COMPARE_OPERATOR_ALWAYS;
+    const VkBool32 depthWriteEnabled = createInfo.depthWriteEnable;
 
     VkPipelineDepthStencilStateCreateInfo depthStencilState = {VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
     depthStencilState.depthTestEnable = depthTestEnabled || depthWriteEnabled;
     depthStencilState.depthWriteEnable = depthWriteEnabled;
-    depthStencilState.depthCompareOp = vulkan::getCompareOp(params.depthCompareOp);
+    depthStencilState.depthCompareOp = vulkan::getCompareOp(createInfo.depthCompareOp);
     depthStencilState.depthBoundsTestEnable = VK_FALSE;
     depthStencilState.stencilTestEnable = VK_FALSE; // TODO: stencil
     depthStencilState.front = {}; // TODO: stencil
@@ -436,19 +436,19 @@ RenderPipeline *VulkanRenderDevice::createRenderPipeline(const RenderPipelineCre
     depthStencilState.minDepthBounds = 0.0f;
     depthStencilState.maxDepthBounds = 1.0f;
 
-    const VkBool32 blendEnabled = params.colorBlendOp != BlendOperator::None;
+    const VkBool32 blendEnabled = createInfo.colorBlendOp != BLEND_OPERATOR_NONE;
 
     VkPipelineColorBlendAttachmentState colorBlendAttachmentState = {};
     colorBlendAttachmentState.blendEnable = blendEnabled;
-    colorBlendAttachmentState.srcColorBlendFactor = vulkan::getBlendFactor(params.colorBlendFactorSrc);
-    colorBlendAttachmentState.dstColorBlendFactor = vulkan::getBlendFactor(params.colorBlendFactorDst);
-    colorBlendAttachmentState.colorBlendOp = vulkan::getBlendOp(params.colorBlendOp);
-    colorBlendAttachmentState.srcAlphaBlendFactor = vulkan::getBlendFactor(params.alphaBlendFactorSrc);
-    colorBlendAttachmentState.dstAlphaBlendFactor = vulkan::getBlendFactor(params.alphaBlendFactorDst);
-    colorBlendAttachmentState.alphaBlendOp = vulkan::getBlendOp(params.alphaBlendOp);
-    colorBlendAttachmentState.colorWriteMask = vulkan::getColorComponentFlags(params.colorWriteMask);
+    colorBlendAttachmentState.srcColorBlendFactor = vulkan::getBlendFactor(createInfo.colorBlendFactorSrc);
+    colorBlendAttachmentState.dstColorBlendFactor = vulkan::getBlendFactor(createInfo.colorBlendFactorDst);
+    colorBlendAttachmentState.colorBlendOp = vulkan::getBlendOp(createInfo.colorBlendOp);
+    colorBlendAttachmentState.srcAlphaBlendFactor = vulkan::getBlendFactor(createInfo.alphaBlendFactorSrc);
+    colorBlendAttachmentState.dstAlphaBlendFactor = vulkan::getBlendFactor(createInfo.alphaBlendFactorDst);
+    colorBlendAttachmentState.alphaBlendOp = vulkan::getBlendOp(createInfo.alphaBlendOp);
+    colorBlendAttachmentState.colorWriteMask = vulkan::getColorComponentFlags(createInfo.colorWriteMask);
 
-    eastl::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments(params.renderTargetFormats.size(), colorBlendAttachmentState);
+    eastl::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments(createInfo.renderTargetFormats.size(), colorBlendAttachmentState);
 
     VkPipelineColorBlendStateCreateInfo colorBlendState = {VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
     colorBlendState.logicOpEnable = VK_FALSE;
@@ -456,11 +456,11 @@ RenderPipeline *VulkanRenderDevice::createRenderPipeline(const RenderPipelineCre
     colorBlendState.pAttachments = colorBlendAttachments.data();
 
     eastl::vector<VkDynamicState> dynamicStates;
-    if (params.dynamicState & (int)DynamicStateFlags::Viewport) {
+    if (createInfo.dynamicState & DYNAMIC_STATE_VIEWPORT) {
         dynamicStates.push_back(VK_DYNAMIC_STATE_VIEWPORT);
     }
 
-    if (params.dynamicState & (int)DynamicStateFlags::Scissor) {
+    if (createInfo.dynamicState & DYNAMIC_STATE_SCISSOR) {
         dynamicStates.push_back(VK_DYNAMIC_STATE_SCISSOR);
     }
 
@@ -468,8 +468,8 @@ RenderPipeline *VulkanRenderDevice::createRenderPipeline(const RenderPipelineCre
     dynamicState.dynamicStateCount = dynamicStates.size();
     dynamicState.pDynamicStates = dynamicStates.data();
 
-    eastl::vector<VkFormat> colorAttachmentFormats(params.renderTargetFormats.size());
-    for (const TextureFormat &renderTargetFormat : params.renderTargetFormats) {
+    eastl::vector<VkFormat> colorAttachmentFormats(createInfo.renderTargetFormats.size());
+    for (const TextureFormat &renderTargetFormat : createInfo.renderTargetFormats) {
         colorAttachmentFormats.push_back(vulkan::getFormat(renderTargetFormat));
     }
 
@@ -477,42 +477,42 @@ RenderPipeline *VulkanRenderDevice::createRenderPipeline(const RenderPipelineCre
     renderingInfo.colorAttachmentCount = colorAttachmentFormats.size();
     renderingInfo.pColorAttachmentFormats = colorAttachmentFormats.data();
     if (depthTestEnabled || depthWriteEnabled)
-        renderingInfo.depthAttachmentFormat = vulkan::getFormat(params.depthTargetFormat);
+        renderingInfo.depthAttachmentFormat = vulkan::getFormat(createInfo.depthTargetFormat);
 
-    VkGraphicsPipelineCreateInfo createInfo = {VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
-    createInfo.pNext = &renderingInfo;
-    createInfo.stageCount = stages.size();
-    createInfo.pStages = stages.data();
-    createInfo.pVertexInputState = &vertexInputState;
-    createInfo.pInputAssemblyState = &inputAssemblyState;
-    createInfo.pTessellationState = &tessellationState;
-    createInfo.pViewportState = &viewportState;
-    createInfo.pRasterizationState = &rasterizationState;
-    createInfo.pMultisampleState = &multisampleState;
-    createInfo.pDepthStencilState = &depthStencilState;
-    createInfo.pColorBlendState = &colorBlendState;
-    createInfo.pDynamicState = &dynamicState;
-    createInfo.layout = vulkanPipelineLayout->layout;
+    VkGraphicsPipelineCreateInfo pipelineCreateInfo = {VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
+    pipelineCreateInfo.pNext = &renderingInfo;
+    pipelineCreateInfo.stageCount = stages.size();
+    pipelineCreateInfo.pStages = stages.data();
+    pipelineCreateInfo.pVertexInputState = &vertexInputState;
+    pipelineCreateInfo.pInputAssemblyState = &inputAssemblyState;
+    pipelineCreateInfo.pTessellationState = &tessellationState;
+    pipelineCreateInfo.pViewportState = &viewportState;
+    pipelineCreateInfo.pRasterizationState = &rasterizationState;
+    pipelineCreateInfo.pMultisampleState = &multisampleState;
+    pipelineCreateInfo.pDepthStencilState = &depthStencilState;
+    pipelineCreateInfo.pColorBlendState = &colorBlendState;
+    pipelineCreateInfo.pDynamicState = &dynamicState;
+    pipelineCreateInfo.layout = vulkanPipelineLayout->layout;
 
     VulkanRenderPipeline *renderPipeline = new VulkanRenderPipeline();
     assert(renderPipeline);
-    VK_CHECK(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &createInfo, nullptr, &renderPipeline->pipeline));
+    VK_CHECK(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &renderPipeline->pipeline));
 
     return renderPipeline;
 }
 
-ComputePipeline *VulkanRenderDevice::createComputePipeline(const ComputePipelineCreateParams &params)
+ComputePipeline *VulkanRenderDevice::createComputePipeline(const ComputePipelineCreateInfo &createInfo)
 {
-    VulkanPipelineLayout *vulkanPipelineLayout = (VulkanPipelineLayout *)params.pPipelineLayout;
+    VulkanPipelineLayout *vulkanPipelineLayout = (VulkanPipelineLayout *)createInfo.pPipelineLayout;
     assert(vulkanPipelineLayout);
 
     VkPipelineShaderStageCreateInfo computeStage = {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
     VkShaderModule computeModule = VK_NULL_HANDLE;
 
-    if (!params.computeCode.empty()) {
+    if (!createInfo.computeCode.empty()) {
         VkShaderModuleCreateInfo shaderModuleCreateInfo = {VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
-        shaderModuleCreateInfo.codeSize = params.computeCode.size();
-        shaderModuleCreateInfo.pCode = params.computeCode.data();
+        shaderModuleCreateInfo.codeSize = createInfo.computeCode.size();
+        shaderModuleCreateInfo.pCode = createInfo.computeCode.data();
         VK_CHECK(vkCreateShaderModule(device, &shaderModuleCreateInfo, nullptr, &computeModule));
 
         computeStage.module = computeModule;
@@ -522,13 +522,13 @@ ComputePipeline *VulkanRenderDevice::createComputePipeline(const ComputePipeline
 
     assert(computeModule != VK_NULL_HANDLE);
 
-    VkComputePipelineCreateInfo createInfo = {VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO};
-    createInfo.stage = computeStage;
-    createInfo.layout = vulkanPipelineLayout->layout;
+    VkComputePipelineCreateInfo pipelineCreateInfo = {VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO};
+    pipelineCreateInfo.stage = computeStage;
+    pipelineCreateInfo.layout = vulkanPipelineLayout->layout;
 
     VulkanComputePipeline *computePipeline = new VulkanComputePipeline();
     assert(computePipeline);
-    VK_CHECK(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &createInfo, nullptr, &computePipeline->pipeline));
+    VK_CHECK(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &computePipeline->pipeline));
 
     return computePipeline;
 }

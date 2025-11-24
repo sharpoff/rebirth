@@ -5,7 +5,7 @@
 
 #include "render/vulkan/vulkan_window_system.h"
 
-struct VulkanSwapchainCreateParams
+struct VulkanSwapchainCreateInfo
 {
     VkDevice device;
     VkPhysicalDevice physicalDevice;
@@ -16,7 +16,7 @@ struct VulkanSwapchainCreateParams
 class VulkanSwapchain
 {
 public:
-    void create(const VulkanSwapchainCreateParams &params);
+    void create(const VulkanSwapchainCreateInfo &params);
     void destroy(VkDevice device) const;
 
     VkResult acquireNextImage(VkDevice device, VkSemaphore &acquireSemaphore);

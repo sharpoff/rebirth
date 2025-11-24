@@ -7,13 +7,13 @@ class RenderDevice
 public:
     virtual ~RenderDevice() = default;
 
-    virtual Buffer          *createBuffer(const BufferCreateParams &params) = 0;
-    virtual Texture         *createTexture(const TextureCreateParams &params) = 0;
-    virtual Texture         *createTextureView(const TextureViewCreateParams &params) = 0;
-    virtual Sampler         *createSampler(const SamplerCreateParams &params) = 0;
-    virtual PipelineLayout  *createPipelineLayout(const PipelineLayoutCreateParams &params) = 0;
-    virtual RenderPipeline  *createRenderPipeline(const RenderPipelineCreateParams &params) = 0;
-    virtual ComputePipeline *createComputePipeline(const ComputePipelineCreateParams &params) = 0;
+    virtual Buffer          *createBuffer(const BufferCreateInfo &createInfo) = 0;
+    virtual Texture         *createTexture(const TextureCreateInfo &createInfo) = 0;
+    virtual Texture         *createTextureView(const TextureViewCreateInfo &createInfo) = 0;
+    virtual Sampler         *createSampler(const SamplerCreateInfo &createInfo) = 0;
+    virtual PipelineLayout  *createPipelineLayout(const PipelineLayoutCreateInfo &createInfo) = 0;
+    virtual RenderPipeline  *createRenderPipeline(const RenderPipelineCreateInfo &createInfo) = 0;
+    virtual ComputePipeline *createComputePipeline(const ComputePipelineCreateInfo &createInfo) = 0;
 
     virtual void destroyBuffer(Buffer *buffer) = 0;
     virtual void destroyTexture(Texture *texture) = 0;

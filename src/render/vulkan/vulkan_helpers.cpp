@@ -1,7 +1,7 @@
 #include "render/vulkan/vulkan_helpers.h"
 
-#include "render/graphics_types.h"
 #include "core/logger.h"
+#include "render/graphics_types.h"
 
 #include "render/vulkan/vulkan_config.h"
 #include <vulkan/vulkan_core.h>
@@ -11,13 +11,13 @@ namespace vulkan
     VkImageType getImageType(TextureType type)
     {
         switch (type) {
-            case TextureType::Texture1D:
+            case TEXTURE_TYPE_1D:
                 return VK_IMAGE_TYPE_1D;
-            case TextureType::Texture2D:
+            case TEXTURE_TYPE_2D:
                 return VK_IMAGE_TYPE_2D;
-            case TextureType::Texture3D:
+            case TEXTURE_TYPE_3D:
                 return VK_IMAGE_TYPE_3D;
-            case TextureType::Cube:
+            case TEXTURE_TYPE_CUBE:
                 return VK_IMAGE_TYPE_2D;
         }
 
@@ -28,13 +28,13 @@ namespace vulkan
     VkImageViewType getImageViewType(TextureType type)
     {
         switch (type) {
-            case TextureType::Texture1D:
+            case TEXTURE_TYPE_1D:
                 return VK_IMAGE_VIEW_TYPE_1D;
-            case TextureType::Texture2D:
+            case TEXTURE_TYPE_2D:
                 return VK_IMAGE_VIEW_TYPE_2D;
-            case TextureType::Texture3D:
+            case TEXTURE_TYPE_3D:
                 return VK_IMAGE_VIEW_TYPE_3D;
-            case TextureType::Cube:
+            case TEXTURE_TYPE_CUBE:
                 return VK_IMAGE_VIEW_TYPE_CUBE;
         }
 
@@ -47,9 +47,9 @@ namespace vulkan
         assert(texture);
 
         VkImageSubresourceRange subresourceRange = {};
-        if ((int)texture->usage & (int)TextureUsageFlags::DepthAttachment) {
+        if (texture->usage & TEXTURE_USAGE_DEPTH_ATTACHMENT) {
             subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-        } else if ((int)texture->usage & (int)TextureUsageFlags::StencilAttachment) {
+        } else if (texture->usage & TEXTURE_USAGE_STENCIL_ATTACHMENT) {
             subresourceRange.aspectMask = VK_IMAGE_ASPECT_STENCIL_BIT;
         } else {
             subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -63,46 +63,42 @@ namespace vulkan
         return subresourceRange;
     }
 
-    VkImageUsageFlags getImageUsageFlags(TextureUsageMask usage)
+    VkImageUsageFlags getImageUsageFlags(TextureUsageFlags usage)
     {
         VkImageUsageFlags result = 0;
-        if (usage & (int)TextureUsageFlags::TransferSrc) {
+        if (usage & TEXTURE_USAGE_TRANSFER_SRC) {
             result |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
         }
 
-        if (usage & (int)TextureUsageFlags::TransferDst) {
+        if (usage & TEXTURE_USAGE_TRANSFER_DST) {
             result |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
         }
 
-        if (usage & (int)TextureUsageFlags::Sampled) {
+        if (usage & TEXTURE_USAGE_SAMPLED) {
             result |= VK_IMAGE_USAGE_SAMPLED_BIT;
         }
 
-        if (usage & (int)TextureUsageFlags::Storage) {
+        if (usage & TEXTURE_USAGE_STORAGE) {
             result |= VK_IMAGE_USAGE_STORAGE_BIT;
         }
 
-        if (usage & (int)TextureUsageFlags::ColorAttachment) {
+        if (usage & TEXTURE_USAGE_COLOR_ATTACHMENT) {
             result |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
         }
 
-        if (usage & (int)TextureUsageFlags::DepthAttachment) {
+        if ((usage & TEXTURE_USAGE_DEPTH_ATTACHMENT) || (usage & TEXTURE_USAGE_STENCIL_ATTACHMENT)) {
             result |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
         }
 
-        if (usage & (int)TextureUsageFlags::StencilAttachment) {
-            result |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-        }
-
-        if (usage & (int)TextureUsageFlags::TransientAttachment) {
+        if (usage & TEXTURE_USAGE_TRANSIENT_ATTACHMENT) {
             result |= VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT;
         }
 
-        if (usage & (int)TextureUsageFlags::InputAttachment) {
+        if (usage & TEXTURE_USAGE_INPUT_ATTACHMENT) {
             result |= VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
         }
 
-        if (usage & (int)TextureUsageFlags::HostTransfer) {
+        if (usage & TEXTURE_USAGE_HOST_TRANSFER) {
             result |= VK_IMAGE_USAGE_HOST_TRANSFER_BIT;
         }
 
@@ -112,11 +108,11 @@ namespace vulkan
     VkFormat getFormat(TextureFormat format)
     {
         switch (format) {
-            case TextureFormat::R8G8B8A8_SRGB:
+            case TEXTURE_FORMAT_R8G8B8A8_SRGB:
                 return VK_FORMAT_R8G8B8A8_SRGB;
-            case TextureFormat::B8G8R8A8_UNORM:
+            case TEXTURE_FORMAT_B8G8R8A8_UNORM:
                 return VK_FORMAT_B8G8R8A8_UNORM;
-            case TextureFormat::D32_SFLOAT:
+            case TEXTURE_FORMAT_D32_SFLOAT:
                 return VK_FORMAT_D32_SFLOAT;
         }
 
@@ -124,38 +120,38 @@ namespace vulkan
         return VK_FORMAT_MAX_ENUM;
     }
 
-    VkBufferUsageFlags getBufferUsageFlags(BufferUsageMask usage)
+    VkBufferUsageFlags getBufferUsageFlags(BufferUsageFlags usage)
     {
         VkBufferUsageFlags result = 0;
-        if (usage & (int)BufferUsageFlags::TransferSrc) {
+        if (usage & BUFFER_USAGE_TRANSFER_SRC) {
             result |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
         }
 
-        if (usage & (int)BufferUsageFlags::TransferDst) {
+        if (usage & BUFFER_USAGE_TRANSFER_DST) {
             result |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
         }
 
-        if (usage & (int)BufferUsageFlags::Uniform) {
+        if (usage & BUFFER_USAGE_UNIFORM) {
             result |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
         }
 
-        if (usage & (int)BufferUsageFlags::Storage) {
+        if (usage & BUFFER_USAGE_STORAGE) {
             result |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
         }
 
-        if (usage & (int)BufferUsageFlags::Index) {
+        if (usage & BUFFER_USAGE_INDEX) {
             result |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
         }
 
-        if (usage & (int)BufferUsageFlags::Vertex) {
+        if (usage & BUFFER_USAGE_VERTEX) {
             result |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
         }
 
-        if (usage & (int)BufferUsageFlags::Indirect) {
+        if (usage & BUFFER_USAGE_INDIRECT) {
             result |= VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
         }
 
-        if (usage & (int)BufferUsageFlags::DeviceAddress) {
+        if (usage & BUFFER_USAGE_DEVICE_ADDRESS) {
             result |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
         }
 
@@ -165,9 +161,9 @@ namespace vulkan
     VkFilter getFilter(SamplerFilter filter)
     {
         switch (filter) {
-            case SamplerFilter::Linear:
+            case SAMPLER_FILTER_LINEAR:
                 return VK_FILTER_LINEAR;
-            case SamplerFilter::Nearest:
+            case SAMPLER_FILTER_NEAREST:
                 return VK_FILTER_NEAREST;
         }
 
@@ -178,10 +174,10 @@ namespace vulkan
     VkSamplerMipmapMode getSamplerMipmapMode(SamplerFilter mode)
     {
         switch (mode) {
-            case SamplerFilter::Nearest:
-                return VK_SAMPLER_MIPMAP_MODE_NEAREST;
-            case SamplerFilter::Linear:
+            case SAMPLER_FILTER_LINEAR:
                 return VK_SAMPLER_MIPMAP_MODE_LINEAR;
+            case SAMPLER_FILTER_NEAREST:
+                return VK_SAMPLER_MIPMAP_MODE_NEAREST;
         }
 
         LOGE("Invalid sampler mipmap mode %d!\n", mode);
@@ -191,15 +187,15 @@ namespace vulkan
     VkSamplerAddressMode getSamplerAddressMode(SamplerAddressMode samplerAddressMode)
     {
         switch (samplerAddressMode) {
-            case SamplerAddressMode::Repeat:
+            case SAMPLER_ADDRESS_MODE_REPEAT:
                 return VK_SAMPLER_ADDRESS_MODE_REPEAT;
-            case SamplerAddressMode::MirroredRepeat:
+            case SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT:
                 return VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
-            case SamplerAddressMode::ClampToEdge:
+            case SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE:
                 return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-            case SamplerAddressMode::ClampToBorder:
+            case SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER:
                 return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
-            case SamplerAddressMode::MirrorClampToEdge:
+            case SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE:
                 return VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE;
         }
 
@@ -233,21 +229,21 @@ namespace vulkan
     VkCompareOp getCompareOp(CompareOperator op)
     {
         switch (op) {
-            case CompareOperator::Never:
+            case COMPARE_OPERATOR_NEVER:
                 return VK_COMPARE_OP_NEVER;
-            case CompareOperator::Less:
+            case COMPARE_OPERATOR_LESS:
                 return VK_COMPARE_OP_LESS;
-            case CompareOperator::Equal:
+            case COMPARE_OPERATOR_EQUAL:
                 return VK_COMPARE_OP_EQUAL;
-            case CompareOperator::LessOrEqual:
+            case COMPARE_OPERATOR_LESS_OR_EQUAL:
                 return VK_COMPARE_OP_LESS_OR_EQUAL;
-            case CompareOperator::Greater:
+            case COMPARE_OPERATOR_GREATER:
                 return VK_COMPARE_OP_GREATER;
-            case CompareOperator::NotEqual:
+            case COMPARE_OPERATOR_NOT_EQUAL:
                 return VK_COMPARE_OP_NOT_EQUAL;
-            case CompareOperator::GreaterOrEqual:
+            case COMPARE_OPERATOR_GREATER_OR_EQUAL:
                 return VK_COMPARE_OP_GREATER_OR_EQUAL;
-            case CompareOperator::Always:
+            case COMPARE_OPERATOR_ALWAYS:
                 return VK_COMPARE_OP_ALWAYS;
         }
 
@@ -258,17 +254,17 @@ namespace vulkan
     VkPrimitiveTopology getPrimitiveTopology(PrimitiveTopology topology)
     {
         switch (topology) {
-            case PrimitiveTopology::PointList:
+            case PRIMITIVE_TOPOLOGY_POINT_LIST:
                 return VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
-            case PrimitiveTopology::LineList:
+            case PRIMITIVE_TOPOLOGY_LINE_LIST:
                 return VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
-            case PrimitiveTopology::LineStrip:
+            case PRIMITIVE_TOPOLOGY_LINE_STRIP:
                 return VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
-            case PrimitiveTopology::TriangleList:
+            case PRIMITIVE_TOPOLOGY_TRIANGLE_LIST:
                 return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-            case PrimitiveTopology::TriangleStrip:
+            case PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP:
                 return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
-            case PrimitiveTopology::TriangleFan:
+            case PRIMITIVE_TOPOLOGY_TRIANGLE_FAN:
                 return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN;
         }
 
@@ -279,11 +275,11 @@ namespace vulkan
     VkPolygonMode getPolygonMode(PolygonMode polygonMode)
     {
         switch (polygonMode) {
-            case PolygonMode::Fill:
+            case POLYGON_MODE_FILL:
                 return VK_POLYGON_MODE_FILL;
-            case PolygonMode::Line:
+            case POLYGON_MODE_LINE:
                 return VK_POLYGON_MODE_LINE;
-            case PolygonMode::Point:
+            case POLYGON_MODE_POINT:
                 return VK_POLYGON_MODE_POINT;
         }
 
@@ -294,13 +290,13 @@ namespace vulkan
     VkCullModeFlags getCullMode(CullMode cullMode)
     {
         switch (cullMode) {
-            case CullMode::None:
+            case CULL_MODE_NONE:
                 return VK_CULL_MODE_NONE;
-            case CullMode::Front:
+            case CULL_MODE_FRONT:
                 return VK_CULL_MODE_FRONT_BIT;
-            case CullMode::Back:
+            case CULL_MODE_BACK:
                 return VK_CULL_MODE_BACK_BIT;
-            case CullMode::FrontAndBack:
+            case CULL_MODE_FRONT_AND_BACK:
                 return VK_CULL_MODE_FRONT_AND_BACK;
         }
 
@@ -311,9 +307,9 @@ namespace vulkan
     VkFrontFace getFrontFace(FrontFace frontFace)
     {
         switch (frontFace) {
-            case FrontFace::CounterClockwise:
+            case FRONT_FACE_COUNTER_CLOCKWISE:
                 return VK_FRONT_FACE_COUNTER_CLOCKWISE;
-            case FrontFace::Clockwise:
+            case FRONT_FACE_CLOCKWISE:
                 return VK_FRONT_FACE_CLOCKWISE;
         }
 
@@ -324,18 +320,18 @@ namespace vulkan
     VkBlendOp getBlendOp(BlendOperator blendOp)
     {
         switch (blendOp) {
-            case BlendOperator::Add:
+            case BLEND_OPERATOR_NONE:
                 return VK_BLEND_OP_ADD;
-            case BlendOperator::Subtract:
+            case BLEND_OPERATOR_ADD:
+                return VK_BLEND_OP_ADD;
+            case BLEND_OPERATOR_SUBTRACT:
                 return VK_BLEND_OP_SUBTRACT;
-            case BlendOperator::ReverseSubtract:
+            case BLEND_OPERATOR_REVERSE_SUBTRACT:
                 return VK_BLEND_OP_REVERSE_SUBTRACT;
-            case BlendOperator::Min:
+            case BLEND_OPERATOR_MIN:
                 return VK_BLEND_OP_MIN;
-            case BlendOperator::Max:
+            case BLEND_OPERATOR_MAX:
                 return VK_BLEND_OP_MAX;
-            case BlendOperator::None:
-                return VK_BLEND_OP_ADD;
         }
 
         LOGE("Invalid blend operator %d!\n", blendOp);
@@ -345,35 +341,35 @@ namespace vulkan
     VkBlendFactor getBlendFactor(BlendFactor blendFactor)
     {
         switch (blendFactor) {
-            case BlendFactor::Zero:
+            case BLEND_FACTOR_ZERO:
                 return VK_BLEND_FACTOR_ZERO;
-            case BlendFactor::One:
+            case BLEND_FACTOR_ONE:
                 return VK_BLEND_FACTOR_ONE;
-            case BlendFactor::SrcColor:
+            case BLEND_FACTOR_SRC_COLOR:
                 return VK_BLEND_FACTOR_SRC_COLOR;
-            case BlendFactor::OneMinusSrcColor:
+            case BLEND_FACTOR_ONE_MINUS_SRC_COLOR:
                 return VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR;
-            case BlendFactor::DstColor:
+            case BLEND_FACTOR_DST_COLOR:
                 return VK_BLEND_FACTOR_DST_COLOR;
-            case BlendFactor::OneMinusDstColor:
+            case BLEND_FACTOR_ONE_MINUS_DST_COLOR:
                 return VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR;
-            case BlendFactor::SrcAlpha:
+            case BLEND_FACTOR_SRC_ALPHA:
                 return VK_BLEND_FACTOR_SRC_ALPHA;
-            case BlendFactor::OneMinusSrcAlpha:
+            case BLEND_FACTOR_ONE_MINUS_SRC_ALPHA:
                 return VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-            case BlendFactor::DstAlpha:
+            case BLEND_FACTOR_DST_ALPHA:
                 return VK_BLEND_FACTOR_DST_ALPHA;
-            case BlendFactor::OneMinusDstAlpha:
+            case BLEND_FACTOR_ONE_MINUS_DST_ALPHA:
                 return VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
-            case BlendFactor::ConstantColor:
+            case BLEND_FACTOR_CONSTANT_COLOR:
                 return VK_BLEND_FACTOR_CONSTANT_COLOR;
-            case BlendFactor::OneMinusConstantColor:
+            case BLEND_FACTOR_ONE_MINUS_CONSTANT_COLOR:
                 return VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_COLOR;
-            case BlendFactor::ConstantAlpha:
+            case BLEND_FACTOR_CONSTANT_ALPHA:
                 return VK_BLEND_FACTOR_CONSTANT_ALPHA;
-            case BlendFactor::OneMinusConstantAlpha:
+            case BLEND_FACTOR_ONE_MINUS_CONSTANT_ALPHA:
                 return VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_ALPHA;
-            case BlendFactor::SrcAlphaSaturate:
+            case BLEND_FACTOR_SRC_ALPHA_SATURATE:
                 return VK_BLEND_FACTOR_SRC_ALPHA_SATURATE;
         }
 
@@ -381,22 +377,22 @@ namespace vulkan
         return VK_BLEND_FACTOR_MAX_ENUM;
     }
 
-    VkColorComponentFlags getColorComponentFlags(ColorComponentMask colorComponentMask)
+    VkColorComponentFlags getColorComponentFlags(ColorComponentFlags colorComponentMask)
     {
         VkColorComponentFlags result = 0;
-        if (colorComponentMask & (int)ColorComponentFlags::Red) {
+        if (colorComponentMask & COLOR_COMPONENT_R) {
             result |= VK_COLOR_COMPONENT_R_BIT;
         }
 
-        if (colorComponentMask & (int)ColorComponentFlags::Green) {
+        if (colorComponentMask & COLOR_COMPONENT_G) {
             result |= VK_COLOR_COMPONENT_G_BIT;
         }
 
-        if (colorComponentMask & (int)ColorComponentFlags::Blue) {
+        if (colorComponentMask & COLOR_COMPONENT_B) {
             result |= VK_COLOR_COMPONENT_B_BIT;
         }
 
-        if (colorComponentMask & (int)ColorComponentFlags::Alpha) {
+        if (colorComponentMask & COLOR_COMPONENT_A) {
             result |= VK_COLOR_COMPONENT_A_BIT;
         }
 
@@ -406,27 +402,27 @@ namespace vulkan
     VkDescriptorType getDescriptorType(DescriptorType type)
     {
         switch (type) {
-            case DescriptorType::Sampler:
+            case DESCRIPTOR_TYPE_SAMPLER:
                 return VK_DESCRIPTOR_TYPE_SAMPLER;
-            case DescriptorType::CombinedImageSampler:
+            case DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
                 return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-            case DescriptorType::SampledImage:
+            case DESCRIPTOR_TYPE_SAMPLED_IMAGE:
                 return VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-            case DescriptorType::StorageImage:
+            case DESCRIPTOR_TYPE_STORAGE_IMAGE:
                 return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-            case DescriptorType::UniformTexelBuffer:
+            case DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER:
                 return VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER;
-            case DescriptorType::StorageTexelBuffer:
+            case DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:
                 return VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER;
-            case DescriptorType::UniformBuffer:
+            case DESCRIPTOR_TYPE_UNIFORM_BUFFER:
                 return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-            case DescriptorType::StorageBuffer:
+            case DESCRIPTOR_TYPE_STORAGE_BUFFER:
                 return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-            case DescriptorType::UniformBufferDynamic:
+            case DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC:
                 return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-            case DescriptorType::StorageBufferDynamic:
+            case DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC:
                 return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
-            case DescriptorType::InputAttachment:
+            case DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
                 return VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
         }
 
@@ -434,22 +430,22 @@ namespace vulkan
         return VK_DESCRIPTOR_TYPE_MAX_ENUM;
     }
 
-    VkShaderStageFlags getShaderStageFlags(ShaderStageMask stage)
+    VkShaderStageFlags getShaderStageFlags(ShaderStageFlags stage)
     {
         VkShaderStageFlags result = 0;
-        if (stage & (int)ShaderStageFlags::Vertex) {
+        if (stage & SHADER_STAGE_VERTEX) {
             result |= VK_SHADER_STAGE_VERTEX_BIT;
         }
 
-        if (stage & (int)ShaderStageFlags::Fragment) {
+        if (stage & SHADER_STAGE_FRAGMENT) {
             result |= VK_SHADER_STAGE_FRAGMENT_BIT;
         }
 
-        if (stage & (int)ShaderStageFlags::TessellationControl) {
+        if (stage & SHADER_STAGE_TESSELLATIONCONTROL) {
             result |= VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
         }
 
-        if (stage & (int)ShaderStageFlags::TessellationEvaluation) {
+        if (stage & SHADER_STAGE_TESSELLATIONEVALUATION) {
             result |= VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
         }
 

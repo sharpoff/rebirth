@@ -1,16 +1,21 @@
 #pragma once
 
-#include "EASTL/internal/function.h"
+#include "render/render_device.h"
 #include "render/render_pass.h"
 
 class RenderGraph
 {
 public:
-    RenderGraph() = default;
-    ~RenderGraph() = default;
+    RenderGraph(RenderDevice *renderDevice);
+    ~RenderGraph();
 
-    void addRenderPass(const char *name, eastl::function<void(RenderPass &pass)> &setup, eastl::function<void(CommandBuffer *commandBuffer)> &execute);
+    RenderPass *addPass(const char *name);
 
     void build();
     void run();
+
+private:
+    eastl::vector<RenderPass *> renderPasses;
+
+    RenderDevice *device = nullptr;
 };

@@ -7,7 +7,7 @@ class VulkanSDLWindowSystem : public VulkanWindowSystem
 {
 public:
     VulkanSDLWindowSystem(SDL_Window *window);
-    ~VulkanSDLWindowSystem();
+    ~VulkanSDLWindowSystem() = default;
 
     virtual eastl::vector<const char *> getInstanceExtensions() override final;
     virtual bool createSurface(VkInstance instance, VkSurfaceKHR *surface) override final;
