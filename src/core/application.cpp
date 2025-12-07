@@ -31,8 +31,8 @@ Application::~Application()
     SDL_Quit();
 }
 
-glm::ivec2 Application::getWindowSize()
+vec2 Application::getWindowSize()
 {
     SDL_GetWindowSize(window, (int *)&width, (int *)&height);
-    return {width, height};
+    return vec2(width, height);
 }

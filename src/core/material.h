@@ -1,6 +1,6 @@
 #pragma once
 
-#include "math/math.h"
+#include "math/common.h"
 
 enum class MaterialFlags : unsigned int
 {

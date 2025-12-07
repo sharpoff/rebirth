@@ -1,6 +1,7 @@
 #pragma once
 
-#include "math/math.h"
+#include "math/vec3.h"
+#include "math/quaternion.h"
 
 struct Vertex;
 struct Mesh;
@@ -17,6 +18,6 @@ struct Bounds
 
 namespace math
 {
-    Bounds calculateBoundingBox(int32_t meshId, vec3 scale = vec3(1.0f), quat rotation = glm::identity<quat>());
-    Bounds calculateBoundingSphere(int32_t meshId, vec3 scale = vec3(1.0f), quat rotation = glm::identity<quat>());
+    Bounds calculateBoundingBox(int32_t meshId, vec3 scale = vec3(1.0f), quat rotation = quat());
+    Bounds calculateBoundingSphere(int32_t meshId, vec3 scale = vec3(1.0f), quat rotation = quat());
 } // namespace math

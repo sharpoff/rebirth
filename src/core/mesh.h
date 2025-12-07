@@ -1,7 +1,7 @@
 #pragma once
 
-#include "math/math.h"
-#include "EASTL/vector.h"
+#include <math/common.h>
+#include "core/stl.h"
 
 struct Primitive
 {
@@ -15,6 +15,6 @@ struct Primitive
 
 struct Mesh
 {
-    mat4 transform = mat4(1.0f);
-    eastl::vector<Primitive> primitives;
+    mat4 transform = mat4::identity();
+    Vector<Primitive> primitives;
 };

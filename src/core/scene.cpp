@@ -1,5 +1,7 @@
 #include "core/scene.h"
 
+/*
+
 mat4 Scene::getNodeWorldMatrix(SceneNode *node)
 {
     if (!node)
@@ -15,7 +17,7 @@ mat4 Scene::getNodeWorldMatrix(SceneNode *node)
     return worldMatrix;
 }
 
-Animation *Scene::getAnimationByName(eastl::string name)
+Animation *Scene::getAnimationByName(String name)
 {
     for (auto &animation : animations) {
         if (animation.name == name)
@@ -34,7 +36,7 @@ void Scene::updateJoints(SceneNode *node)
         mat4 inverseTransform = glm::inverse(getNodeWorldMatrix(node));
 
         size_t jointsCount = node->skin->joints.size();
-        eastl::vector<mat4> jointMatrices(jointsCount);
+        Vector<mat4> jointMatrices(jointsCount);
 
         for (size_t i = 0; i < jointsCount; i++) {
             SceneNode *joint = getNodeByIndex(node->skin->joints[i]);
@@ -83,3 +85,5 @@ SceneNode *Scene::searchNode(SceneNode *node, int index)
 
     return found;
 }
+
+*/

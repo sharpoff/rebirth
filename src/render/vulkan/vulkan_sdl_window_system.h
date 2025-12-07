@@ -9,9 +9,9 @@ public:
     VulkanSDLWindowSystem(SDL_Window *window);
     ~VulkanSDLWindowSystem() = default;
 
-    virtual eastl::vector<const char *> getInstanceExtensions() override final;
+    virtual Vector<const char *> getInstanceExtensions() override final;
     virtual bool createSurface(VkInstance instance, VkSurfaceKHR *surface) override final;
-    virtual glm::vec2 getWindowSize() override final;
+    virtual vec2 getWindowSize() override final;
 
 private:
     SDL_Window *pWindow = nullptr;

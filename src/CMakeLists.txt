@@ -27,7 +27,6 @@ target_link_libraries(rebirth-engine
     Jolt
     Tracy::TracyClient
 	EASTL
-    nlohmann_json
 )
 
 add_executable(main main.cpp)

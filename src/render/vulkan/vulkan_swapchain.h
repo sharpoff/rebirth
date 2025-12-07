@@ -1,8 +1,8 @@
 #pragma once
 
-#include "EASTL/vector.h"
 #include <volk.h>
 
+#include "render/vulkan/vulkan_types.h"
 #include "render/vulkan/vulkan_window_system.h"
 
 struct VulkanSwapchainCreateInfo
@@ -22,8 +22,7 @@ public:
     VkResult acquireNextImage(VkDevice device, VkSemaphore &acquireSemaphore);
     VkResult present(VkQueue queue, VkSemaphore &submitSemaphore) const;
 
-    VkImage &getImage() { return images[imageIndex]; }
-    VkImageView &getImageView() { return imageViews[imageIndex]; }
+    SharedPtr<VulkanImage> getImage();
     VkExtent2D getExtent() const { return extent; }
     uint32_t getImagesCount() const { return images.size(); }
     uint32_t getImageIndex() const { return imageIndex; }
@@ -35,8 +34,7 @@ private:
     VkSurfaceFormatKHR getBestSurfaceFormat(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface);
 
     VkSwapchainKHR swapchain = VK_NULL_HANDLE;
-    eastl::vector<VkImage> images;
-    eastl::vector<VkImageView> imageViews;
+    Vector<SharedPtr<VulkanImage>> images;
     uint32_t imageIndex = 0;
     VkExtent2D extent = {};
 

@@ -1,10 +1,9 @@
 #pragma once
 
-#include "EASTL/string.h"
 #include <assert.h>
-#include <vulkan/vulkan.h>
 
-#include "render/graphics_types.h"
+#include "render/render_types.h"
+#include <volk.h>
 
 #define VK_CHECK(code)                 \
     do {                               \
@@ -16,28 +15,29 @@
 
 namespace vulkan
 {
-    VkImageType             getImageType(TextureType type);
-    VkImageViewType         getImageViewType(TextureType type);
-    VkImageSubresourceRange getImageSubresourceRange(Texture *texture);
-    VkImageUsageFlags       getImageUsageFlags(TextureUsageFlags usage);
-    VkFormat                getFormat(TextureFormat format);
+    VkImageType             getImageType(ImageType type);
+    VkImageViewType         getImageViewType(ImageType type);
+    VkImageSubresourceRange getImageSubresourceRange(Image *image);
+    VkImageUsageFlags       getImageUsageFlags(ImageUsageFlags usage);
+    VkFormat                getFormat(ImageFormat format);
+    VkFormat                getFormat(VertexFormat format);
     VkBufferUsageFlags      getBufferUsageFlags(BufferUsageFlags usage);
     VkFilter                getFilter(SamplerFilter filter);
     VkSamplerMipmapMode     getSamplerMipmapMode(SamplerFilter mode);
     VkSamplerAddressMode    getSamplerAddressMode(SamplerAddressMode samplerAddressMode);
     VkSampleCountFlagBits   getSampleCount(uint8_t sampleCount);
-    VkCompareOp             getCompareOp(CompareOperator compareOp);
+    VkCompareOp             getCompareOp(CompareOp compareOp);
     VkPrimitiveTopology     getPrimitiveTopology(PrimitiveTopology topology);
     VkPolygonMode           getPolygonMode(PolygonMode polygonMode);
     VkCullModeFlags         getCullMode(CullMode cullMode);
     VkFrontFace             getFrontFace(FrontFace frontFace);
-    VkBlendOp               getBlendOp(BlendOperator blendOp);
+    VkBlendOp               getBlendOp(BlendOp blendOp);
     VkBlendFactor           getBlendFactor(BlendFactor blendFactor);
     VkColorComponentFlags   getColorComponentFlags(ColorComponentFlags colorComponentMask);
     VkDescriptorType        getDescriptorType(DescriptorType type);
     VkShaderStageFlags      getShaderStageFlags(ShaderStageFlags stage);
 
-    void setDebugName(VkDevice device, VkSemaphore semaphore, eastl::string name);
+    void setDebugName(VkDevice device, VkSemaphore semaphore, const char *name);
     void beginDebugLabel(VkCommandBuffer cmd, const char *name, float color[4]);
     void endDebugLabel(VkCommandBuffer cmd);
 } // namespace vulkan

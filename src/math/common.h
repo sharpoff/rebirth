@@ -1,21 +1,24 @@
 #pragma once
 
 #include <assert.h>
-#include <stddef.h>
 #include <math.h>
 
-typedef float real;
+#include "math/defines.h"
+
+#include "math/vec4.h" // IWYU pragma: keep
+#include "math/vec3.h" // IWYU pragma: keep
+#include "math/vec2.h" // IWYU pragma: keep
+#include "math/mat4.h" // IWYU pragma: keep
+#include "math/mat3.h" // IWYU pragma: keep
+#include "math/quaternion.h" // IWYU pragma: keep
 
 namespace math
 {
-    constexpr const double PI = 3.14159265359;
-    constexpr const double TAU = 6.28318530717;
-
-    inline real factorial(real x)
+    inline real_t factorial(real_t x)
     {
         assert(x >= 0 && "factorial defined only for positive numbers");
 
-        real result = 1;
+        real_t result = 1;
         for (size_t i = 1; i <= x; i++) {
             result *= i;
         }
@@ -23,13 +26,23 @@ namespace math
         return result;
     }
 
-    inline real radians(real x)
+    inline real_t radians(real_t x)
     {
-        return x * (PI / 180);
+        return x * (MATH_PI / 180);
     }
 
-    inline real degrees(real x)
+    inline real_t degrees(real_t x)
     {
-        return x * (180 / PI);
+        return x * (180 / MATH_PI);
+    }
+
+    inline quat angleAxis(real_t angle, vec3 axis)
+    {
+        // TODO:
+    }
+
+    inline mat4 lookAt(vec3 eye, vec3 target, vec3 up)
+    {
+        // TODO:
     }
 } // namespace math

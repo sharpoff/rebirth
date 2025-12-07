@@ -1,6 +1,7 @@
 #pragma once
 
 #include "math/bounds.h"
+#include "math/mat4.h"
 
 namespace math
 {

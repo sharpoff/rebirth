@@ -1,9 +1,8 @@
 #pragma once
 
-#include <math/math.h>
+#include <math/common.h>
 
-#include <EASTL/vector.h>
-#include <EASTL/string.h>
+#include "core/stl.h"
 
 enum class AnimationPath
 {
@@ -25,16 +24,16 @@ struct AnimationChannel
 
 struct AnimationSampler
 {
-    eastl::vector<float> inputs;
-    eastl::vector<vec4> outputs;
+    Vector<float> inputs;
+    Vector<vec4> outputs;
 };
 
 // NOTE: only linear interpolation supported
 struct Animation
 {
-    eastl::string name;
-    eastl::vector<AnimationChannel> channels;
-    eastl::vector<AnimationSampler> samplers;
+    String name;
+    Vector<AnimationChannel> channels;
+    Vector<AnimationSampler> samplers;
     float start = std::numeric_limits<float>::max();
     float end = std::numeric_limits<float>::min();
     float currentTime = 0.0f;

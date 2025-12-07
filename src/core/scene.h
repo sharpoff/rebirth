@@ -1,16 +1,18 @@
 #pragma once
 
+/*
+
 #include "core/animation.h"
 #include "core/material.h"
 #include "core/mesh.h"
-#include "render/graphics_types.h"
+#include "render/render_types.h"
 
 struct Skin
 {
-    eastl::string name;
+    String name;
     int skeletonIndex = -1;
-    eastl::vector<int> joints;
-    eastl::vector<mat4> inverseBindMatrices;
+    Vector<int> joints;
+    Vector<mat4> inverseBindMatrices;
 
     uint32_t jointMatrixIndex;
 };
@@ -18,11 +20,11 @@ struct Skin
 struct SceneNode
 {
     int parentIndex = -1;
-    eastl::vector<SceneNode> children;
+    Vector<SceneNode> children;
     Mesh *mesh = nullptr;
 
-    eastl::string name = "Node";
-    mat4 transform = mat4(1.0f);
+    String name = "Node";
+    mat4 transform = mat4::identity();
     Skin *skin = nullptr;
     int index = -1;
 };
@@ -31,17 +33,17 @@ class Scene
 {
 public:
     mat4 getNodeWorldMatrix(SceneNode *node);
-    Animation *getAnimationByName(eastl::string name);
+    Animation *getAnimationByName(String name);
 
-    eastl::string name = "Model";
-    mat4 transform = mat4(1.0f);
+    String name = "Model";
+    mat4 transform = mat4::identity();
 
-    eastl::vector<SceneNode> nodes;
-    eastl::vector<Mesh> meshes;
-    eastl::vector<Skin> skins;
-    eastl::vector<GPUMaterial> materials;
-    eastl::vector<Texture*> textures;
-    eastl::vector<Animation> animations;
+    Vector<SceneNode> nodes;
+    Vector<Mesh> meshes;
+    Vector<Skin> skins;
+    Vector<GPUMaterial> materials;
+    Vector<Image*> textures;
+    Vector<Animation> animations;
 
 private:
     void updateJoints(SceneNode *node);
@@ -49,3 +51,5 @@ private:
     SceneNode *getNodeByIndex(int index);
     SceneNode *searchNode(SceneNode *node, int index);
 };
+
+*/

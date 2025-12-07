@@ -1,9 +1,7 @@
 #pragma once
 
-#include "EASTL/unique_ptr.h"
 #include "core/application.h"
 #include "render/render_device.h"
-#include "render/render_graph.h"
 
 #define RENDER_API_VULKAN
 
@@ -13,12 +11,24 @@ public:
     Renderer(Application *application);
     ~Renderer();
 
-    void requestResize() {}; // TODO: not implemented
+    void draw();
 
 private:
-    Texture *colorTarget;
-    Texture *depthTarget;
+    UniquePtr<RenderDevice> device;
 
-    eastl::unique_ptr<RenderDevice> renderDevice;
-    eastl::unique_ptr<RenderGraph>  renderGraph;
+    struct SimpleVertex
+    {
+        vec3 position;
+        vec3 color;
+    };
+
+    SharedPtr<Image> colorTarget = nullptr;
+    SharedPtr<Image> depthTarget = nullptr;
+
+    SharedPtr<Buffer> vertexBuffer = nullptr;
+
+    Vector<SimpleVertex> vertices;
+
+    SharedPtr<PipelineLayout> geometryPipelineLayout = nullptr;
+    SharedPtr<RenderPipeline> geometryPipeline = nullptr;
 };

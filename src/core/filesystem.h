@@ -3,8 +3,7 @@
 #include <filesystem>
 #include <fstream>
 
-#include "EASTL/vector.h"
-
+#include "core/stl.h"
 #include "core/logger.h"
 
 #ifdef __linux__
@@ -34,8 +33,7 @@ namespace filesystem
         std::filesystem::current_path(path);
     }
 
-    template <typename T>
-    eastl::vector<T> readFile(std::filesystem::path path)
+    inline Vector<char> readBinaryFile(std::filesystem::path path)
     {
         std::ifstream file(path, std::ios::ate | std::ios::binary);
 
@@ -44,8 +42,8 @@ namespace filesystem
             return {};
         }
 
-        eastl::vector<T> buffer;
-        size_t           size = file.tellg();
+        Vector<char> buffer;
+        size_t size = file.tellg();
         buffer.resize(size);
         file.seekg(0);
         file.read(buffer.data(), size);

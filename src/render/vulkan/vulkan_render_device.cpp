@@ -1,17 +1,17 @@
 #include "render/vulkan/vulkan_render_device.h"
 
-#include "EASTL/set.h"
-#include "EASTL/vector.h"
+#include "core/stl.h"
+#include "core/logger.h"
 
-#include "render/graphics_types.h"
+#include "render/render_types.h"
 #include "render/vulkan/vulkan_config.h"
 #include "render/vulkan/vulkan_helpers.h"
 #include "render/vulkan/vulkan_sdl_window_system.h"
 #include "render/vulkan/vulkan_swapchain.h"
-
 #include "render/vulkan/vulkan_types.h"
-#include "core/logger.h"
-#include "core/util.h"
+
+#include "utility/common.h"
+#include <cstddef>
 #include <vulkan/vulkan_core.h>
 
 // TODO: add anisotropy feature for sampler
@@ -51,14 +51,12 @@ VkBool32 VKAPI_PTR vulkanDebugCallback(
 VulkanRenderDevice::VulkanRenderDevice(Application *application)
 {
 #ifdef WINDOW_SYSTEM_SDL
-    windowSystem = new VulkanSDLWindowSystem(application->getHandle());
+    windowSystem = eastl::make_unique<VulkanSDLWindowSystem>(application->getHandle());
 #endif
 
     createInstance();
 
-#ifdef WINDOW_SYSTEM_SDL
-    static_cast<VulkanSDLWindowSystem *>(windowSystem)->createSurface(instance, &surface);
-#endif
+    windowSystem->createSurface(instance, &surface);
 
     createDevice();
 
@@ -79,7 +77,7 @@ VulkanRenderDevice::VulkanRenderDevice(Application *application)
     VulkanSwapchainCreateInfo swapchaincreateInfo;
     swapchaincreateInfo.device = device;
     swapchaincreateInfo.physicalDevice = physicalDevice;
-    swapchaincreateInfo.pWindowSystem = windowSystem;
+    swapchaincreateInfo.pWindowSystem = windowSystem.get();
     swapchaincreateInfo.surface = surface;
     swapchain.create(swapchaincreateInfo);
 
@@ -112,18 +110,39 @@ VulkanRenderDevice::VulkanRenderDevice(Application *application)
         VK_CHECK(vkCreateFence(device, &fenceCreateInfo, nullptr, &finishRenderFences[i]));
     }
 
+    // profiler context
 #ifdef ENABLE_VULKAN_PROFILE
     for (int i = 0; i < FRAMES_IN_FLIGHT; i++) {
         tracyVkCtx[i] = TracyVkContext(physicalDevice, device, graphicsQueue, commandBuffers[i]);
     }
 #endif
+
+    // descriptors
+    Vector<VkDescriptorPoolSize> poolSizes = {
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1024},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1024},
+        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1024},
+    };
+    VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = {VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
+    descriptorPoolCreateInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+    descriptorPoolCreateInfo.maxSets = 0;
+    for (auto &poolSize : poolSizes) {
+        descriptorPoolCreateInfo.maxSets += poolSize.descriptorCount;
+    }
+    descriptorPoolCreateInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
+    descriptorPoolCreateInfo.pPoolSizes = poolSizes.data();
+    VK_CHECK(vkCreateDescriptorPool(device, &descriptorPoolCreateInfo, nullptr, &descriptorPool));
 }
 
 VulkanRenderDevice::~VulkanRenderDevice()
 {
     vkDeviceWaitIdle(device);
 
-    delete windowSystem;
+    swapchain.destroy(device);
+
+    vkDestroyDescriptorPool(device, descriptorPool, nullptr);
+
+    vkDestroyCommandPool(device, commandPool, nullptr);
 
     for (VkSemaphore &semaphore : submitSemaphores) {
         vkDestroySemaphore(device, semaphore, nullptr);
@@ -133,10 +152,6 @@ VulkanRenderDevice::~VulkanRenderDevice()
         vkDestroySemaphore(device, acquireSemaphores[i], nullptr);
         vkDestroyFence(device, finishRenderFences[i], nullptr);
     }
-
-    vkDestroyCommandPool(device, commandPool, nullptr);
-
-    swapchain.destroy(device);
 
     vmaDestroyAllocator(allocator);
 
@@ -151,7 +166,7 @@ VulkanRenderDevice::~VulkanRenderDevice()
     vkDestroyInstance(instance, nullptr);
 }
 
-Buffer *VulkanRenderDevice::createBuffer(const BufferCreateInfo &createInfo)
+SharedPtr<Buffer> VulkanRenderDevice::createBuffer(const BufferCreateInfo &createInfo)
 {
     assert(createInfo.size > 0);
 
@@ -165,12 +180,12 @@ Buffer *VulkanRenderDevice::createBuffer(const BufferCreateInfo &createInfo)
     allocInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
     allocInfo.priority = 1.0;
 
-    VulkanBuffer *buffer = new VulkanBuffer();
+    SharedPtr<VulkanBuffer> buffer = eastl::make_shared<VulkanBuffer>();
     buffer->size = createInfo.size;
     buffer->usage = createInfo.usage;
     VK_CHECK(vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer->buffer, &buffer->allocation.handle, &buffer->allocation.info));
 
-    if ((bufferInfo.usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT) == VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT) {
+    if (bufferInfo.usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT) {
         VkBufferDeviceAddressInfo deviceAddressInfo = {VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO_KHR};
         deviceAddressInfo.buffer = buffer->buffer;
         buffer->address = vkGetBufferDeviceAddress(device, &deviceAddressInfo);
@@ -179,7 +194,7 @@ Buffer *VulkanRenderDevice::createBuffer(const BufferCreateInfo &createInfo)
     return buffer;
 }
 
-Texture *VulkanRenderDevice::createTexture(const TextureCreateInfo &createInfo)
+SharedPtr<Image> VulkanRenderDevice::createImage(const ImageCreateInfo &createInfo)
 {
     VkImageCreateInfo imageInfo = {VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
     imageInfo.imageType = vulkan::getImageType(createInfo.type);
@@ -199,54 +214,55 @@ Texture *VulkanRenderDevice::createTexture(const TextureCreateInfo &createInfo)
     allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
     allocInfo.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
 
-    VulkanTexture *texture = new VulkanTexture();
-    assert(texture);
-    texture->width = createInfo.width;
-    texture->height = createInfo.height;
-    texture->layerCount = createInfo.arrayLayers;
-    texture->levelCount = createInfo.mipLevels;
-    texture->sampleCount = createInfo.sampleCount;
-    texture->type = createInfo.type;
-    texture->usage = createInfo.usage;
-    texture->format = createInfo.format;
-    VK_CHECK(vmaCreateImage(allocator, &imageInfo, &allocInfo, &texture->image, &texture->allocation.handle, &texture->allocation.info));
+    SharedPtr<VulkanImage> image = eastl::make_shared<VulkanImage>();
+    assert(image);
+    image->width = createInfo.width;
+    image->height = createInfo.height;
+    image->layerCount = createInfo.arrayLayers;
+    image->levelCount = createInfo.mipLevels;
+    image->sampleCount = createInfo.sampleCount;
+    image->type = createInfo.type;
+    image->usage = createInfo.usage;
+    image->format = createInfo.format;
+    image->isSwapchain = false;
+    VK_CHECK(vmaCreateImage(allocator, &imageInfo, &allocInfo, &image->image, &image->allocation.handle, &image->allocation.info));
 
-    return texture;
+    return image;
 }
 
-Texture *VulkanRenderDevice::createTextureView(const TextureViewCreateInfo &createInfo)
+SharedPtr<Image> VulkanRenderDevice::createImageView(const ImageViewCreateInfo &createInfo)
 {
-    VulkanTexture *pViewedTexture = (VulkanTexture *)createInfo.pTexture;
-    assert(pViewedTexture);
+    VulkanImage *pViewedImage = (VulkanImage *)createInfo.image.get();
+    assert(pViewedImage);
 
-    VulkanTexture *texture = new VulkanTexture();
-    assert(texture);
+    SharedPtr<VulkanImage> image = eastl::make_shared<VulkanImage>();
+    assert(image);
 
-    texture->pViewedTexture = createInfo.pTexture;
-    texture->width = pViewedTexture->width;
-    texture->height = pViewedTexture->height;
-    texture->layerCount = pViewedTexture->layerCount;
-    texture->levelCount = pViewedTexture->levelCount;
-    texture->sampleCount = pViewedTexture->sampleCount;
-    texture->type = pViewedTexture->type;
-    texture->usage = pViewedTexture->usage;
-    texture->format = pViewedTexture->format;
+    image->pViewedImage = createInfo.image.get();
+    image->width = pViewedImage->width;
+    image->height = pViewedImage->height;
+    image->layerCount = pViewedImage->layerCount;
+    image->levelCount = pViewedImage->levelCount;
+    image->sampleCount = pViewedImage->sampleCount;
+    image->type = pViewedImage->type;
+    image->usage = pViewedImage->usage;
+    image->format = pViewedImage->format;
 
     VkImageViewCreateInfo imageViewInfo = {VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
-    imageViewInfo.image = texture->image;
-    imageViewInfo.viewType = vulkan::getImageViewType(texture->type);
+    imageViewInfo.image = image->image;
+    imageViewInfo.viewType = vulkan::getImageViewType(image->type);
     imageViewInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
     imageViewInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
     imageViewInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
     imageViewInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-    imageViewInfo.format = vulkan::getFormat(texture->format);
-    imageViewInfo.subresourceRange = vulkan::getImageSubresourceRange(texture);
-    VK_CHECK(vkCreateImageView(device, &imageViewInfo, nullptr, &texture->view));
+    imageViewInfo.format = vulkan::getFormat(image->format);
+    imageViewInfo.subresourceRange = vulkan::getImageSubresourceRange(image.get());
+    VK_CHECK(vkCreateImageView(device, &imageViewInfo, nullptr, &image->view));
 
-    return texture;
+    return image;
 }
 
-Sampler *VulkanRenderDevice::createSampler(const SamplerCreateInfo &createInfo)
+SharedPtr<Sampler> VulkanRenderDevice::createSampler(const SamplerCreateInfo &createInfo)
 {
     VkSamplerCreateInfo samplerCreateInfo = {VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
     samplerCreateInfo.minFilter = vulkan::getFilter(createInfo.minFilter);
@@ -259,7 +275,7 @@ Sampler *VulkanRenderDevice::createSampler(const SamplerCreateInfo &createInfo)
     samplerCreateInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
     samplerCreateInfo.maxLod = createInfo.maxLod;
 
-    VulkanSampler *sampler = new VulkanSampler();
+    SharedPtr<VulkanSampler> sampler = eastl::make_shared<VulkanSampler>();
     assert(sampler);
     sampler->mipLodBias = createInfo.mipLodBias;
     sampler->minLod = createInfo.minLod;
@@ -277,45 +293,61 @@ Sampler *VulkanRenderDevice::createSampler(const SamplerCreateInfo &createInfo)
     return sampler;
 }
 
-PipelineLayout *VulkanRenderDevice::createPipelineLayout(const PipelineLayoutCreateInfo &createInfo)
+SharedPtr<PipelineLayout> VulkanRenderDevice::createPipelineLayout(const PipelineLayoutCreateInfo &createInfo)
 {
-    eastl::vector<VkDescriptorSetLayout> descriptorSetLayouts(createInfo.descriptorSetLayouts.size());
+    Vector<VkDescriptorSetLayout> descriptorSetLayouts;
+    Vector<VkDescriptorSet> descriptorSets;
 
-    for (size_t i = 0; i < createInfo.descriptorSetLayouts.size(); i++) {
-        const eastl::vector<DescriptorSetLayoutBinding> &bindings = createInfo.descriptorSetLayouts[i].bindings;
+    if (!createInfo.descriptorSetLayouts.empty()) {
+        descriptorSetLayouts.resize(createInfo.descriptorSetLayouts.size());
 
-        eastl::vector<VkDescriptorSetLayoutBinding> descriptorSetLayoutBindings(bindings.size());
+        for (size_t i = 0; i < createInfo.descriptorSetLayouts.size(); i++) {
+            const Vector<DescriptorSetLayoutBinding> &bindings = createInfo.descriptorSetLayouts[i].bindings;
 
-        for (size_t j = 0; j < descriptorSetLayoutBindings.size(); j++) {
-            descriptorSetLayoutBindings[i].binding = bindings[i].binding;
-            descriptorSetLayoutBindings[i].descriptorType = vulkan::getDescriptorType(bindings[i].descriptorType);
-            descriptorSetLayoutBindings[i].descriptorCount = bindings[i].descriptorCount;
-            descriptorSetLayoutBindings[i].stageFlags = vulkan::getShaderStageFlags(bindings[i].stageMask);
+            Vector<VkDescriptorSetLayoutBinding> descriptorSetLayoutBindings(bindings.size());
+
+            for (size_t j = 0; j < descriptorSetLayoutBindings.size(); j++) {
+                descriptorSetLayoutBindings[i].binding = bindings[i].binding;
+                descriptorSetLayoutBindings[i].descriptorType = vulkan::getDescriptorType(bindings[i].descriptorType);
+                descriptorSetLayoutBindings[i].descriptorCount = bindings[i].descriptorCount;
+                descriptorSetLayoutBindings[i].stageFlags = vulkan::getShaderStageFlags(bindings[i].stageMask);
+            }
+
+            VkDescriptorSetLayoutCreateInfo createInfo = {VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
+            createInfo.bindingCount = descriptorSetLayoutBindings.size();
+            createInfo.pBindings = descriptorSetLayoutBindings.data();
+
+            VK_CHECK(vkCreateDescriptorSetLayout(device, &createInfo, nullptr, &descriptorSetLayouts[i]));
         }
 
-        VkDescriptorSetLayoutCreateInfo createInfo = {VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
-        createInfo.bindingCount = descriptorSetLayoutBindings.size();
-        createInfo.pBindings = descriptorSetLayoutBindings.data();
+        descriptorSets.resize(descriptorSetLayouts.size());
 
-        VK_CHECK(vkCreateDescriptorSetLayout(device, &createInfo, nullptr, &descriptorSetLayouts[i]));
+        // allocate descriptor sets
+        VkDescriptorSetAllocateInfo allocInfo = {VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
+        allocInfo.descriptorPool = descriptorPool;
+        allocInfo.descriptorSetCount = descriptorSets.size();
+        allocInfo.pSetLayouts = descriptorSetLayouts.data();
+        VK_CHECK(vkAllocateDescriptorSets(device, &allocInfo, descriptorSets.data()));
     }
 
     VkPipelineLayoutCreateInfo layoutCreateInfo = {VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
     layoutCreateInfo.setLayoutCount = descriptorSetLayouts.size();
     layoutCreateInfo.pSetLayouts = descriptorSetLayouts.data();
 
-    VulkanPipelineLayout *pipelineLayout = new VulkanPipelineLayout();
+    SharedPtr<VulkanPipelineLayout> pipelineLayout = eastl::make_shared<VulkanPipelineLayout>();
+    pipelineLayout->descriptorSetLayouts = descriptorSetLayouts;
+    pipelineLayout->descriptorSets = descriptorSets;
     VK_CHECK(vkCreatePipelineLayout(device, &layoutCreateInfo, nullptr, &pipelineLayout->layout));
 
     return pipelineLayout;
 }
 
-RenderPipeline *VulkanRenderDevice::createRenderPipeline(const RenderPipelineCreateInfo &createInfo)
+SharedPtr<RenderPipeline> VulkanRenderDevice::createRenderPipeline(const RenderPipelineCreateInfo &createInfo)
 {
-    VulkanPipelineLayout *vulkanPipelineLayout = (VulkanPipelineLayout *)createInfo.pPipelineLayout;
+    VulkanPipelineLayout *vulkanPipelineLayout = (VulkanPipelineLayout *)createInfo.pipelineLayout.get();
     assert(vulkanPipelineLayout);
 
-    eastl::vector<VkPipelineShaderStageCreateInfo> stages;
+    Vector<VkPipelineShaderStageCreateInfo> stages;
 
     VkShaderModule vertexModule = VK_NULL_HANDLE;
     VkShaderModule fragmentModule = VK_NULL_HANDLE;
@@ -325,7 +357,7 @@ RenderPipeline *VulkanRenderDevice::createRenderPipeline(const RenderPipelineCre
     if (!createInfo.vertexCode.empty()) {
         VkShaderModuleCreateInfo shaderModuleCreateInfo = {VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
         shaderModuleCreateInfo.codeSize = createInfo.vertexCode.size();
-        shaderModuleCreateInfo.pCode = createInfo.vertexCode.data();
+        shaderModuleCreateInfo.pCode = (uint32_t*)createInfo.vertexCode.data();
         VK_CHECK(vkCreateShaderModule(device, &shaderModuleCreateInfo, nullptr, &vertexModule));
 
         VkPipelineShaderStageCreateInfo &stage = stages.emplace_back();
@@ -338,7 +370,7 @@ RenderPipeline *VulkanRenderDevice::createRenderPipeline(const RenderPipelineCre
     if (!createInfo.fragmentCode.empty()) {
         VkShaderModuleCreateInfo shaderModuleCreateInfo = {VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
         shaderModuleCreateInfo.codeSize = createInfo.fragmentCode.size();
-        shaderModuleCreateInfo.pCode = createInfo.fragmentCode.data();
+        shaderModuleCreateInfo.pCode = (uint32_t*)createInfo.fragmentCode.data();
         VK_CHECK(vkCreateShaderModule(device, &shaderModuleCreateInfo, nullptr, &fragmentModule));
 
         VkPipelineShaderStageCreateInfo &stage = stages.emplace_back();
@@ -351,7 +383,7 @@ RenderPipeline *VulkanRenderDevice::createRenderPipeline(const RenderPipelineCre
     if (!createInfo.tessellationControlCode.empty()) {
         VkShaderModuleCreateInfo shaderModuleCreateInfo = {VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
         shaderModuleCreateInfo.codeSize = createInfo.tessellationControlCode.size();
-        shaderModuleCreateInfo.pCode = createInfo.tessellationControlCode.data();
+        shaderModuleCreateInfo.pCode = (uint32_t*)createInfo.tessellationControlCode.data();
         VK_CHECK(vkCreateShaderModule(device, &shaderModuleCreateInfo, nullptr, &tessellationControlModule));
 
         VkPipelineShaderStageCreateInfo &stage = stages.emplace_back();
@@ -364,7 +396,7 @@ RenderPipeline *VulkanRenderDevice::createRenderPipeline(const RenderPipelineCre
     if (!createInfo.tessellationEvaluationCode.empty()) {
         VkShaderModuleCreateInfo shaderModuleCreateInfo = {VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
         shaderModuleCreateInfo.codeSize = createInfo.tessellationEvaluationCode.size();
-        shaderModuleCreateInfo.pCode = createInfo.tessellationEvaluationCode.data();
+        shaderModuleCreateInfo.pCode = (uint32_t*)createInfo.tessellationEvaluationCode.data();
         VK_CHECK(vkCreateShaderModule(device, &shaderModuleCreateInfo, nullptr, &tessellationEvaluationModule));
 
         VkPipelineShaderStageCreateInfo &stage = stages.emplace_back();
@@ -374,26 +406,52 @@ RenderPipeline *VulkanRenderDevice::createRenderPipeline(const RenderPipelineCre
         stage.pName = "main";
     }
 
-    VkPipelineVertexInputStateCreateInfo   vertexInputState = {VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
+    Vector<VkVertexInputBindingDescription> vertexBindingDescriptions(createInfo.vertexBindings.size());
+    for (size_t i = 0; i < createInfo.vertexBindings.size(); i++) {
+        const VertexBinding &binding = createInfo.vertexBindings[i];
+        vertexBindingDescriptions[i].binding = binding.binding;
+        vertexBindingDescriptions[i].stride = binding.stride;
+        vertexBindingDescriptions[i].inputRate = binding.inputRate == VERTEX_INPUT_RATE_VERTEX ? VK_VERTEX_INPUT_RATE_VERTEX : VK_VERTEX_INPUT_RATE_INSTANCE;
+    }
+
+    Vector<VkVertexInputAttributeDescription> vertexAttributeDescriptions(createInfo.vertexAttributes.size());
+    for (size_t i = 0; i < createInfo.vertexAttributes.size(); i++) {
+        const VertexAttribute &attrib = createInfo.vertexAttributes[i];
+        vertexAttributeDescriptions[i].location = attrib.location;
+        vertexAttributeDescriptions[i].binding = attrib.binding;
+        vertexAttributeDescriptions[i].format = vulkan::getFormat(attrib.format);
+        vertexAttributeDescriptions[i].offset = attrib.offset;
+    }
+
+    VkPipelineVertexInputStateCreateInfo vertexInputState = {VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
+    vertexInputState.vertexAttributeDescriptionCount = vertexAttributeDescriptions.size();
+    vertexInputState.pVertexAttributeDescriptions = vertexAttributeDescriptions.data();
+    vertexInputState.vertexBindingDescriptionCount = vertexBindingDescriptions.size();
+    vertexInputState.pVertexBindingDescriptions = vertexBindingDescriptions.data();
+
     VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = {VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
     inputAssemblyState.topology = vulkan::getPrimitiveTopology(createInfo.topology);
 
     VkPipelineTessellationStateCreateInfo tessellationState = {VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO};
     tessellationState.patchControlPoints = createInfo.patchControlPoints;
 
+    vec2 windowSize = windowSystem->getWindowSize();
+    uint32_t width = (uint32_t)windowSize.x();
+    uint32_t height = (uint32_t)windowSize.y();
+
     VkViewport viewport;
     viewport.x = 0.0f;
     viewport.y = 0.0f;
-    viewport.width = 0.0f;
-    viewport.height = 0.0f;
+    viewport.width = width;
+    viewport.height = height;
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
 
     VkRect2D scissor;
     scissor.offset.x = 0;
     scissor.offset.y = 0;
-    scissor.extent.width = 0;
-    scissor.extent.height = 0;
+    scissor.extent.width = width;
+    scissor.extent.height = height;
 
     VkPipelineViewportStateCreateInfo viewportState = {VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO};
     viewportState.viewportCount = 1;
@@ -422,7 +480,7 @@ RenderPipeline *VulkanRenderDevice::createRenderPipeline(const RenderPipelineCre
         multisampleState.sampleShadingEnable = VK_FALSE;
     }
 
-    const VkBool32 depthTestEnabled = createInfo.depthCompareOp != COMPARE_OPERATOR_ALWAYS;
+    const VkBool32 depthTestEnabled = createInfo.depthCompareOp != COMPARE_OP_ALWAYS;
     const VkBool32 depthWriteEnabled = createInfo.depthWriteEnable;
 
     VkPipelineDepthStencilStateCreateInfo depthStencilState = {VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
@@ -436,7 +494,7 @@ RenderPipeline *VulkanRenderDevice::createRenderPipeline(const RenderPipelineCre
     depthStencilState.minDepthBounds = 0.0f;
     depthStencilState.maxDepthBounds = 1.0f;
 
-    const VkBool32 blendEnabled = createInfo.colorBlendOp != BLEND_OPERATOR_NONE;
+    const VkBool32 blendEnabled = createInfo.colorBlendOp != BLEND_OP_NONE;
 
     VkPipelineColorBlendAttachmentState colorBlendAttachmentState = {};
     colorBlendAttachmentState.blendEnable = blendEnabled;
@@ -448,19 +506,19 @@ RenderPipeline *VulkanRenderDevice::createRenderPipeline(const RenderPipelineCre
     colorBlendAttachmentState.alphaBlendOp = vulkan::getBlendOp(createInfo.alphaBlendOp);
     colorBlendAttachmentState.colorWriteMask = vulkan::getColorComponentFlags(createInfo.colorWriteMask);
 
-    eastl::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments(createInfo.renderTargetFormats.size(), colorBlendAttachmentState);
+    Vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments(createInfo.colorAttachmentFormats.size(), colorBlendAttachmentState);
 
     VkPipelineColorBlendStateCreateInfo colorBlendState = {VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
     colorBlendState.logicOpEnable = VK_FALSE;
     colorBlendState.attachmentCount = colorBlendAttachments.size();
     colorBlendState.pAttachments = colorBlendAttachments.data();
 
-    eastl::vector<VkDynamicState> dynamicStates;
-    if (createInfo.dynamicState & DYNAMIC_STATE_VIEWPORT) {
+    Vector<VkDynamicState> dynamicStates;
+    if ((createInfo.dynamicState & DYNAMIC_STATE_VIEWPORT) == DYNAMIC_STATE_VIEWPORT) {
         dynamicStates.push_back(VK_DYNAMIC_STATE_VIEWPORT);
     }
 
-    if (createInfo.dynamicState & DYNAMIC_STATE_SCISSOR) {
+    if ((createInfo.dynamicState & DYNAMIC_STATE_SCISSOR) == DYNAMIC_STATE_SCISSOR) {
         dynamicStates.push_back(VK_DYNAMIC_STATE_SCISSOR);
     }
 
@@ -468,16 +526,16 @@ RenderPipeline *VulkanRenderDevice::createRenderPipeline(const RenderPipelineCre
     dynamicState.dynamicStateCount = dynamicStates.size();
     dynamicState.pDynamicStates = dynamicStates.data();
 
-    eastl::vector<VkFormat> colorAttachmentFormats(createInfo.renderTargetFormats.size());
-    for (const TextureFormat &renderTargetFormat : createInfo.renderTargetFormats) {
-        colorAttachmentFormats.push_back(vulkan::getFormat(renderTargetFormat));
+    Vector<VkFormat> colorAttachmentFormats(createInfo.colorAttachmentFormats.size());
+    for (size_t i = 0; i < colorAttachmentFormats.size(); i++) {
+        colorAttachmentFormats[i] = (vulkan::getFormat(createInfo.colorAttachmentFormats[i]));
     }
 
     VkPipelineRenderingCreateInfoKHR renderingInfo = {VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR};
     renderingInfo.colorAttachmentCount = colorAttachmentFormats.size();
     renderingInfo.pColorAttachmentFormats = colorAttachmentFormats.data();
     if (depthTestEnabled || depthWriteEnabled)
-        renderingInfo.depthAttachmentFormat = vulkan::getFormat(createInfo.depthTargetFormat);
+        renderingInfo.depthAttachmentFormat = vulkan::getFormat(createInfo.depthAttachmentFormat);
 
     VkGraphicsPipelineCreateInfo pipelineCreateInfo = {VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
     pipelineCreateInfo.pNext = &renderingInfo;
@@ -494,16 +552,25 @@ RenderPipeline *VulkanRenderDevice::createRenderPipeline(const RenderPipelineCre
     pipelineCreateInfo.pDynamicState = &dynamicState;
     pipelineCreateInfo.layout = vulkanPipelineLayout->layout;
 
-    VulkanRenderPipeline *renderPipeline = new VulkanRenderPipeline();
-    assert(renderPipeline);
+    SharedPtr<VulkanRenderPipeline> renderPipeline = eastl::make_shared<VulkanRenderPipeline>();
+    renderPipeline->layout = createInfo.pipelineLayout;
     VK_CHECK(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &renderPipeline->pipeline));
+
+    if (vertexModule)
+        vkDestroyShaderModule(device, vertexModule, nullptr);
+    if (fragmentModule)
+        vkDestroyShaderModule(device, fragmentModule, nullptr);
+    if (tessellationControlModule)
+        vkDestroyShaderModule(device, tessellationControlModule, nullptr);
+    if (tessellationEvaluationModule)
+        vkDestroyShaderModule(device, tessellationEvaluationModule, nullptr);
 
     return renderPipeline;
 }
 
-ComputePipeline *VulkanRenderDevice::createComputePipeline(const ComputePipelineCreateInfo &createInfo)
+SharedPtr<ComputePipeline> VulkanRenderDevice::createComputePipeline(const ComputePipelineCreateInfo &createInfo)
 {
-    VulkanPipelineLayout *vulkanPipelineLayout = (VulkanPipelineLayout *)createInfo.pPipelineLayout;
+    VulkanPipelineLayout *vulkanPipelineLayout = (VulkanPipelineLayout *)createInfo.pipelineLayout.get();
     assert(vulkanPipelineLayout);
 
     VkPipelineShaderStageCreateInfo computeStage = {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
@@ -512,7 +579,7 @@ ComputePipeline *VulkanRenderDevice::createComputePipeline(const ComputePipeline
     if (!createInfo.computeCode.empty()) {
         VkShaderModuleCreateInfo shaderModuleCreateInfo = {VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
         shaderModuleCreateInfo.codeSize = createInfo.computeCode.size();
-        shaderModuleCreateInfo.pCode = createInfo.computeCode.data();
+        shaderModuleCreateInfo.pCode = (uint32_t*)createInfo.computeCode.data();
         VK_CHECK(vkCreateShaderModule(device, &shaderModuleCreateInfo, nullptr, &computeModule));
 
         computeStage.module = computeModule;
@@ -526,88 +593,101 @@ ComputePipeline *VulkanRenderDevice::createComputePipeline(const ComputePipeline
     pipelineCreateInfo.stage = computeStage;
     pipelineCreateInfo.layout = vulkanPipelineLayout->layout;
 
-    VulkanComputePipeline *computePipeline = new VulkanComputePipeline();
-    assert(computePipeline);
+    SharedPtr<VulkanComputePipeline> computePipeline = eastl::make_shared<VulkanComputePipeline>();
+    computePipeline->layout = createInfo.pipelineLayout;
     VK_CHECK(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &computePipeline->pipeline));
 
     return computePipeline;
 }
 
-void VulkanRenderDevice::destroyBuffer(Buffer *buffer)
+void VulkanRenderDevice::destroyBuffer(SharedPtr<Buffer> buffer)
 {
     if (buffer) {
-        VulkanBuffer *vulkanBuffer = static_cast<VulkanBuffer *>(buffer);
-        vmaDestroyBuffer(allocator, vulkanBuffer->buffer, vulkanBuffer->allocation.handle);
-        delete buffer;
+        VulkanBuffer *vulkanBuffer = static_cast<VulkanBuffer *>(buffer.get());
+
+        if (vulkanBuffer->buffer != VK_NULL_HANDLE)
+            vmaDestroyBuffer(allocator, vulkanBuffer->buffer, vulkanBuffer->allocation.handle);
     }
 }
 
-void VulkanRenderDevice::destroyTexture(Texture *texture)
+void VulkanRenderDevice::destroyImage(SharedPtr<Image> image)
 {
-    if (texture) {
-        VulkanTexture *vulkanTexture = static_cast<VulkanTexture *>(texture);
+    VulkanImage *vulkanImage = static_cast<VulkanImage *>(image.get());
 
-        if (vulkanTexture->view != VK_NULL_HANDLE)
-            vkDestroyImageView(device, vulkanTexture->view, nullptr);
+    if (vulkanImage->view != VK_NULL_HANDLE)
+        vkDestroyImageView(device, vulkanImage->view, nullptr);
 
-        if (vulkanTexture->image != VK_NULL_HANDLE)
-            vmaDestroyImage(allocator, vulkanTexture->image, vulkanTexture->allocation.handle);
-
-        delete texture;
-    }
+    if (vulkanImage->image != VK_NULL_HANDLE)
+        vmaDestroyImage(allocator, vulkanImage->image, vulkanImage->allocation.handle);
 }
 
-void VulkanRenderDevice::destroySampler(Sampler *sampler)
+void VulkanRenderDevice::destroySampler(SharedPtr<Sampler> sampler)
 {
-    if (sampler) {
-        VulkanSampler *vulkanSampler = static_cast<VulkanSampler*>(sampler);
-    
-        if (vulkanSampler->sampler != VK_NULL_HANDLE)
-            vkDestroySampler(device, vulkanSampler->sampler, nullptr);
+    VulkanSampler *vulkanSampler = static_cast<VulkanSampler *>(sampler.get());
 
-        delete sampler;
-    }
+    if (vulkanSampler->sampler != VK_NULL_HANDLE)
+        vkDestroySampler(device, vulkanSampler->sampler, nullptr);
 }
 
-void VulkanRenderDevice::destroyPipelineLayout(PipelineLayout *layout)
+void VulkanRenderDevice::destroyPipelineLayout(SharedPtr<PipelineLayout> layout)
 {
-    if (layout) {
-        VulkanPipelineLayout *vulkanPipelineLayout = static_cast<VulkanPipelineLayout*>(layout);
+    VulkanPipelineLayout *vulkanPipelineLayout = static_cast<VulkanPipelineLayout *>(layout.get());
 
-        if (vulkanPipelineLayout->layout != VK_NULL_HANDLE)
-            vkDestroyPipelineLayout(device, vulkanPipelineLayout->layout, nullptr);
-        
-        delete layout;
-    }
+    for (auto &descriptorSetLayout : vulkanPipelineLayout->descriptorSetLayouts)
+        vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
+
+    if (vulkanPipelineLayout->layout != VK_NULL_HANDLE)
+        vkDestroyPipelineLayout(device, vulkanPipelineLayout->layout, nullptr);
 }
 
-void VulkanRenderDevice::destroyPipeline(RenderPipeline *pipeline)
+void VulkanRenderDevice::destroyPipeline(SharedPtr<RenderPipeline> pipeline)
 {
-    if (pipeline) {
-        VulkanRenderPipeline *vulkanRenderPipeline = static_cast<VulkanRenderPipeline*>(pipeline);
+    VulkanRenderPipeline *vulkanRenderPipeline = static_cast<VulkanRenderPipeline *>(pipeline.get());
 
-        if (vulkanRenderPipeline->pipeline != VK_NULL_HANDLE)
-            vkDestroyPipeline(device, vulkanRenderPipeline->pipeline, nullptr);
-
-        delete pipeline;
-    }
+    if (vulkanRenderPipeline->pipeline != VK_NULL_HANDLE)
+        vkDestroyPipeline(device, vulkanRenderPipeline->pipeline, nullptr);
 }
 
-void VulkanRenderDevice::destroyPipeline(ComputePipeline *pipeline)
+void VulkanRenderDevice::destroyPipeline(SharedPtr<ComputePipeline> pipeline)
 {
-    if (pipeline) {
-        VulkanComputePipeline *vulkanComputePipeline = static_cast<VulkanComputePipeline*>(pipeline);
+    VulkanComputePipeline *vulkanComputePipeline = static_cast<VulkanComputePipeline *>(pipeline.get());
 
-        if (vulkanComputePipeline->pipeline != VK_NULL_HANDLE)
-            vkDestroyPipeline(device, vulkanComputePipeline->pipeline, nullptr);
-
-        delete pipeline;
-    }
+    if (vulkanComputePipeline->pipeline != VK_NULL_HANDLE)
+        vkDestroyPipeline(device, vulkanComputePipeline->pipeline, nullptr);
 }
 
-CommandBuffer *VulkanRenderDevice::beginCommandBuffer()
+void VulkanRenderDevice::uploadBufferData(SharedPtr<Buffer> buffer, void *data, size_t size)
 {
-    VulkanCommandBuffer *commandBuffer = new VulkanCommandBuffer();
+    assert(buffer && size > 0);
+    VulkanBuffer *vulkanBuffer = static_cast<VulkanBuffer*>(buffer.get());
+
+    const BufferCreateInfo createInfo = {
+        .size = size,
+        .usage = BUFFER_USAGE_TRANSFER_SRC,
+    };
+
+    SharedPtr<Buffer> staging = createBuffer(createInfo);
+    VulkanBuffer *vkStaging = static_cast<VulkanBuffer*>(staging.get());
+    memcpy(vkStaging->allocation.info.pMappedData, data, size);
+
+    VK_CHECK(vmaFlushAllocation(allocator, vkStaging->allocation.handle, 0, VK_WHOLE_SIZE));
+
+    VkCommandBuffer copyCmd = createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
+
+    VkBufferCopy copyRegion = {0, 0, size};
+    vkCmdCopyBuffer(copyCmd, vkStaging->buffer, vulkanBuffer->buffer, 1, &copyRegion);
+
+    flushCommandBuffer(copyCmd, graphicsQueue, commandPool, true);
+
+    destroyBuffer(staging);
+}
+
+SharedPtr<CommandBuffer> VulkanRenderDevice::beginCommandBuffer()
+{
+    SharedPtr<VulkanCommandBuffer> commandBuffer = eastl::make_shared<VulkanCommandBuffer>();
+
+    VK_CHECK(vkWaitForFences(device, 1, &finishRenderFences[currentFrame], VK_TRUE, ~0ull));
+    VK_CHECK(vkResetFences(device, 1, &finishRenderFences[currentFrame]));
 
     VkResult result = swapchain.acquireNextImage(device, acquireSemaphores[currentFrame]);
     if (resizeRequested || result == VK_ERROR_OUT_OF_DATE_KHR) {
@@ -628,17 +708,19 @@ CommandBuffer *VulkanRenderDevice::beginCommandBuffer()
     return commandBuffer;
 }
 
-void VulkanRenderDevice::submitCommandBuffer(CommandBuffer *commandBuffer)
+void VulkanRenderDevice::endCommandBuffer(SharedPtr<CommandBuffer> commandBuffer)
 {
     assert(commandBuffer);
+    VulkanCommandBuffer *vulkanCommandBuffer = static_cast<VulkanCommandBuffer*>(commandBuffer.get());
+    VK_CHECK(vkEndCommandBuffer(vulkanCommandBuffer->cmd));
+}
 
+void VulkanRenderDevice::submitCommandBuffer(SharedPtr<CommandBuffer> commandBuffer)
+{
+    assert(commandBuffer);
     uint32_t imageIndex = swapchain.getImageIndex();
 
-    VulkanCommandBuffer *vulkanCommandBuffer = new VulkanCommandBuffer();
-    VkCommandBuffer cmd = vulkanCommandBuffer->cmd;
-
-    // Command buffer end
-    VK_CHECK(vkEndCommandBuffer(cmd));
+    VulkanCommandBuffer *vulkanCommandBuffer = static_cast<VulkanCommandBuffer*>(commandBuffer.get());
 
     // Submit
     VkSubmitInfo submit = {};
@@ -648,7 +730,7 @@ void VulkanRenderDevice::submitCommandBuffer(CommandBuffer *commandBuffer)
     submit.pWaitSemaphores = &acquireSemaphores[currentFrame];
     submit.pWaitDstStageMask = stages;
     submit.commandBufferCount = 1;
-    submit.pCommandBuffers = &cmd;
+    submit.pCommandBuffers = &vulkanCommandBuffer->cmd;
     submit.signalSemaphoreCount = 1;
     submit.pSignalSemaphores = &submitSemaphores[imageIndex];
     VK_CHECK(vkQueueSubmit(graphicsQueue, 1, &submit, finishRenderFences[currentFrame]));
@@ -660,36 +742,222 @@ void VulkanRenderDevice::submitCommandBuffer(CommandBuffer *commandBuffer)
     }
 
     currentFrame = (currentFrame + 1) % FRAMES_IN_FLIGHT;
-
-    delete commandBuffer;
 }
 
-void VulkanRenderDevice::draw(CommandBuffer *commandBuffer, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance)
+void VulkanRenderDevice::draw(SharedPtr<CommandBuffer> commandBuffer, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance)
 {
-    VkCommandBuffer cmd = static_cast<VulkanCommandBuffer*>(commandBuffer)->cmd;
+    assert(commandBuffer);
+    VkCommandBuffer cmd = static_cast<VulkanCommandBuffer*>(commandBuffer.get())->cmd;
     vkCmdDraw(cmd, vertexCount, instanceCount, firstVertex, firstInstance);
 }
 
-void VulkanRenderDevice::drawIndexed(CommandBuffer *commandBuffer, uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, int32_t vertexOffset, uint32_t firstInstance)
+void VulkanRenderDevice::drawIndexed(SharedPtr<CommandBuffer> commandBuffer, uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, int32_t vertexOffset, uint32_t firstInstance)
 {
-    VkCommandBuffer cmd = static_cast<VulkanCommandBuffer*>(commandBuffer)->cmd;
+    assert(commandBuffer);
+    VkCommandBuffer cmd = static_cast<VulkanCommandBuffer*>(commandBuffer.get())->cmd;
     vkCmdDrawIndexed(cmd, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
 }
 
-void VulkanRenderDevice::bindPipeline(CommandBuffer *commandBuffer, RenderPipeline *pipeline)
+void VulkanRenderDevice::bindPipeline(SharedPtr<CommandBuffer> commandBuffer, SharedPtr<RenderPipeline> pipeline)
 {
-    VkCommandBuffer cmd = static_cast<VulkanCommandBuffer*>(commandBuffer)->cmd;
-    VulkanRenderPipeline *vulkanRenderPipeline = static_cast<VulkanRenderPipeline*>(pipeline);
+    assert(commandBuffer && pipeline);
+    VkCommandBuffer cmd = static_cast<VulkanCommandBuffer*>(commandBuffer.get())->cmd;
+    VulkanRenderPipeline *vulkanRenderPipeline = static_cast<VulkanRenderPipeline*>(pipeline.get());
+    VulkanPipelineLayout *vulkanPipelineLayout = static_cast<VulkanPipelineLayout*>(pipeline->layout.get());
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanRenderPipeline->pipeline);
+    if (!vulkanPipelineLayout->descriptorSets.empty())
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanPipelineLayout->layout, 0, vulkanPipelineLayout->descriptorSets.size(), vulkanPipelineLayout->descriptorSets.data(), 0, nullptr);
 }
 
-void VulkanRenderDevice::bindPipeline(CommandBuffer *commandBuffer, ComputePipeline *pipeline)
+void VulkanRenderDevice::bindPipeline(SharedPtr<CommandBuffer> commandBuffer, SharedPtr<ComputePipeline> pipeline)
 {
-    VkCommandBuffer cmd = static_cast<VulkanCommandBuffer*>(commandBuffer)->cmd;
-    VulkanComputePipeline *vulkanComputePipeline = static_cast<VulkanComputePipeline*>(pipeline);
+    assert(commandBuffer && pipeline);
+    VkCommandBuffer cmd = static_cast<VulkanCommandBuffer*>(commandBuffer.get())->cmd;
+    VulkanComputePipeline *vulkanComputePipeline = static_cast<VulkanComputePipeline*>(pipeline.get());
+    VulkanPipelineLayout *vulkanPipelineLayout = static_cast<VulkanPipelineLayout*>(pipeline->layout.get());
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, vulkanComputePipeline->pipeline);
+    if (!vulkanPipelineLayout->descriptorSets.empty())
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, vulkanPipelineLayout->layout, 0, vulkanPipelineLayout->descriptorSets.size(), vulkanPipelineLayout->descriptorSets.data(), 0, nullptr);
+}
+
+void VulkanRenderDevice::bindVertexBuffer(SharedPtr<CommandBuffer> commandBuffer, SharedPtr<Buffer> vertexBuffer)
+{
+    assert(commandBuffer && vertexBuffer);
+    VkCommandBuffer cmd = static_cast<VulkanCommandBuffer*>(commandBuffer.get())->cmd;
+    VulkanBuffer *buffer = static_cast<VulkanBuffer*>(vertexBuffer.get());
+
+    VkDeviceSize offset = 0;
+    vkCmdBindVertexBuffers(cmd, 0, 1, &buffer->buffer, &offset);
+}
+
+void VulkanRenderDevice::beginRendering(SharedPtr<CommandBuffer> commandBuffer, const RenderingInfo &renderInfo)
+{
+    VkCommandBuffer cmd = static_cast<VulkanCommandBuffer *>(commandBuffer.get())->cmd;
+
+    vec2 windowSize = windowSystem->getWindowSize();
+    uint32_t width = (uint32_t)windowSize.x();
+    uint32_t height = (uint32_t)windowSize.y();
+
+    VkRenderingAttachmentInfo depthInfo = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
+    if (renderInfo.depthAttachment) {
+        VulkanImage *depthImage = static_cast<VulkanImage *>(renderInfo.depthAttachment->image.get());
+
+        depthInfo.clearValue.depthStencil = {0.0f, 0};
+        depthInfo.loadOp = renderInfo.depthAttachment->load ? VK_ATTACHMENT_LOAD_OP_LOAD : VK_ATTACHMENT_LOAD_OP_CLEAR;
+        depthInfo.storeOp = renderInfo.depthAttachment->store ? VK_ATTACHMENT_STORE_OP_STORE : VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        depthInfo.imageView = depthImage->view;
+        depthInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+    }
+
+    Vector<VkImageMemoryBarrier> imageMemoryBarriers;
+    VkPipelineStageFlags srcPipelineStage = 0;
+    VkPipelineStageFlags dstPipelineStage = 0;
+
+    Vector<VkRenderingAttachmentInfo> colorAttachments(renderInfo.colorAttachments.size());
+    for (size_t i = 0; i < renderInfo.colorAttachments.size(); i++) {
+        const AttachmentResource &attachment = renderInfo.colorAttachments[i];
+        VulkanImage *image = static_cast<VulkanImage *>(attachment.image.get());
+
+        VkRenderingAttachmentInfo &info = colorAttachments[i];
+        info.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+        info.clearValue.color = {{0.0f, 0.0f, 0.0f, 1.0f}};
+        info.imageView = image->view;
+        info.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        info.loadOp = attachment.load ? VK_ATTACHMENT_LOAD_OP_LOAD : VK_ATTACHMENT_LOAD_OP_CLEAR;
+        info.storeOp = attachment.store ? VK_ATTACHMENT_STORE_OP_STORE : VK_ATTACHMENT_STORE_OP_DONT_CARE;
+
+        VkImageMemoryBarrier &barrier = imageMemoryBarriers.emplace_back();
+        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        barrier.srcAccessMask = 0;
+        barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        barrier.newLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.image = image->image;
+        barrier.subresourceRange = vulkan::getImageSubresourceRange(image);
+        srcPipelineStage |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        dstPipelineStage |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    }
+
+    if (renderInfo.depthAttachment) {
+        VulkanImage *depthImage = static_cast<VulkanImage *>(renderInfo.depthAttachment->image.get());
+
+        VkImageMemoryBarrier &depthBarrier = imageMemoryBarriers.emplace_back();
+        depthBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        depthBarrier.srcAccessMask = 0;
+        depthBarrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        depthBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        depthBarrier.newLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
+        depthBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        depthBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        depthBarrier.image = depthImage->image;
+        depthBarrier.subresourceRange = vulkan::getImageSubresourceRange(depthImage);
+        srcPipelineStage |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+        dstPipelineStage |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+    }
+
+    // insert barriers
+    vkCmdPipelineBarrier(cmd,
+        srcPipelineStage, dstPipelineStage, // stages
+        0,
+        0, nullptr, // memory barriers
+        0, nullptr, // buffer memory barriers
+        imageMemoryBarriers.size(), imageMemoryBarriers.data() // image memory barriers
+    );
+
+    // begin rendering
+    VkRenderingInfo vulkanRenderingInfo = {VK_STRUCTURE_TYPE_RENDERING_INFO};
+    vulkanRenderingInfo.renderArea = {};
+    vulkanRenderingInfo.renderArea.extent = {width, height};
+    vulkanRenderingInfo.pDepthAttachment = &depthInfo;
+    vulkanRenderingInfo.pColorAttachments = colorAttachments.data();
+    vulkanRenderingInfo.colorAttachmentCount = colorAttachments.size();
+    vulkanRenderingInfo.layerCount = 1;
+
+    vkCmdBeginRendering(cmd, &vulkanRenderingInfo);
+
+    setViewport(commandBuffer, 0.0f, 0.0f, width, height);
+    setScissor(commandBuffer, 0.0f, 0.0f, width, height);
+
+    commandBuffer->renderInfos.push(renderInfo);
+}
+
+void VulkanRenderDevice::endRendering(SharedPtr<CommandBuffer> commandBuffer)
+{
+    VkCommandBuffer cmd = static_cast<VulkanCommandBuffer *>(commandBuffer.get())->cmd;
+    vkCmdEndRendering(cmd);
+
+    auto &colorAttachments = commandBuffer->renderInfos.front().colorAttachments;
+    for (auto &attachment : colorAttachments) {
+        if (!attachment.image->isSwapchain) { // find swapchain image
+            continue;
+        }
+
+        VulkanImage *swapchainImage = static_cast<VulkanImage*>(attachment.image.get());
+
+        VkImageMemoryBarrier swapchainBarrier = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+        swapchainBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        swapchainBarrier.dstAccessMask = 0;
+        swapchainBarrier.oldLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
+        swapchainBarrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+        swapchainBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        swapchainBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        swapchainBarrier.image = swapchainImage->image;
+        swapchainBarrier.subresourceRange.levelCount = 1;
+        swapchainBarrier.subresourceRange.baseMipLevel = 0;
+        swapchainBarrier.subresourceRange.baseArrayLayer = 0;
+        swapchainBarrier.subresourceRange.layerCount = 1;
+        swapchainBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+
+        vkCmdPipelineBarrier(cmd,
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_NONE, // stages
+            0,
+            0, nullptr, // memory barriers
+            0, nullptr, // buffer memory barriers
+            1, &swapchainBarrier // image memory barriers
+        );
+
+        break;
+    }
+
+    commandBuffer->renderInfos.pop();
+}
+
+void VulkanRenderDevice::setViewport(SharedPtr<CommandBuffer> commandBuffer, uint32_t x, uint32_t y, uint32_t width, uint32_t height)
+{
+    VkCommandBuffer cmd = static_cast<VulkanCommandBuffer *>(commandBuffer.get())->cmd;
+
+    VkViewport viewport = {};
+    viewport.x = x;
+    viewport.y = y;
+    viewport.width = width;
+    viewport.height = height;
+    vkCmdSetViewport(cmd, 0, 1, &viewport);
+}
+
+void VulkanRenderDevice::setScissor(SharedPtr<CommandBuffer> commandBuffer, uint32_t x, uint32_t y, uint32_t width, uint32_t height)
+{
+    VkCommandBuffer cmd = static_cast<VulkanCommandBuffer *>(commandBuffer.get())->cmd;
+
+    VkRect2D scissor = {};
+    scissor.offset.x = x;
+    scissor.offset.y = y;
+    scissor.extent.width = width;
+    scissor.extent.height = height;
+    vkCmdSetScissor(cmd, 0, 1, &scissor);
+}
+
+void VulkanRenderDevice::deviceWaitIdle()
+{
+    vkDeviceWaitIdle(device);
+}
+
+SharedPtr<Image> VulkanRenderDevice::getSwapchainImage()
+{
+    return swapchain.getImage();
 }
 
 void VulkanRenderDevice::createInstance()
@@ -703,15 +971,13 @@ void VulkanRenderDevice::createInstance()
     appCI.engineVersion = 0;
     appCI.applicationVersion = 0;
 
-#ifdef WINDOW_SYSTEM_SDL
-    eastl::vector<const char *> instanceExtensions = static_cast<VulkanSDLWindowSystem *>(windowSystem)->getInstanceExtensions();
-#endif
+    Vector<const char *> instanceExtensions = windowSystem->getInstanceExtensions();
 
 #ifdef ENABLE_VULKAN_DEBUG
     instanceExtensions.push_back("VK_EXT_debug_utils");
 #endif
 
-    eastl::vector<const char *> instanceLayers;
+    Vector<const char *> instanceLayers;
 #ifdef ENABLE_VULKAN_DEBUG
     instanceLayers.push_back("VK_LAYER_KHRONOS_validation");
 #endif
@@ -751,17 +1017,17 @@ void VulkanRenderDevice::createDevice()
     VK_CHECK(vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, nullptr));
     assert(physicalDeviceCount > 0);
 
-    eastl::vector<VkPhysicalDevice> physicalDevices(physicalDeviceCount);
+    Vector<VkPhysicalDevice> physicalDevices(physicalDeviceCount);
     VK_CHECK(vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, physicalDevices.data()));
 
-    // FIXME: picking first device
+    // FIXME: find appropriate device
     physicalDevice = physicalDevices[0];
     vkGetPhysicalDeviceProperties(physicalDevice, &deviceProperties);
 
     // find queue indices
     uint32_t queueFamilyCount = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, nullptr);
-    eastl::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+    Vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
     vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, queueFamilies.data());
 
     VkBool32 presentSupport = VK_FALSE;
@@ -783,9 +1049,9 @@ void VulkanRenderDevice::createDevice()
     }
 
     assert(graphicsQueueIndex != UINT32_MAX && computeQueueIndex != UINT32_MAX);
-    eastl::set<uint32_t> uniqueQueueIndices = {graphicsQueueIndex, computeQueueIndex};
+    Set<uint32_t> uniqueQueueIndices = {graphicsQueueIndex, computeQueueIndex};
 
-    eastl::vector<VkDeviceQueueCreateInfo> deviceQueueCI;
+    Vector<VkDeviceQueueCreateInfo> deviceQueueCI;
 
     float queuePriority = 1.0f;
     for (auto &index : uniqueQueueIndices) {
@@ -802,23 +1068,26 @@ void VulkanRenderDevice::createDevice()
     deviceFeatures.shaderSampledImageArrayDynamicIndexing = VK_TRUE;
 
     // VK 1.2 features
-    VkPhysicalDeviceVulkan12Features features12 = {
-        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
+    VkPhysicalDeviceVulkan12Features features12 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
     features12.runtimeDescriptorArray = VK_TRUE;
     features12.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
     features12.bufferDeviceAddress = VK_TRUE;
 
     // Dynamic rendering features
-    VkPhysicalDeviceDynamicRenderingFeatures dynamicRenderingFeatures = {
-        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES};
+    VkPhysicalDeviceDynamicRenderingFeatures dynamicRenderingFeatures = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES};
     dynamicRenderingFeatures.dynamicRendering = VK_TRUE;
     dynamicRenderingFeatures.pNext = &features12;
 
-    const char *deviceExtensions[] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+    // sync2
+    VkPhysicalDeviceSynchronization2Features sync2Features = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES};
+    sync2Features.synchronization2 = VK_TRUE;
+    sync2Features.pNext = &dynamicRenderingFeatures;
+
+    const char *deviceExtensions[] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME};
 
     // create device
     VkDeviceCreateInfo deviceCI = {VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
-    deviceCI.pNext = &dynamicRenderingFeatures;
+    deviceCI.pNext = &sync2Features;
     deviceCI.ppEnabledExtensionNames = deviceExtensions;
     deviceCI.enabledExtensionCount = ARRAY_SIZE(deviceExtensions);
     deviceCI.pEnabledFeatures = &deviceFeatures;
@@ -870,4 +1139,46 @@ void VulkanRenderDevice::createAllocator()
     createInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
 
     VK_CHECK(vmaCreateAllocator(&createInfo, &allocator));
+}
+
+VkCommandBuffer VulkanRenderDevice::createCommandBuffer(VkCommandBufferLevel level, bool start)
+{
+    VkCommandBufferAllocateInfo bufferAllocInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
+    bufferAllocInfo.commandPool = commandPool;
+    bufferAllocInfo.level = level;
+    bufferAllocInfo.commandBufferCount = 1;
+
+    VkCommandBuffer commandBuffer;
+    VK_CHECK(vkAllocateCommandBuffers(device, &bufferAllocInfo, &commandBuffer));
+
+    if (start) {
+        VkCommandBufferBeginInfo beginInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+        VK_CHECK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
+    }
+
+    return commandBuffer;
+}
+
+void VulkanRenderDevice::flushCommandBuffer(VkCommandBuffer cmd, VkQueue queue, VkCommandPool pool, bool free)
+{
+    if (cmd == VK_NULL_HANDLE)
+        return;
+
+    VK_CHECK(vkEndCommandBuffer(cmd));
+
+    VkSubmitInfo submit = {VK_STRUCTURE_TYPE_SUBMIT_INFO};
+    submit.pCommandBuffers = &cmd;
+    submit.commandBufferCount = 1;
+
+    VkFenceCreateInfo fenceCreateInfo = {VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
+
+    VkFence fence = VK_NULL_HANDLE;
+    VK_CHECK(vkCreateFence(device, &fenceCreateInfo, nullptr, &fence));
+
+    VK_CHECK(vkQueueSubmit(queue, 1, &submit, fence));
+    VK_CHECK(vkWaitForFences(device, 1, &fence, VK_TRUE, ~0L));
+    vkDestroyFence(device, fence, nullptr);
+
+    if (free)
+        vkFreeCommandBuffers(device, pool, 1, &cmd);
 }

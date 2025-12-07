@@ -1,22 +1,21 @@
 #include "core/engine.h"
 
-#include <SDL3/SDL.h>
 #include "core/application.h"
 #include "imgui_impl_sdl3.h"
+#include <SDL3/SDL.h>
 
 #include <tracy/Tracy.hpp>
 
 Engine::Engine(const char *name, uint32_t width, uint32_t height)
 {
-    ZoneScopedN("Application init");
+    ZoneScoped;
 
     application = eastl::make_unique<Application>(name, width, height);
     renderer = eastl::make_unique<Renderer>(application.get());
     physics = eastl::make_unique<Physics>();
     input = eastl::make_unique<Input>();
     camera = eastl::make_unique<Camera>(input.get());
-    editor = eastl::make_unique<Editor>(input.get(), camera.get());
-    world = eastl::make_unique<World>(physics.get(), input.get());
+    // world = eastl::make_unique<World>(physics.get(), input.get());
 }
 
 Engine::~Engine()
@@ -26,29 +25,30 @@ Engine::~Engine()
 
 void Engine::run()
 {
+    ZoneScoped;
+
+    auto previousTime = std::chrono::high_resolution_clock::now();
+
     running = true;
-
-   auto previousTime = std::chrono::high_resolution_clock::now();
-
     while (running) {
         ZoneScopedN("Main loop");
 
         // calculate deltaTime
-        auto currentTime = std::chrono::high_resolution_clock::now();
+        auto  currentTime = std::chrono::high_resolution_clock::now();
         float deltaTime = std::chrono::duration<float, std::milli>(previousTime - currentTime).count() / 1000;
         previousTime = currentTime;
 
         processInput(deltaTime);
         update(deltaTime);
 
-        if (!minimized)
-            render();
+        // if (!minimized)
+        renderer->draw();
     }
 }
 
 void Engine::processInput(float deltaTime)
 {
-    ZoneScopedN("Handle input");
+    ZoneScoped;
 
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
@@ -65,8 +65,8 @@ void Engine::processInput(float deltaTime)
         else if (event.type == SDL_EVENT_WINDOW_LEAVE_FULLSCREEN)
             fullscreen = false;
 
-        if (event.type == SDL_EVENT_WINDOW_RESIZED)
-            renderer->requestResize();
+        // if (event.type == SDL_EVENT_WINDOW_RESIZED)
+        //     renderer->requestResize();
 
         if (event.type == SDL_EVENT_QUIT)
             running = false;
@@ -81,15 +81,10 @@ void Engine::processInput(float deltaTime)
 
 void Engine::update(float deltaTime)
 {
-    ZoneScopedN("Update");
+    ZoneScoped;
 
     // physics->update();
     // flyCamera.update(deltaTime);
     // world->update(deltaTime);
     // editor->update(width, height);
-}
-
-void Engine::render()
-{
-    ZoneScopedN("Render");
 }

@@ -1,119 +1,149 @@
 #include "render/vulkan/vulkan_helpers.h"
 
 #include "core/logger.h"
-#include "render/graphics_types.h"
 
+#include "render/render_types.h"
 #include "render/vulkan/vulkan_config.h"
-#include <vulkan/vulkan_core.h>
+
+namespace
+{
+    inline bool isBitSet(uint64_t flag, uint64_t bit)
+    {
+        return ((flag & bit) == bit);
+    }
+}
 
 namespace vulkan
 {
-    VkImageType getImageType(TextureType type)
+    VkImageType getImageType(ImageType type)
     {
         switch (type) {
-            case TEXTURE_TYPE_1D:
+            case IMAGE_TYPE_1D:
                 return VK_IMAGE_TYPE_1D;
-            case TEXTURE_TYPE_2D:
+            case IMAGE_TYPE_2D:
                 return VK_IMAGE_TYPE_2D;
-            case TEXTURE_TYPE_3D:
+            case IMAGE_TYPE_3D:
                 return VK_IMAGE_TYPE_3D;
-            case TEXTURE_TYPE_CUBE:
+            case IMAGE_TYPE_CUBE:
                 return VK_IMAGE_TYPE_2D;
         }
 
-        LOGE("Invalid texture type %d!\n", type);
+        LOGE("Invalid image type %d!\n", type);
         return VK_IMAGE_TYPE_MAX_ENUM;
     }
 
-    VkImageViewType getImageViewType(TextureType type)
+    VkImageViewType getImageViewType(ImageType type)
     {
         switch (type) {
-            case TEXTURE_TYPE_1D:
+            case IMAGE_TYPE_1D:
                 return VK_IMAGE_VIEW_TYPE_1D;
-            case TEXTURE_TYPE_2D:
+            case IMAGE_TYPE_2D:
                 return VK_IMAGE_VIEW_TYPE_2D;
-            case TEXTURE_TYPE_3D:
+            case IMAGE_TYPE_3D:
                 return VK_IMAGE_VIEW_TYPE_3D;
-            case TEXTURE_TYPE_CUBE:
+            case IMAGE_TYPE_CUBE:
                 return VK_IMAGE_VIEW_TYPE_CUBE;
         }
 
-        LOGE("Invalid texture type %d!\n", type);
+        LOGE("Invalid image type %d!\n", type);
         return VK_IMAGE_VIEW_TYPE_MAX_ENUM;
     }
 
-    VkImageSubresourceRange getImageSubresourceRange(Texture *texture)
+    VkImageSubresourceRange getImageSubresourceRange(Image *image)
     {
-        assert(texture);
+        assert(image);
 
         VkImageSubresourceRange subresourceRange = {};
-        if (texture->usage & TEXTURE_USAGE_DEPTH_ATTACHMENT) {
+        if (isBitSet(image->usage, IMAGE_USAGE_DEPTH_ATTACHMENT)) {
             subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-        } else if (texture->usage & TEXTURE_USAGE_STENCIL_ATTACHMENT) {
+        } else if (isBitSet(image->usage, IMAGE_USAGE_STENCIL_ATTACHMENT)) {
             subresourceRange.aspectMask = VK_IMAGE_ASPECT_STENCIL_BIT;
         } else {
             subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         }
 
-        subresourceRange.levelCount = texture->levelCount;
+        subresourceRange.levelCount = image->levelCount;
         subresourceRange.baseMipLevel = 0;
         subresourceRange.baseArrayLayer = 0;
-        subresourceRange.layerCount = texture->layerCount;
+        subresourceRange.layerCount = image->layerCount;
 
         return subresourceRange;
     }
 
-    VkImageUsageFlags getImageUsageFlags(TextureUsageFlags usage)
+    VkImageUsageFlags getImageUsageFlags(ImageUsageFlags usage)
     {
         VkImageUsageFlags result = 0;
-        if (usage & TEXTURE_USAGE_TRANSFER_SRC) {
+        if (isBitSet(usage, IMAGE_USAGE_TRANSFER_SRC)) {
             result |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
         }
 
-        if (usage & TEXTURE_USAGE_TRANSFER_DST) {
+        if (isBitSet(usage, IMAGE_USAGE_TRANSFER_DST)) {
             result |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
         }
 
-        if (usage & TEXTURE_USAGE_SAMPLED) {
+        if (isBitSet(usage, IMAGE_USAGE_SAMPLED)) {
             result |= VK_IMAGE_USAGE_SAMPLED_BIT;
         }
 
-        if (usage & TEXTURE_USAGE_STORAGE) {
+        if (isBitSet(usage, IMAGE_USAGE_STORAGE)) {
             result |= VK_IMAGE_USAGE_STORAGE_BIT;
         }
 
-        if (usage & TEXTURE_USAGE_COLOR_ATTACHMENT) {
+        if (isBitSet(usage, IMAGE_USAGE_COLOR_ATTACHMENT)) {
             result |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
         }
 
-        if ((usage & TEXTURE_USAGE_DEPTH_ATTACHMENT) || (usage & TEXTURE_USAGE_STENCIL_ATTACHMENT)) {
+        if (isBitSet(usage, IMAGE_USAGE_DEPTH_ATTACHMENT) || isBitSet(usage, IMAGE_USAGE_STENCIL_ATTACHMENT)) {
             result |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
         }
 
-        if (usage & TEXTURE_USAGE_TRANSIENT_ATTACHMENT) {
+        if (isBitSet(usage, IMAGE_USAGE_TRANSIENT_ATTACHMENT)) {
             result |= VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT;
         }
 
-        if (usage & TEXTURE_USAGE_INPUT_ATTACHMENT) {
+        if (isBitSet(usage, IMAGE_USAGE_INPUT_ATTACHMENT)) {
             result |= VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
         }
 
-        if (usage & TEXTURE_USAGE_HOST_TRANSFER) {
+        if (isBitSet(usage, IMAGE_USAGE_HOST_TRANSFER)) {
             result |= VK_IMAGE_USAGE_HOST_TRANSFER_BIT;
         }
 
         return result;
     }
 
-    VkFormat getFormat(TextureFormat format)
+    VkFormat getFormat(ImageFormat format)
     {
         switch (format) {
-            case TEXTURE_FORMAT_R8G8B8A8_SRGB:
+            case IMAGE_FORMAT_UNDEFINED:
+                return VK_FORMAT_UNDEFINED;
+            case IMAGE_FORMAT_R8G8B8A8_SRGB:
                 return VK_FORMAT_R8G8B8A8_SRGB;
-            case TEXTURE_FORMAT_B8G8R8A8_UNORM:
+            case IMAGE_FORMAT_B8G8R8A8_UNORM:
                 return VK_FORMAT_B8G8R8A8_UNORM;
-            case TEXTURE_FORMAT_D32_SFLOAT:
+            case IMAGE_FORMAT_D32_SFLOAT:
                 return VK_FORMAT_D32_SFLOAT;
+            case IMAGE_FORMAT_B8G8R8A8_SRGB:
+                return VK_FORMAT_B8G8R8A8_SRGB;
+            case IMAGE_FORMAT_R8G8B8A8_UNORM:
+                return VK_FORMAT_R8G8B8A8_UNORM;
+        }
+
+        LOGE("Invalid format %d!\n", format);
+        return VK_FORMAT_MAX_ENUM;
+    }
+
+    VkFormat getFormat(VertexFormat format)
+    {
+        switch (format) {
+            case VERTEX_FORMAT_R32_SFLOAT:
+                return VK_FORMAT_R32_SFLOAT;
+            case VERTEX_FORMAT_R32G32_SFLOAT:
+                return VK_FORMAT_R32G32_SFLOAT;
+            case VERTEX_FORMAT_R32G32B32_SFLOAT:
+                return VK_FORMAT_R32G32B32_SFLOAT;
+            case VERTEX_FORMAT_R32G32B32A32_SFLOAT:
+                return VK_FORMAT_R32G32B32A32_SFLOAT;
         }
 
         LOGE("Invalid format %d!\n", format);
@@ -123,35 +153,35 @@ namespace vulkan
     VkBufferUsageFlags getBufferUsageFlags(BufferUsageFlags usage)
     {
         VkBufferUsageFlags result = 0;
-        if (usage & BUFFER_USAGE_TRANSFER_SRC) {
+        if (isBitSet(usage, BUFFER_USAGE_TRANSFER_SRC)) {
             result |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
         }
 
-        if (usage & BUFFER_USAGE_TRANSFER_DST) {
+        if (isBitSet(usage, BUFFER_USAGE_TRANSFER_DST)) {
             result |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
         }
 
-        if (usage & BUFFER_USAGE_UNIFORM) {
+        if (isBitSet(usage, BUFFER_USAGE_UNIFORM)) {
             result |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
         }
 
-        if (usage & BUFFER_USAGE_STORAGE) {
+        if (isBitSet(usage, BUFFER_USAGE_STORAGE)) {
             result |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
         }
 
-        if (usage & BUFFER_USAGE_INDEX) {
+        if (isBitSet(usage, BUFFER_USAGE_INDEX)) {
             result |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
         }
 
-        if (usage & BUFFER_USAGE_VERTEX) {
+        if (isBitSet(usage, BUFFER_USAGE_VERTEX)) {
             result |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
         }
 
-        if (usage & BUFFER_USAGE_INDIRECT) {
+        if (isBitSet(usage, BUFFER_USAGE_INDIRECT)) {
             result |= VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
         }
 
-        if (usage & BUFFER_USAGE_DEVICE_ADDRESS) {
+        if (isBitSet(usage, BUFFER_USAGE_DEVICE_ADDRESS)) {
             result |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
         }
 
@@ -226,28 +256,28 @@ namespace vulkan
         return VK_SAMPLE_COUNT_FLAG_BITS_MAX_ENUM;
     }
 
-    VkCompareOp getCompareOp(CompareOperator op)
+    VkCompareOp getCompareOp(CompareOp compareOp)
     {
-        switch (op) {
-            case COMPARE_OPERATOR_NEVER:
+        switch (compareOp) {
+            case COMPARE_OP_NEVER:
                 return VK_COMPARE_OP_NEVER;
-            case COMPARE_OPERATOR_LESS:
+            case COMPARE_OP_LESS:
                 return VK_COMPARE_OP_LESS;
-            case COMPARE_OPERATOR_EQUAL:
+            case COMPARE_OP_EQUAL:
                 return VK_COMPARE_OP_EQUAL;
-            case COMPARE_OPERATOR_LESS_OR_EQUAL:
+            case COMPARE_OP_LESS_OR_EQUAL:
                 return VK_COMPARE_OP_LESS_OR_EQUAL;
-            case COMPARE_OPERATOR_GREATER:
+            case COMPARE_OP_GREATER:
                 return VK_COMPARE_OP_GREATER;
-            case COMPARE_OPERATOR_NOT_EQUAL:
+            case COMPARE_OP_NOT_EQUAL:
                 return VK_COMPARE_OP_NOT_EQUAL;
-            case COMPARE_OPERATOR_GREATER_OR_EQUAL:
+            case COMPARE_OP_GREATER_OR_EQUAL:
                 return VK_COMPARE_OP_GREATER_OR_EQUAL;
-            case COMPARE_OPERATOR_ALWAYS:
+            case COMPARE_OP_ALWAYS:
                 return VK_COMPARE_OP_ALWAYS;
         }
 
-        LOGE("Invalid compare operator %d!\n", op);
+        LOGE("Invalid compare operator %d!\n", compareOp);
         return VK_COMPARE_OP_MAX_ENUM;
     }
 
@@ -317,20 +347,20 @@ namespace vulkan
         return VK_FRONT_FACE_MAX_ENUM;
     }
 
-    VkBlendOp getBlendOp(BlendOperator blendOp)
+    VkBlendOp getBlendOp(BlendOp blendOp)
     {
         switch (blendOp) {
-            case BLEND_OPERATOR_NONE:
+            case BLEND_OP_NONE:
                 return VK_BLEND_OP_ADD;
-            case BLEND_OPERATOR_ADD:
+            case BLEND_OP_ADD:
                 return VK_BLEND_OP_ADD;
-            case BLEND_OPERATOR_SUBTRACT:
+            case BLEND_OP_SUBTRACT:
                 return VK_BLEND_OP_SUBTRACT;
-            case BLEND_OPERATOR_REVERSE_SUBTRACT:
+            case BLEND_OP_REVERSE_SUBTRACT:
                 return VK_BLEND_OP_REVERSE_SUBTRACT;
-            case BLEND_OPERATOR_MIN:
+            case BLEND_OP_MIN:
                 return VK_BLEND_OP_MIN;
-            case BLEND_OPERATOR_MAX:
+            case BLEND_OP_MAX:
                 return VK_BLEND_OP_MAX;
         }
 
@@ -380,19 +410,19 @@ namespace vulkan
     VkColorComponentFlags getColorComponentFlags(ColorComponentFlags colorComponentMask)
     {
         VkColorComponentFlags result = 0;
-        if (colorComponentMask & COLOR_COMPONENT_R) {
+        if (isBitSet(colorComponentMask, COLOR_COMPONENT_R)) {
             result |= VK_COLOR_COMPONENT_R_BIT;
         }
 
-        if (colorComponentMask & COLOR_COMPONENT_G) {
+        if (isBitSet(colorComponentMask, COLOR_COMPONENT_G)) {
             result |= VK_COLOR_COMPONENT_G_BIT;
         }
 
-        if (colorComponentMask & COLOR_COMPONENT_B) {
+        if (isBitSet(colorComponentMask, COLOR_COMPONENT_B)) {
             result |= VK_COLOR_COMPONENT_B_BIT;
         }
 
-        if (colorComponentMask & COLOR_COMPONENT_A) {
+        if (isBitSet(colorComponentMask, COLOR_COMPONENT_A)) {
             result |= VK_COLOR_COMPONENT_A_BIT;
         }
 
@@ -433,33 +463,33 @@ namespace vulkan
     VkShaderStageFlags getShaderStageFlags(ShaderStageFlags stage)
     {
         VkShaderStageFlags result = 0;
-        if (stage & SHADER_STAGE_VERTEX) {
+        if (isBitSet(stage, SHADER_STAGE_VERTEX)) {
             result |= VK_SHADER_STAGE_VERTEX_BIT;
         }
 
-        if (stage & SHADER_STAGE_FRAGMENT) {
+        if (isBitSet(stage, SHADER_STAGE_FRAGMENT)) {
             result |= VK_SHADER_STAGE_FRAGMENT_BIT;
         }
 
-        if (stage & SHADER_STAGE_TESSELLATIONCONTROL) {
+        if (isBitSet(stage, SHADER_STAGE_TESSELLATIONCONTROL)) {
             result |= VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
         }
 
-        if (stage & SHADER_STAGE_TESSELLATIONEVALUATION) {
+        if (isBitSet(stage, SHADER_STAGE_TESSELLATIONEVALUATION)) {
             result |= VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
         }
 
         return result;
     }
 
-    void setDebugName(VkDevice device, VkSemaphore semaphore, eastl::string name)
+    void setDebugName(VkDevice device, VkSemaphore semaphore, const char *name)
     {
 #ifdef ENABLE_VULKAN_DEBUG
         VkDebugUtilsObjectNameInfoEXT objectNameInfo = {
             VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
         objectNameInfo.objectHandle = (uint64_t)semaphore;
         objectNameInfo.objectType = VK_OBJECT_TYPE_SEMAPHORE;
-        objectNameInfo.pObjectName = name.c_str();
+        objectNameInfo.pObjectName = name;
 
         vkSetDebugUtilsObjectNameEXT(device, &objectNameInfo);
 #endif

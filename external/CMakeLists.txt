@@ -26,9 +26,6 @@ target_include_directories(imgui PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/imgui")
 # Jolt Physics
 add_subdirectory(JoltPhysics/Build)
 
-# glm
-add_subdirectory(glm)
-
 # tracy client
 option(TRACY_ENABLE " " ON)
 option(TRACY_ON_DEMAND " " ON) # capture only when connected to profiler server
@@ -38,7 +35,3 @@ add_subdirectory(tracy)
 # EASTL
 set(EASTL_EASTDC_VSNPRINTF ON)
 add_subdirectory(EASTL)
-
-# nlohmann json
-set(JSON_BuildTests OFF CACHE INTERNAL "")
-add_subdirectory(nlohmann_json)

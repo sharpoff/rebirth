@@ -1,6 +1,8 @@
 #include "render/vulkan/vulkan_swapchain.h"
 
+#include "render/render_types.h"
 #include "render/vulkan/vulkan_helpers.h"
+#include "render/vulkan/vulkan_types.h"
 
 #include <algorithm>
 
@@ -9,9 +11,9 @@ void VulkanSwapchain::create(const VulkanSwapchainCreateInfo &params)
     VkSurfaceCapabilitiesKHR capabilities;
     VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(params.physicalDevice, params.surface, &capabilities));
 
-    glm::vec2 windowSize = params.pWindowSystem->getWindowSize();
-    extent.width = std::clamp(static_cast<uint32_t>(windowSize.x), capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
-    extent.height = std::clamp(static_cast<uint32_t>(windowSize.y), capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
+    vec2 windowSize = params.pWindowSystem->getWindowSize();
+    extent.width = std::clamp(static_cast<uint32_t>(windowSize.x()), capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
+    extent.height = std::clamp(static_cast<uint32_t>(windowSize.y()), capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
 
     surfaceFormat = getBestSurfaceFormat(params.physicalDevice, params.surface);
     presentMode = getBestPresentMode(params.physicalDevice, params.surface);
@@ -39,14 +41,14 @@ void VulkanSwapchain::create(const VulkanSwapchainCreateInfo &params)
     // get swapchain images
     uint32_t imageCount = 0;
     vkGetSwapchainImagesKHR(params.device, swapchain, &imageCount, nullptr);
-    images.resize(imageCount);
-    imageViews.resize(imageCount);
-    vkGetSwapchainImagesKHR(params.device, swapchain, &imageCount, images.data());
+
+    Vector<VkImage> swapchainImages(imageCount);
+    vkGetSwapchainImagesKHR(params.device, swapchain, &imageCount, swapchainImages.data());
 
     // create swapchain image views from images
-    for (uint32_t i = 0; i < imageViews.size(); i++) {
+    for (uint32_t i = 0; i < swapchainImages.size(); i++) {
         VkImageViewCreateInfo imageViewCreateInfo = {VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
-        imageViewCreateInfo.image = images[i];
+        imageViewCreateInfo.image = swapchainImages[i];
         imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
         imageViewCreateInfo.format = surfaceFormat.format;
         imageViewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -59,14 +61,25 @@ void VulkanSwapchain::create(const VulkanSwapchainCreateInfo &params)
         imageViewCreateInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
         imageViewCreateInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
 
-        vkCreateImageView(params.device, &imageViewCreateInfo, nullptr, &imageViews[i]);
+        SharedPtr<VulkanImage> image = eastl::make_shared<VulkanImage>();
+        image->image = swapchainImages[i];
+        image->format = IMAGE_FORMAT_B8G8R8A8_SRGB;
+        image->usage = IMAGE_USAGE_COLOR_ATTACHMENT;
+        image->type = IMAGE_TYPE_2D;
+        image->sampleCount = 1;
+        image->isSwapchain = true;
+        image->width = extent.width;
+        image->height = extent.height;
+
+        vkCreateImageView(params.device, &imageViewCreateInfo, nullptr, &image->view);
+        images.push_back(image);
     }
 }
 
 void VulkanSwapchain::destroy(VkDevice device) const
 {
-    for (auto &imageView : imageViews) {
-        vkDestroyImageView(device, imageView, nullptr);
+    for (auto &image : images) { // NOTE: swapchain VkImages are freed automatically
+        vkDestroyImageView(device, image->view, nullptr);
     }
 
     vkDestroySwapchainKHR(device, swapchain, nullptr);
@@ -89,11 +102,16 @@ VkResult VulkanSwapchain::present(VkQueue queue, VkSemaphore &submitSemaphore) c
     return vkQueuePresentKHR(queue, &presentInfo);
 }
 
+SharedPtr<VulkanImage> VulkanSwapchain::getImage()
+{
+    return images[imageIndex];
+}
+
 VkPresentModeKHR VulkanSwapchain::getBestPresentMode(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface)
 {
     uint32_t presentModeCount;
     VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModeCount, nullptr));
-    eastl::vector<VkPresentModeKHR> presentModes(presentModeCount);
+    Vector<VkPresentModeKHR> presentModes(presentModeCount);
     VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModeCount, presentModes.data()));
 
     // TODO: add support for other present modes
@@ -110,7 +128,7 @@ VkSurfaceFormatKHR VulkanSwapchain::getBestSurfaceFormat(VkPhysicalDevice physic
 {
     uint32_t surfaceFormatCount;
     VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &surfaceFormatCount, nullptr));
-    eastl::vector<VkSurfaceFormatKHR> surfaceFormats(surfaceFormatCount);
+    Vector<VkSurfaceFormatKHR> surfaceFormats(surfaceFormatCount);
     VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &surfaceFormatCount, surfaceFormats.data()));
 
     for (auto &format : surfaceFormats) {

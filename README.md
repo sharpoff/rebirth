@@ -1,8 +1,9 @@
 # Rebirth Game engine
 
-C++20 Vulkan Game engine
+C++20 Game engine
 
-## Features (some could be broken right now)
+## Features (could be broken)
+* Vulkan backend
 * PBR (without IBL)
 * Shadow maps
 * Skeleton animations (vertex skinning)
