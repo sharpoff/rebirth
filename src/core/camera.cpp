@@ -13,12 +13,12 @@ Camera::Camera(Input *input)
 
 void Camera::update(float deltaTime)
 {
-    m_front[0] = cos(math::radians(pitch)) * sin(math::radians(yaw));
-    m_front[1] = sin(math::radians(pitch));
-    m_front[2] = cos(math::radians(pitch)) * cos(math::radians(yaw));
-    m_front = normalize(m_front);
+    m_front[0] = cos(glm::radians(pitch)) * sin(glm::radians(yaw));
+    m_front[1] = sin(glm::radians(pitch));
+    m_front[2] = cos(glm::radians(pitch)) * cos(glm::radians(yaw));
+    m_front = glm::normalize(m_front);
 
-    m_right = normalize(cross(m_front, m_up));
+    m_right = glm::normalize(glm::cross(m_front, m_up));
 
     if (!ImGui::GetIO().WantCaptureKeyboard && keyboardInput && m_type == CameraType::FirstPerson) {
         float moveSpeed = deltaTime * movementSpeed;
@@ -27,13 +27,13 @@ void Camera::update(float deltaTime)
         }
 
         if (pInput->getKey(KeyboardKey::W, InputAction::Pressed))
-            m_position = m_position + m_front * moveSpeed;
+            m_position += m_front * moveSpeed;
         if (pInput->getKey(KeyboardKey::S, InputAction::Pressed))
-            m_position = m_position - m_front * moveSpeed;
+            m_position -= m_front * moveSpeed;
         if (pInput->getKey(KeyboardKey::A, InputAction::Pressed))
-            m_position = m_right * moveSpeed;
+            m_position -= m_right * moveSpeed;
         if (pInput->getKey(KeyboardKey::D, InputAction::Pressed))
-            m_position = m_position + m_right * moveSpeed;
+            m_position += m_right * moveSpeed;
     }
 
     updateViewMatrix();
@@ -50,8 +50,8 @@ void Camera::processInput()
         if (!first) {
             int pitchSign = m_type == CameraType::Orbit ? -1 : 1; // reverse pitch for orbit camera
 
-            yaw -= relPosition.x() * rotationSpeed;
-            pitch -= pitchSign * relPosition.y() * rotationSpeed;
+            yaw -= relPosition.x * rotationSpeed;
+            pitch -= pitchSign * relPosition.y * rotationSpeed;
         } else {
             first = false;
         }
@@ -67,11 +67,11 @@ void Camera::processInput()
 void Camera::updateViewMatrix()
 {
     if (m_type == CameraType::FirstPerson) {
-        view = math::lookAt(m_position, m_position + m_front, m_up);
+        view = glm::lookAt(m_position, m_position + m_front, m_up);
     } else if (m_type == CameraType::Orbit) {
         vec3 eye = m_position + (m_front * eyeFrontOffset) + (m_up * eyeUpOffset);
         vec3 target = m_position + (m_front * targetFrontOffset) + (m_up * targetUpOffset);
-        view = math::lookAt(eye, target, m_up);
+        view = glm::lookAt(eye, target, m_up);
     }
 }
 

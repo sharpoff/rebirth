@@ -1,7 +1,6 @@
 #pragma once
 
-#include "math/vec3.h"
-#include "math/quaternion.h"
+#include <math/math.h>
 
 struct Vertex;
 struct Mesh;

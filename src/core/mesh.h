@@ -1,6 +1,6 @@
 #pragma once
 
-#include <math/common.h>
+#include <math/math.h>
 #include "core/stl.h"
 
 struct Primitive
@@ -15,6 +15,6 @@ struct Primitive
 
 struct Mesh
 {
-    mat4 transform = mat4::identity();
+    mat4 transform = mat4(1.0f);
     Vector<Primitive> primitives;
 };

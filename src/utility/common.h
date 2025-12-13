@@ -1,6 +1,6 @@
 #pragma once
 
-#include "math/common.h"
+#include "math/math.h"
 
 #define ARRAY_SIZE(x) (sizeof((x)) / sizeof((x)[0]))
 

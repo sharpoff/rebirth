@@ -41,6 +41,7 @@ public:
     virtual void destroyPipeline(SharedPtr<ComputePipeline> pipeline) override final;
 
     virtual void uploadBufferData(SharedPtr<Buffer> buffer, void *data, size_t size) override final;
+    virtual void uploadImageData(SharedPtr<Image> image, void *data, size_t size) override final;
 
     virtual SharedPtr<CommandBuffer> beginCommandBuffer() override final;
     virtual void           endCommandBuffer(SharedPtr<CommandBuffer> commandBuffer) override final;
@@ -54,6 +55,10 @@ public:
     virtual void           endRendering(SharedPtr<CommandBuffer> commandBuffer) override final;
     virtual void           setViewport(SharedPtr<CommandBuffer> commandBuffer, uint32_t x, uint32_t y, uint32_t width, uint32_t height) override final;
     virtual void           setScissor(SharedPtr<CommandBuffer> commandBuffer, uint32_t x, uint32_t y, uint32_t width, uint32_t height) override final;
+
+    virtual void writeDescriptor(uint32_t binding, SharedPtr<Buffer> buffer, DescriptorType type, uint32_t dstArrayElement = 0) override final;
+    virtual void writeDescriptor(uint32_t binding, SharedPtr<Image> imageView, SharedPtr<Sampler> sampler, DescriptorType type, uint32_t dstArrayElement = 0) override final;
+    virtual void updateDescriptor(SharedPtr<PipelineLayout> layout, uint32_t set) override final;
 
     virtual void deviceWaitIdle() override final;
 
@@ -98,8 +103,6 @@ private:
     Vector<VkSemaphore>                      submitSemaphores;
 
     VkDescriptorPool          descriptorPool;
-    VkDescriptorSet           descriptorSet;
-    VkDescriptorSetLayout     descriptorSetLayout;
     VulkanDescriptorSetWriter descriptorSetWriter;
 
 #ifdef ENABLE_VULKAN_PROFILE

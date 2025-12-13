@@ -6,7 +6,7 @@
 #include "core/stl.h"
 #include "SDL3/SDL_events.h"
 #include "SDL3/SDL_mouse.h"
-#include "math/common.h"
+#include "math/math.h"
 
 enum class InputAction
 {

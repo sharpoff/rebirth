@@ -1,7 +1,6 @@
-#include "math/frustum_culling.h"
+#include "core/frustum_culling.h"
 
 #include "core/stl.h"
-#include <math.h>
 
 namespace math
 {
@@ -32,17 +31,17 @@ namespace math
             v[1] = v[1] / v[3];
             v[2] = v[2] / v[3];
 
-            vmin[0] = fmin(v.x(), vmin.x());
-            vmin[1] = fmin(v.y(), vmin.y());
-            vmin[2] = fmin(v.z(), vmin.z());
+            vmin[0] = fmin(v.x, vmin.x);
+            vmin[1] = fmin(v.y, vmin.y);
+            vmin[2] = fmin(v.z, vmin.z);
 
-            vmax[0] = fmax(v.x(), vmax.x());
-            vmax[1] = fmax(v.y(), vmax.y());
-            vmax[2] = fmax(v.z(), vmax.z());
+            vmax[0] = fmax(v.x, vmax.x);
+            vmax[1] = fmax(v.y, vmax.y);
+            vmax[2] = fmax(v.z, vmax.z);
         }
 
         // check the clip space box is within the view
-        if (vmin.z() > 1.f || vmax.z() < 0.f || vmin.x() > 1.f || vmax.x() < -1.f || vmin.y() > 1.f || vmax.y() < -1.f) {
+        if (vmin.z > 1.f || vmax.z < 0.f || vmin.x > 1.f || vmax.x < -1.f || vmin.y > 1.f || vmax.y < -1.f) {
             return false;
         } else {
             return true;

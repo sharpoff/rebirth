@@ -1,9 +1,9 @@
 #include "core/engine.h"
 
 #include "core/application.h"
+
 #include "imgui_impl_sdl3.h"
 #include <SDL3/SDL.h>
-
 #include <tracy/Tracy.hpp>
 
 Engine::Engine(const char *name, uint32_t width, uint32_t height)
@@ -41,8 +41,8 @@ void Engine::run()
         processInput(deltaTime);
         update(deltaTime);
 
-        // if (!minimized)
-        renderer->draw();
+        if (!minimized)
+            renderer->draw();
     }
 }
 
@@ -86,5 +86,4 @@ void Engine::update(float deltaTime)
     // physics->update();
     // flyCamera.update(deltaTime);
     // world->update(deltaTime);
-    // editor->update(width, height);
 }

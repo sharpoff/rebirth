@@ -23,6 +23,7 @@ public:
     virtual void destroyPipeline(SharedPtr<ComputePipeline> pipeline) = 0;
 
     virtual void uploadBufferData(SharedPtr<Buffer> buffer, void *data, size_t size) = 0;
+    virtual void uploadImageData(SharedPtr<Image> image, void *data, size_t size) = 0;
 
     virtual SharedPtr<CommandBuffer> beginCommandBuffer() = 0;
     virtual void           endCommandBuffer(SharedPtr<CommandBuffer> commandBuffer) = 0;
@@ -36,6 +37,10 @@ public:
     virtual void           endRendering(SharedPtr<CommandBuffer> commandBuffer) = 0;
     virtual void           setViewport(SharedPtr<CommandBuffer> commandBuffer, uint32_t x, uint32_t y, uint32_t width, uint32_t height) = 0;
     virtual void           setScissor(SharedPtr<CommandBuffer> commandBuffer, uint32_t x, uint32_t y, uint32_t width, uint32_t height) = 0;
+
+    virtual void writeDescriptor(uint32_t binding, SharedPtr<Buffer> buffer, DescriptorType type, uint32_t dstArrayElement = 0) = 0;
+    virtual void writeDescriptor(uint32_t binding, SharedPtr<Image> imageView, SharedPtr<Sampler> sampler, DescriptorType type, uint32_t dstArrayElement = 0) = 0;
+    virtual void updateDescriptor(SharedPtr<PipelineLayout> layout, uint32_t set) = 0;
 
     virtual void deviceWaitIdle() = 0;
 

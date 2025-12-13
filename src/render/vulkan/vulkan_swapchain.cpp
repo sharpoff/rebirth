@@ -12,8 +12,8 @@ void VulkanSwapchain::create(const VulkanSwapchainCreateInfo &params)
     VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(params.physicalDevice, params.surface, &capabilities));
 
     vec2 windowSize = params.pWindowSystem->getWindowSize();
-    extent.width = std::clamp(static_cast<uint32_t>(windowSize.x()), capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
-    extent.height = std::clamp(static_cast<uint32_t>(windowSize.y()), capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
+    extent.width = std::clamp(static_cast<uint32_t>(windowSize.x), capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
+    extent.height = std::clamp(static_cast<uint32_t>(windowSize.y), capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
 
     surfaceFormat = getBestSurfaceFormat(params.physicalDevice, params.surface);
     presentMode = getBestPresentMode(params.physicalDevice, params.surface);

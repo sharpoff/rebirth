@@ -1,7 +1,7 @@
 #pragma once
 
 #include <Jolt/Jolt.h>
-#include <math/common.h>
+#include <math/math.h>
 
 inline vec3 JoltToMath(JPH::Vec3 vec)
 {
@@ -22,12 +22,12 @@ inline mat4 JoltToMath(JPH::Mat44 mat)
 
 inline JPH::Vec3 MathToJolt(vec3 vec)
 {
-    return JPH::Vec3(vec.x(), vec.y(), vec.z());
+    return JPH::Vec3(vec.x, vec.y, vec.z);
 }
 
 inline JPH::Quat MathToJolt(quat quaternion)
 {
-    return JPH::Quat(quaternion.x(), quaternion.y(), quaternion.z(), quaternion.w());
+    return JPH::Quat(quaternion.x, quaternion.y, quaternion.z, quaternion.w);
 }
 
 // inline JPH::Mat44 MathToJolt(mat4 mat)

@@ -70,6 +70,26 @@ namespace vulkan
         return subresourceRange;
     }
 
+    VkImageSubresourceLayers getImageSubresourceLayers(Image *image)
+    {
+        assert(image);
+
+        VkImageSubresourceLayers subresourceRange = {};
+        if (isBitSet(image->usage, IMAGE_USAGE_DEPTH_ATTACHMENT)) {
+            subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+        } else if (isBitSet(image->usage, IMAGE_USAGE_STENCIL_ATTACHMENT)) {
+            subresourceRange.aspectMask = VK_IMAGE_ASPECT_STENCIL_BIT;
+        } else {
+            subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        }
+
+        subresourceRange.mipLevel = 0;
+        subresourceRange.baseArrayLayer = 0;
+        subresourceRange.layerCount = image->layerCount;
+
+        return subresourceRange;
+    }
+
     VkImageUsageFlags getImageUsageFlags(ImageUsageFlags usage)
     {
         VkImageUsageFlags result = 0;

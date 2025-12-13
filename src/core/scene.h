@@ -24,7 +24,7 @@ struct SceneNode
     Mesh *mesh = nullptr;
 
     String name = "Node";
-    mat4 transform = mat4::identity();
+    mat4 transform = mat4(1.0f);
     Skin *skin = nullptr;
     int index = -1;
 };
@@ -36,7 +36,7 @@ public:
     Animation *getAnimationByName(String name);
 
     String name = "Model";
-    mat4 transform = mat4::identity();
+    mat4 transform = mat4(1.0f);
 
     Vector<SceneNode> nodes;
     Vector<Mesh> meshes;

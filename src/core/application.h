@@ -1,7 +1,7 @@
 #pragma once
 
 #include "SDL3/SDL_video.h"
-#include <math/common.h>
+#include "math/math.h"
 
 class Application
 {

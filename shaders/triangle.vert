@@ -1,12 +1,21 @@
 #version 450
 
-layout(location = 0) in vec3 inPosition;
-layout(location = 1) in vec3 inColor;
-
 layout(location = 0) out vec3 color;
+
+struct Vertex
+{
+    vec3 position;
+    vec3 color;
+};
+
+layout (binding = 1) readonly buffer VertexBuffer {
+    Vertex vertices[];
+};
 
 void main()
 {
-    color = inColor;
-    gl_Position = vec4(inPosition, 1.0);
+    Vertex vertex = vertices[gl_VertexIndex];
+
+    color = vertex.color;
+    gl_Position = vec4(vertex.position, 1.0);
 }

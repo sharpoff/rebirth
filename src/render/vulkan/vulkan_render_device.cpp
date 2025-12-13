@@ -196,6 +196,8 @@ SharedPtr<Buffer> VulkanRenderDevice::createBuffer(const BufferCreateInfo &creat
 
 SharedPtr<Image> VulkanRenderDevice::createImage(const ImageCreateInfo &createInfo)
 {
+    assert(createInfo.width != 0 && createInfo.height != 0);
+
     VkImageCreateInfo imageInfo = {VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
     imageInfo.imageType = vulkan::getImageType(createInfo.type);
     imageInfo.format = vulkan::getFormat(createInfo.format);
@@ -210,12 +212,7 @@ SharedPtr<Image> VulkanRenderDevice::createImage(const ImageCreateInfo &createIn
     imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
-    VmaAllocationCreateInfo allocInfo = {};
-    allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
-    allocInfo.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
-
     SharedPtr<VulkanImage> image = eastl::make_shared<VulkanImage>();
-    assert(image);
     image->width = createInfo.width;
     image->height = createInfo.height;
     image->layerCount = createInfo.arrayLayers;
@@ -225,7 +222,13 @@ SharedPtr<Image> VulkanRenderDevice::createImage(const ImageCreateInfo &createIn
     image->usage = createInfo.usage;
     image->format = createInfo.format;
     image->isSwapchain = false;
+
+    VmaAllocationCreateInfo allocInfo = {};
+    allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+    allocInfo.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+
     VK_CHECK(vmaCreateImage(allocator, &imageInfo, &allocInfo, &image->image, &image->allocation.handle, &image->allocation.info));
+    assert(image->image != VK_NULL_HANDLE);
 
     return image;
 }
@@ -235,31 +238,30 @@ SharedPtr<Image> VulkanRenderDevice::createImageView(const ImageViewCreateInfo &
     VulkanImage *pViewedImage = (VulkanImage *)createInfo.image.get();
     assert(pViewedImage);
 
-    SharedPtr<VulkanImage> image = eastl::make_shared<VulkanImage>();
-    assert(image);
-
-    image->pViewedImage = createInfo.image.get();
-    image->width = pViewedImage->width;
-    image->height = pViewedImage->height;
-    image->layerCount = pViewedImage->layerCount;
-    image->levelCount = pViewedImage->levelCount;
-    image->sampleCount = pViewedImage->sampleCount;
-    image->type = pViewedImage->type;
-    image->usage = pViewedImage->usage;
-    image->format = pViewedImage->format;
+    SharedPtr<VulkanImage> imageView = eastl::make_shared<VulkanImage>();
+    imageView->pViewedImage = pViewedImage;
+    imageView->width = pViewedImage->width;
+    imageView->height = pViewedImage->height;
+    imageView->layerCount = pViewedImage->layerCount;
+    imageView->levelCount = pViewedImage->levelCount;
+    imageView->sampleCount = pViewedImage->sampleCount;
+    imageView->type = pViewedImage->type;
+    imageView->usage = pViewedImage->usage;
+    imageView->format = pViewedImage->format;
 
     VkImageViewCreateInfo imageViewInfo = {VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
-    imageViewInfo.image = image->image;
-    imageViewInfo.viewType = vulkan::getImageViewType(image->type);
+    imageViewInfo.image = pViewedImage->image;
+    imageViewInfo.viewType = vulkan::getImageViewType(pViewedImage->type);
     imageViewInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
     imageViewInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
     imageViewInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
     imageViewInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-    imageViewInfo.format = vulkan::getFormat(image->format);
-    imageViewInfo.subresourceRange = vulkan::getImageSubresourceRange(image.get());
-    VK_CHECK(vkCreateImageView(device, &imageViewInfo, nullptr, &image->view));
+    imageViewInfo.format = vulkan::getFormat(pViewedImage->format);
+    imageViewInfo.subresourceRange = vulkan::getImageSubresourceRange(pViewedImage);
 
-    return image;
+    VK_CHECK(vkCreateImageView(device, &imageViewInfo, nullptr, &imageView->view));
+
+    return imageView;
 }
 
 SharedPtr<Sampler> VulkanRenderDevice::createSampler(const SamplerCreateInfo &createInfo)
@@ -306,18 +308,18 @@ SharedPtr<PipelineLayout> VulkanRenderDevice::createPipelineLayout(const Pipelin
 
             Vector<VkDescriptorSetLayoutBinding> descriptorSetLayoutBindings(bindings.size());
 
-            for (size_t j = 0; j < descriptorSetLayoutBindings.size(); j++) {
-                descriptorSetLayoutBindings[i].binding = bindings[i].binding;
-                descriptorSetLayoutBindings[i].descriptorType = vulkan::getDescriptorType(bindings[i].descriptorType);
-                descriptorSetLayoutBindings[i].descriptorCount = bindings[i].descriptorCount;
-                descriptorSetLayoutBindings[i].stageFlags = vulkan::getShaderStageFlags(bindings[i].stageMask);
+            for (size_t j = 0; j < bindings.size(); j++) {
+                descriptorSetLayoutBindings[j].binding = bindings[j].binding;
+                descriptorSetLayoutBindings[j].descriptorType = vulkan::getDescriptorType(bindings[j].descriptorType);
+                descriptorSetLayoutBindings[j].descriptorCount = bindings[j].descriptorCount;
+                descriptorSetLayoutBindings[j].stageFlags = vulkan::getShaderStageFlags(bindings[j].stageMask);
             }
 
-            VkDescriptorSetLayoutCreateInfo createInfo = {VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
-            createInfo.bindingCount = descriptorSetLayoutBindings.size();
-            createInfo.pBindings = descriptorSetLayoutBindings.data();
+            VkDescriptorSetLayoutCreateInfo layoutCreateInfo = {VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
+            layoutCreateInfo.bindingCount = descriptorSetLayoutBindings.size();
+            layoutCreateInfo.pBindings = descriptorSetLayoutBindings.data();
 
-            VK_CHECK(vkCreateDescriptorSetLayout(device, &createInfo, nullptr, &descriptorSetLayouts[i]));
+            VK_CHECK(vkCreateDescriptorSetLayout(device, &layoutCreateInfo, nullptr, &descriptorSetLayouts[i]));
         }
 
         descriptorSets.resize(descriptorSetLayouts.size());
@@ -436,8 +438,8 @@ SharedPtr<RenderPipeline> VulkanRenderDevice::createRenderPipeline(const RenderP
     tessellationState.patchControlPoints = createInfo.patchControlPoints;
 
     vec2 windowSize = windowSystem->getWindowSize();
-    uint32_t width = (uint32_t)windowSize.x();
-    uint32_t height = (uint32_t)windowSize.y();
+    uint32_t width = (uint32_t)windowSize.x;
+    uint32_t height = (uint32_t)windowSize.y;
 
     VkViewport viewport;
     viewport.x = 0.0f;
@@ -658,7 +660,7 @@ void VulkanRenderDevice::destroyPipeline(SharedPtr<ComputePipeline> pipeline)
 
 void VulkanRenderDevice::uploadBufferData(SharedPtr<Buffer> buffer, void *data, size_t size)
 {
-    assert(buffer && size > 0);
+    assert(data && size > 0);
     VulkanBuffer *vulkanBuffer = static_cast<VulkanBuffer*>(buffer.get());
 
     const BufferCreateInfo createInfo = {
@@ -676,6 +678,74 @@ void VulkanRenderDevice::uploadBufferData(SharedPtr<Buffer> buffer, void *data, 
 
     VkBufferCopy copyRegion = {0, 0, size};
     vkCmdCopyBuffer(copyCmd, vkStaging->buffer, vulkanBuffer->buffer, 1, &copyRegion);
+
+    flushCommandBuffer(copyCmd, graphicsQueue, commandPool, true);
+
+    destroyBuffer(staging);
+}
+
+void VulkanRenderDevice::uploadImageData(SharedPtr<Image> image, void *data, size_t size)
+{
+    assert(data && size > 0);
+    VulkanImage *vulkanImage = static_cast<VulkanImage*>(image.get());
+
+    const BufferCreateInfo createInfo = {
+        .size = size,
+        .usage = BUFFER_USAGE_TRANSFER_SRC,
+    };
+
+    SharedPtr<Buffer> staging = createBuffer(createInfo);
+    VulkanBuffer *vkStaging = static_cast<VulkanBuffer*>(staging.get());
+    memcpy(vkStaging->allocation.info.pMappedData, data, size);
+
+    VK_CHECK(vmaFlushAllocation(allocator, vkStaging->allocation.handle, 0, VK_WHOLE_SIZE));
+
+    VkCommandBuffer copyCmd = createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
+
+    // transition image to transfer
+    VkImageMemoryBarrier transferBarrier = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+    transferBarrier.srcAccessMask = 0;
+    transferBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    transferBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    transferBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    transferBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    transferBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    transferBarrier.image = vulkanImage->image;
+    transferBarrier.subresourceRange = vulkan::getImageSubresourceRange(image.get());
+
+    vkCmdPipelineBarrier(copyCmd,
+        VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, // stages
+        0,
+        0, nullptr, // memory barriers
+        0, nullptr, // buffer memory barriers
+        1, &transferBarrier // image memory barriers
+    );
+
+    // copy
+    VkBufferImageCopy copyRegion = {};
+    copyRegion.imageSubresource = vulkan::getImageSubresourceLayers(image.get());
+    copyRegion.imageExtent = {image->width, image->height, 1};
+
+    vkCmdCopyBufferToImage(copyCmd, vkStaging->buffer, vulkanImage->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
+
+    // transition image to fragment shader
+    VkImageMemoryBarrier fragmentBarrier = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+    fragmentBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    fragmentBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    fragmentBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    fragmentBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    fragmentBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    fragmentBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    fragmentBarrier.image = vulkanImage->image;
+    fragmentBarrier.subresourceRange = vulkan::getImageSubresourceRange(image.get());
+
+    vkCmdPipelineBarrier(copyCmd,
+        VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, // stages
+        0,
+        0, nullptr, // memory barriers
+        0, nullptr, // buffer memory barriers
+        1, &fragmentBarrier // image memory barriers
+    );
 
     flushCommandBuffer(copyCmd, graphicsQueue, commandPool, true);
 
@@ -797,8 +867,8 @@ void VulkanRenderDevice::beginRendering(SharedPtr<CommandBuffer> commandBuffer, 
     VkCommandBuffer cmd = static_cast<VulkanCommandBuffer *>(commandBuffer.get())->cmd;
 
     vec2 windowSize = windowSystem->getWindowSize();
-    uint32_t width = (uint32_t)windowSize.x();
-    uint32_t height = (uint32_t)windowSize.y();
+    uint32_t width = (uint32_t)windowSize.x;
+    uint32_t height = (uint32_t)windowSize.y;
 
     VkRenderingAttachmentInfo depthInfo = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
     if (renderInfo.depthAttachment) {
@@ -948,6 +1018,27 @@ void VulkanRenderDevice::setScissor(SharedPtr<CommandBuffer> commandBuffer, uint
     scissor.extent.width = width;
     scissor.extent.height = height;
     vkCmdSetScissor(cmd, 0, 1, &scissor);
+}
+
+void VulkanRenderDevice::writeDescriptor(uint32_t binding, SharedPtr<Buffer> buffer, DescriptorType type, uint32_t dstArrayElement)
+{
+    VulkanBuffer *vulkanBuffer = static_cast<VulkanBuffer *>(buffer.get());
+    descriptorSetWriter.write(binding, vulkanBuffer->buffer, vulkanBuffer->size, vulkan::getDescriptorType(type), dstArrayElement);
+}
+
+void VulkanRenderDevice::writeDescriptor(uint32_t binding, SharedPtr<Image> imageView, SharedPtr<Sampler> sampler, DescriptorType type, uint32_t dstArrayElement)
+{
+    VulkanImage *vulkanImageView = static_cast<VulkanImage *>(imageView.get());
+    VulkanSampler *vulkanSampler = static_cast<VulkanSampler *>(sampler.get());
+    descriptorSetWriter.write(binding, vulkanImageView->view, vulkanSampler->sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, vulkan::getDescriptorType(type), dstArrayElement);
+}
+
+void VulkanRenderDevice::updateDescriptor(SharedPtr<PipelineLayout> layout, uint32_t set)
+{
+    VulkanPipelineLayout *vulkanPipelineLayout = static_cast<VulkanPipelineLayout*>(layout.get());
+    assert(set >= 0 && set < vulkanPipelineLayout->descriptorSets.size()); // bounds check
+    descriptorSetWriter.update(device, vulkanPipelineLayout->descriptorSets[set]);
+    descriptorSetWriter.clear();
 }
 
 void VulkanRenderDevice::deviceWaitIdle()

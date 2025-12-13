@@ -15,27 +15,28 @@
 
 namespace vulkan
 {
-    VkImageType             getImageType(ImageType type);
-    VkImageViewType         getImageViewType(ImageType type);
-    VkImageSubresourceRange getImageSubresourceRange(Image *image);
-    VkImageUsageFlags       getImageUsageFlags(ImageUsageFlags usage);
-    VkFormat                getFormat(ImageFormat format);
-    VkFormat                getFormat(VertexFormat format);
-    VkBufferUsageFlags      getBufferUsageFlags(BufferUsageFlags usage);
-    VkFilter                getFilter(SamplerFilter filter);
-    VkSamplerMipmapMode     getSamplerMipmapMode(SamplerFilter mode);
-    VkSamplerAddressMode    getSamplerAddressMode(SamplerAddressMode samplerAddressMode);
-    VkSampleCountFlagBits   getSampleCount(uint8_t sampleCount);
-    VkCompareOp             getCompareOp(CompareOp compareOp);
-    VkPrimitiveTopology     getPrimitiveTopology(PrimitiveTopology topology);
-    VkPolygonMode           getPolygonMode(PolygonMode polygonMode);
-    VkCullModeFlags         getCullMode(CullMode cullMode);
-    VkFrontFace             getFrontFace(FrontFace frontFace);
-    VkBlendOp               getBlendOp(BlendOp blendOp);
-    VkBlendFactor           getBlendFactor(BlendFactor blendFactor);
-    VkColorComponentFlags   getColorComponentFlags(ColorComponentFlags colorComponentMask);
-    VkDescriptorType        getDescriptorType(DescriptorType type);
-    VkShaderStageFlags      getShaderStageFlags(ShaderStageFlags stage);
+    VkImageType              getImageType(ImageType type);
+    VkImageViewType          getImageViewType(ImageType type);
+    VkImageSubresourceRange  getImageSubresourceRange(Image *image);
+    VkImageSubresourceLayers getImageSubresourceLayers(Image *image);
+    VkImageUsageFlags        getImageUsageFlags(ImageUsageFlags usage);
+    VkFormat                 getFormat(ImageFormat format);
+    VkFormat                 getFormat(VertexFormat format);
+    VkBufferUsageFlags       getBufferUsageFlags(BufferUsageFlags usage);
+    VkFilter                 getFilter(SamplerFilter filter);
+    VkSamplerMipmapMode      getSamplerMipmapMode(SamplerFilter mode);
+    VkSamplerAddressMode     getSamplerAddressMode(SamplerAddressMode samplerAddressMode);
+    VkSampleCountFlagBits    getSampleCount(uint8_t sampleCount);
+    VkCompareOp              getCompareOp(CompareOp compareOp);
+    VkPrimitiveTopology      getPrimitiveTopology(PrimitiveTopology topology);
+    VkPolygonMode            getPolygonMode(PolygonMode polygonMode);
+    VkCullModeFlags          getCullMode(CullMode cullMode);
+    VkFrontFace              getFrontFace(FrontFace frontFace);
+    VkBlendOp                getBlendOp(BlendOp blendOp);
+    VkBlendFactor            getBlendFactor(BlendFactor blendFactor);
+    VkColorComponentFlags    getColorComponentFlags(ColorComponentFlags colorComponentMask);
+    VkDescriptorType         getDescriptorType(DescriptorType type);
+    VkShaderStageFlags       getShaderStageFlags(ShaderStageFlags stage);
 
     void setDebugName(VkDevice device, VkSemaphore semaphore, const char *name);
     void beginDebugLabel(VkCommandBuffer cmd, const char *name, float color[4]);

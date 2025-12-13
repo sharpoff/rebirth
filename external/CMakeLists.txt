@@ -1,3 +1,6 @@
+# glm
+add_subdirectory(glm)
+
 # volk
 add_subdirectory(volk)
 

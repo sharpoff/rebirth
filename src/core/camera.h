@@ -1,6 +1,6 @@
 #pragma once
 
-#include <math/common.h>
+#include <math/math.h>
 #include "core/stl.h"
 
 enum class CameraType
@@ -36,7 +36,7 @@ public:
     const mat4 &getProjection() const { return projection; }
     const mat4 &getView() const { return view; }
     const vec3 &getPosition() const { return m_position; }
-    quat getRotation() { return math::angleAxis(math::radians(yaw), vec3(0, 1, 0)); }
+    quat getRotation() { return glm::angleAxis(glm::radians(yaw), vec3(0, 1, 0)); }
     const float &getFov() const { return fov; }
 
 private:
@@ -50,8 +50,8 @@ private:
     vec3 m_right = vec3(1, 0, 0);
     vec3 m_up = vec3(0, 1, 0);
 
-    mat4 projection = mat4::identity();
-    mat4 view = mat4::identity();
+    mat4 projection = mat4(1.0f);
+    mat4 view = mat4(1.0f);
 
     float movementSpeed = 3.0;
     float rotationSpeed = 1.0;
